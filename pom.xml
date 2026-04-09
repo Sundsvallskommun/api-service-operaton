@@ -9,22 +9,62 @@
 		<!-- lookup parent from repository -->
 	</parent>
 	<groupId>se.sundsvall</groupId>
-	<artifactId>template-spring-boot</artifactId>
+	<artifactId>api-service-operaton</artifactId>
 	<version>1.0</version>
-	<name>template</name>
-	<properties />
+	<name>operaton</name>
+	<properties>
+		<operaton.spring-boot.version>2.0.0</operaton.spring-boot.version>
+	</properties>
 	<dependencies>
+		<dependency>
+			<groupId>se.sundsvall.dept44</groupId>
+			<artifactId>dept44-common-validators</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>se.sundsvall.dept44</groupId>
+			<artifactId>dept44-starter-scheduler</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>se.sundsvall.dept44</groupId>
+			<artifactId>dept44-starter-jpa</artifactId>
+		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-devtools</artifactId>
 			<scope>runtime</scope>
 			<optional>true</optional>
 		</dependency>
-		<!-- Test -->
+		<dependency>
+			<groupId>org.operaton.bpm.springboot</groupId>
+			<artifactId>operaton-bpm-spring-boot-starter-webapp</artifactId>
+			<version>${operaton.spring-boot.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.sun.xml.bind</groupId>
+			<artifactId>jaxb-impl</artifactId>
+			<version>4.0.3</version>
+		</dependency>
 		<dependency>
 			<groupId>se.sundsvall.dept44</groupId>
 			<artifactId>dept44-starter-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+		<dependency>
+			<groupId>se.sundsvall.dept44</groupId>
+			<artifactId>dept44-starter-jpa-test</artifactId>
+		</dependency>
 	</dependencies>
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.jacoco</groupId>
+				<artifactId>jacoco-maven-plugin</artifactId>
+				<configuration>
+					<excludes>
+						<exclude>**/se/sundsvall/operaton/Application*</exclude>
+					</excludes>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
 </project>
