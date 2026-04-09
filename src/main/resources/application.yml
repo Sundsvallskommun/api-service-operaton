@@ -10,4 +10,15 @@ openapi:
   version: '@project.version@'
 spring:
   application:
-    name: template
+    name: api-service-operaton
+  sql:
+    init:
+      mode: always
+operaton.bpm:
+  admin-user:
+    id: demo
+    password: demo
+    firstName: Demo
+scheduler:
+  logger-worker:
+    cron: "*/5 * * * * *"

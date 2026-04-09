@@ -4,3 +4,8 @@
 logging:
   level:
     root: DEBUG
+operaton.bpm:
+  jmx-enabled: false
+spring:
+  jmx:
+    enabled: false
