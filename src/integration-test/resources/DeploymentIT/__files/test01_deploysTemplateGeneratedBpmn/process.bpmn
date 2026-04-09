@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+	xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+	xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+	xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+	xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+	id="Definitions_SendEmailIT"
+	targetNamespace="http://bpmn.io/schema/bpmn">
+	<bpmn:process id="send-email-process-it" name="Send Email Process IT" isExecutable="true" camunda:historyTimeToLive="P30D">
+		<bpmn:startEvent id="StartExecution" name="Start">
+			<bpmn:outgoing>Flow_1</bpmn:outgoing>
+		</bpmn:startEvent>
+		<bpmn:sequenceFlow id="Flow_1" sourceRef="StartExecution" targetRef="SendEmail" />
+		<bpmn:serviceTask id="SendEmail" name="Send Email" camunda:type="external" camunda:topic="send-email">
+			<bpmn:extensionElements>
+				<camunda:inputOutput>
+					<camunda:inputParameter name="municipalityId">2281</camunda:inputParameter>
+					<camunda:inputParameter name="emailAddress">test@example.com</camunda:inputParameter>
+					<camunda:inputParameter name="subject">Hello from IT</camunda:inputParameter>
+					<camunda:inputParameter name="message">This is an integration test message</camunda:inputParameter>
+					<camunda:inputParameter name="senderName">Operaton</camunda:inputParameter>
+					<camunda:inputParameter name="senderAddress">noreply@sundsvall.se</camunda:inputParameter>
+				</camunda:inputOutput>
+			</bpmn:extensionElements>
+			<bpmn:incoming>Flow_1</bpmn:incoming>
+			<bpmn:outgoing>Flow_2</bpmn:outgoing>
+		</bpmn:serviceTask>
+		<bpmn:sequenceFlow id="Flow_2" sourceRef="SendEmail" targetRef="EndExecution" />
+		<bpmn:endEvent id="EndExecution" name="End">
+			<bpmn:incoming>Flow_2</bpmn:incoming>
+		</bpmn:endEvent>
+	</bpmn:process>
+	<bpmndi:BPMNDiagram id="BPMNDiagram_1">
+		<bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="send-email-process-it">
+			<bpmndi:BPMNShape id="StartExecution_di" bpmnElement="StartExecution">
+				<dc:Bounds x="152" y="102" width="36" height="36" />
+			</bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="SendEmail_di" bpmnElement="SendEmail">
+				<dc:Bounds x="240" y="80" width="100" height="80" />
+			</bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="EndExecution_di" bpmnElement="EndExecution">
+				<dc:Bounds x="392" y="102" width="36" height="36" />
+			</bpmndi:BPMNShape>
+			<bpmndi:BPMNEdge id="Flow_1_di" bpmnElement="Flow_1">
+				<di:waypoint x="188" y="120" />
+				<di:waypoint x="240" y="120" />
+			</bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_2_di" bpmnElement="Flow_2">
+				<di:waypoint x="340" y="120" />
+				<di:waypoint x="392" y="120" />
+			</bpmndi:BPMNEdge>
+		</bpmndi:BPMNPlane>
+	</bpmndi:BPMNDiagram>
+</bpmn:definitions>

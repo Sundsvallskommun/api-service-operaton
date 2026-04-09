@@ -1,6 +1,5 @@
 package se.sundsvall.operaton.api.model;
 
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -18,13 +17,14 @@ class ElementTemplatePropertyTest {
 
 	@BeforeAll
 	static void setup() {
-		registerValueGenerator(() -> ElementTemplateBinding.create().withType("camunda:inputParameter").withName("test"), ElementTemplateBinding.class);
-		registerValueGenerator(() -> ElementTemplateConstraints.create().withNotEmpty(true), ElementTemplateConstraints.class);
-	}
-
-	@AfterAll
-	static void tearDown() {
-		com.google.code.beanmatchers.BeanMatchers.resetValueGenerators();
+		final var counter = new java.util.concurrent.atomic.AtomicLong();
+		registerValueGenerator(() -> ElementTemplateBinding.create()
+			.withType("type-" + counter.incrementAndGet())
+			.withName("name-" + counter.incrementAndGet()),
+			ElementTemplateBinding.class);
+		registerValueGenerator(() -> ElementTemplateConstraints.create()
+			.withNotEmpty(counter.incrementAndGet() % 2 == 0),
+			ElementTemplateConstraints.class);
 	}
 
 	@Test

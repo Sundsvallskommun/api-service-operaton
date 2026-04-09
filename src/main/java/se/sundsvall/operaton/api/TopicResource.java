@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import se.sundsvall.dept44.common.validators.annotation.ValidMunicipalityId;
 import se.sundsvall.dept44.problem.Problem;
 import se.sundsvall.dept44.problem.violations.ConstraintViolationProblem;
+import se.sundsvall.operaton.api.model.ElementTemplate;
 import se.sundsvall.operaton.api.model.TopicDescription;
 import se.sundsvall.operaton.service.TopicService;
 
@@ -67,5 +68,15 @@ class TopicResource {
 		@Parameter(name = "topic", description = "Topic name", example = "send-email") @PathVariable final String topic) {
 
 		return ok(topicService.getTopic(topic));
+	}
+
+	@Operation(summary = "List all available external task topics as bpmn-js element templates for use in a BPMN editor", responses = {
+		@ApiResponse(responseCode = "200", description = "Successful Operation", useReturnTypeSchema = true)
+	})
+	@GetMapping(value = "/templates", produces = APPLICATION_JSON_VALUE)
+	ResponseEntity<List<ElementTemplate>> getElementTemplates(
+		@Parameter(name = "municipalityId", description = "Municipality id", example = "2281") @ValidMunicipalityId @PathVariable final String municipalityId) {
+
+		return ok(topicService.getElementTemplates());
 	}
 }

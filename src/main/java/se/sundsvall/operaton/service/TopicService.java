@@ -3,7 +3,9 @@ package se.sundsvall.operaton.service;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import se.sundsvall.dept44.problem.Problem;
+import se.sundsvall.operaton.api.model.ElementTemplate;
 import se.sundsvall.operaton.api.model.TopicDescription;
+import se.sundsvall.operaton.service.mapper.ElementTemplateMapper;
 
 @Service
 public class TopicService {
@@ -23,5 +25,11 @@ public class TopicService {
 	public TopicDescription getTopic(final String topic) {
 		return topicRegistry.getByTopic(topic)
 			.orElseThrow(() -> Problem.notFound(TOPIC_NOT_FOUND.formatted(topic)));
+	}
+
+	public List<ElementTemplate> getElementTemplates() {
+		return topicRegistry.getAll().stream()
+			.map(ElementTemplateMapper::toElementTemplate)
+			.toList();
 	}
 }

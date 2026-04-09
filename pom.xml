@@ -148,6 +148,21 @@
 					</execution>
 				</executions>
 			</plugin>
+			<!--
+			Operaton's SpringBootProcessApplication registers a process engine under a fixed name
+			("default") into a JVM-static MBeanServiceContainer. Spring context teardown doesn't
+			unregister it, so a second integration-test class loaded in the same JVM fork collides
+			with the leftover registration. Forking a fresh JVM per IT class avoids the shared
+			static state at the cost of ~15-20s extra per class.
+			-->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-failsafe-plugin</artifactId>
+				<configuration>
+					<forkCount>1</forkCount>
+					<reuseForks>false</reuseForks>
+				</configuration>
+			</plugin>
 		</plugins>
 	</build>
 </project>

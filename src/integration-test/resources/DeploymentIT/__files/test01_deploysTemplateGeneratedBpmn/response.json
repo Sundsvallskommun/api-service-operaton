@@ -1,0 +1,5 @@
+{
+	"id": "${json-unit.any-string}",
+	"name": "send-email-process-it",
+	"deploymentTime": "${json-unit.any-string}"
+}

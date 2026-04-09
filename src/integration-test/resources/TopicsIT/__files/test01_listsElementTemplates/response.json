@@ -1,0 +1,18 @@
+[
+	{
+		"id": "se.sundsvall.operaton.SendEmail",
+		"name": "Send Email"
+	},
+	{
+		"id": "se.sundsvall.operaton.SendSms",
+		"name": "Send Sms"
+	},
+	{
+		"id": "se.sundsvall.operaton.CreateErrand",
+		"name": "Create Errand"
+	},
+	{
+		"id": "se.sundsvall.operaton.LogMessage",
+		"name": "Log Message"
+	}
+]
