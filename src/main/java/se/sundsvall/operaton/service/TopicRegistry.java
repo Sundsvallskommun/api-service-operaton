@@ -6,13 +6,15 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.config.BeanPostProcessor;
+import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.stereotype.Component;
 import se.sundsvall.operaton.api.model.TopicDescription;
 import se.sundsvall.operaton.integration.worker.annotation.TopicWorker;
 
 /**
- * Scans all Spring beans for the @TopicWorker annotation and collects their metadata.
- * This makes all registered external task topics discoverable via the /topics endpoint.
+ * Scans all Spring beans for the @TopicWorker annotation and collects their metadata. This makes all registered
+ * external task topics discoverable via the /topics endpoint. Uses {@link AnnotationUtils#findAnnotation} so the
+ * annotation is also found on CGLIB-proxied beans (e.g. workers annotated with {@code @Dept44Scheduled}).
  */
 @Component
 public class TopicRegistry implements BeanPostProcessor {
@@ -21,7 +23,7 @@ public class TopicRegistry implements BeanPostProcessor {
 
 	@Override
 	public Object postProcessAfterInitialization(final Object bean, final String beanName) throws BeansException {
-		final var annotation = bean.getClass().getAnnotation(TopicWorker.class);
+		final var annotation = AnnotationUtils.findAnnotation(bean.getClass(), TopicWorker.class);
 		if (annotation != null) {
 			topics.put(annotation.topic(), TopicDescription.create()
 				.withTopic(annotation.topic())

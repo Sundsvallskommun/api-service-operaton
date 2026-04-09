@@ -1,0 +1,101 @@
+openapi: 3.0.1
+info:
+  title: api-service-support-management
+  version: "1.0"
+paths:
+  /{municipalityId}/{namespace}/errands:
+    post:
+      operationId: createErrand
+      parameters:
+        - name: municipalityId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Errand'
+      responses:
+        "201":
+          description: Created
+          headers:
+            Location:
+              schema:
+                type: string
+components:
+  schemas:
+    Errand:
+      type: object
+      properties:
+        title:
+          type: string
+        priority:
+          type: string
+          enum:
+            - LOW
+            - MEDIUM
+            - HIGH
+        status:
+          type: string
+        description:
+          type: string
+        channel:
+          type: string
+        reporterUserId:
+          type: string
+        classification:
+          $ref: '#/components/schemas/Classification'
+        contactReason:
+          type: string
+        contactReasonDescription:
+          type: string
+        stakeholders:
+          type: array
+          items:
+            $ref: '#/components/schemas/Stakeholder'
+        externalTags:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExternalTag'
+    Classification:
+      type: object
+      properties:
+        category:
+          type: string
+        type:
+          type: string
+    Stakeholder:
+      type: object
+      properties:
+        role:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        contactChannels:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContactChannel'
+    ContactChannel:
+      type: object
+      properties:
+        type:
+          type: string
+        value:
+          type: string
+    ExternalTag:
+      type: object
+      properties:
+        key:
+          type: string
+        value:
+          type: string

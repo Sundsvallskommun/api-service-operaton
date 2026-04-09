@@ -1,0 +1,113 @@
+openapi: 3.0.1
+info:
+  title: api-service-messaging
+  version: "1.0"
+paths:
+  /{municipalityId}/email:
+    post:
+      operationId: sendEmail
+      parameters:
+        - name: municipalityId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailRequest'
+      responses:
+        "200":
+          description: Successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResult'
+  /{municipalityId}/sms:
+    post:
+      operationId: sendSms
+      parameters:
+        - name: municipalityId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmsRequest'
+      responses:
+        "200":
+          description: Successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResult'
+components:
+  schemas:
+    EmailRequest:
+      type: object
+      properties:
+        emailAddress:
+          type: string
+        subject:
+          type: string
+        message:
+          type: string
+        htmlMessage:
+          type: string
+        sender:
+          $ref: '#/components/schemas/EmailSender'
+        attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/EmailAttachment'
+    EmailSender:
+      type: object
+      properties:
+        name:
+          type: string
+        address:
+          type: string
+        replyTo:
+          type: string
+    EmailAttachment:
+      type: object
+      properties:
+        name:
+          type: string
+        contentType:
+          type: string
+        content:
+          type: string
+    SmsRequest:
+      type: object
+      properties:
+        mobileNumber:
+          type: string
+        message:
+          type: string
+        sender:
+          type: string
+    MessageResult:
+      type: object
+      properties:
+        messageId:
+          type: string
+        deliveries:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeliveryResult'
+    DeliveryResult:
+      type: object
+      properties:
+        deliveryId:
+          type: string
+        messageType:
+          type: string
+        status:
+          type: string
