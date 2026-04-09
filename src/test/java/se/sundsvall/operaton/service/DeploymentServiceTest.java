@@ -71,8 +71,9 @@ class DeploymentServiceTest {
 
 		final var result = deploymentService.getDeployments();
 
-		assertThat(result).hasSize(1);
-		assertThat(result.getFirst().getId()).isEqualTo("deploy-1");
+		assertThat(result).isNotNull();
+		assertThat(result.getDeployments()).hasSize(1);
+		assertThat(result.getDeployments().getFirst().getId()).isEqualTo("deploy-1");
 		verify(repositoryServiceMock).createDeploymentQuery();
 	}
 }

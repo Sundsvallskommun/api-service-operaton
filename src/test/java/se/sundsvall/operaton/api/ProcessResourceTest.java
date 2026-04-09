@@ -1,6 +1,5 @@
 package se.sundsvall.operaton.api;
 
-import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,7 +10,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import se.sundsvall.operaton.Application;
 import se.sundsvall.operaton.api.model.ProcessDefinitionResponse;
+import se.sundsvall.operaton.api.model.ProcessDefinitionsResponse;
 import se.sundsvall.operaton.api.model.ProcessInstanceResponse;
+import se.sundsvall.operaton.api.model.ProcessInstancesResponse;
 import se.sundsvall.operaton.api.model.StartProcessInstanceRequest;
 import se.sundsvall.operaton.service.DeploymentService;
 import se.sundsvall.operaton.service.ProcessService;
@@ -48,24 +49,26 @@ class ProcessResourceTest {
 
 	@Test
 	void getProcessDefinitions() {
-		final var pd = ProcessDefinitionResponse.create()
-			.withId("invoice:1:4")
-			.withKey("invoice")
-			.withName("Invoice Process")
-			.withVersion(1);
+		final var processDefinitionsResponse = ProcessDefinitionsResponse.create()
+			.withProcessDefinitions(java.util.List.of(ProcessDefinitionResponse.create()
+				.withId("invoice:1:4")
+				.withKey("invoice")
+				.withName("Invoice Process")
+				.withVersion(1)));
 
-		when(processServiceMock.getProcessDefinitions()).thenReturn(List.of(pd));
+		when(processServiceMock.getProcessDefinitions()).thenReturn(processDefinitionsResponse);
 
 		final var response = webTestClient.get()
 			.uri(builder -> builder.path(PROCESS_DEFINITIONS_PATH).build(Map.of("municipalityId", MUNICIPALITY_ID)))
 			.exchange()
 			.expectStatus().isOk()
-			.expectBodyList(ProcessDefinitionResponse.class)
+			.expectBody(ProcessDefinitionsResponse.class)
 			.returnResult()
 			.getResponseBody();
 
-		assertThat(response).hasSize(1);
-		assertThat(response.getFirst().getKey()).isEqualTo("invoice");
+		assertThat(response).isNotNull();
+		assertThat(response.getProcessDefinitions()).hasSize(1);
+		assertThat(response.getProcessDefinitions().getFirst().getKey()).isEqualTo("invoice");
 		verify(processServiceMock).getProcessDefinitions();
 	}
 
@@ -98,19 +101,21 @@ class ProcessResourceTest {
 
 	@Test
 	void getProcessInstances() {
-		final var pi = ProcessInstanceResponse.create().withId("pi-1");
+		final var processInstancesResponse = ProcessInstancesResponse.create()
+			.withProcessInstances(java.util.List.of(ProcessInstanceResponse.create().withId("pi-1")));
 
-		when(processServiceMock.getProcessInstances()).thenReturn(List.of(pi));
+		when(processServiceMock.getProcessInstances()).thenReturn(processInstancesResponse);
 
 		final var response = webTestClient.get()
 			.uri(builder -> builder.path(PROCESS_INSTANCES_PATH).build(Map.of("municipalityId", MUNICIPALITY_ID)))
 			.exchange()
 			.expectStatus().isOk()
-			.expectBodyList(ProcessInstanceResponse.class)
+			.expectBody(ProcessInstancesResponse.class)
 			.returnResult()
 			.getResponseBody();
 
-		assertThat(response).hasSize(1);
+		assertThat(response).isNotNull();
+		assertThat(response.getProcessInstances()).hasSize(1);
 		verify(processServiceMock).getProcessInstances();
 	}
 

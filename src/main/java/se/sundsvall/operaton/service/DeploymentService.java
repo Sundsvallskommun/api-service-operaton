@@ -1,15 +1,15 @@
 package se.sundsvall.operaton.service;
 
 import java.io.IOException;
-import java.util.List;
 import org.operaton.bpm.engine.RepositoryService;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import se.sundsvall.dept44.problem.Problem;
 import se.sundsvall.operaton.api.model.DeploymentResponse;
+import se.sundsvall.operaton.api.model.DeploymentsResponse;
 
 import static se.sundsvall.operaton.service.mapper.OperatonMapper.toDeploymentResponse;
-import static se.sundsvall.operaton.service.mapper.OperatonMapper.toDeploymentResponses;
+import static se.sundsvall.operaton.service.mapper.OperatonMapper.toDeploymentsResponse;
 
 @Service
 public class DeploymentService {
@@ -34,11 +34,11 @@ public class DeploymentService {
 		}
 	}
 
-	public List<DeploymentResponse> getDeployments() {
+	public DeploymentsResponse getDeployments() {
 		final var deployments = repositoryService.createDeploymentQuery()
 			.orderByDeploymentTime()
 			.desc()
 			.list();
-		return toDeploymentResponses(deployments);
+		return toDeploymentsResponse(deployments);
 	}
 }

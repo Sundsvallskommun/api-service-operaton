@@ -1,7 +1,6 @@
 package se.sundsvall.operaton.api;
 
 import java.time.OffsetDateTime;
-import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,6 +13,7 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.web.reactive.function.BodyInserters;
 import se.sundsvall.operaton.Application;
 import se.sundsvall.operaton.api.model.DeploymentResponse;
+import se.sundsvall.operaton.api.model.DeploymentsResponse;
 import se.sundsvall.operaton.service.DeploymentService;
 import se.sundsvall.operaton.service.ProcessService;
 import se.sundsvall.operaton.service.TopicService;
@@ -74,22 +74,24 @@ class DeploymentResourceTest {
 
 	@Test
 	void getDeployments() {
-		final var deploymentResponse = DeploymentResponse.create()
-			.withId("deploy-1")
-			.withName("test");
+		final var deploymentsResponse = DeploymentsResponse.create()
+			.withDeployments(java.util.List.of(DeploymentResponse.create()
+				.withId("deploy-1")
+				.withName("test")));
 
-		when(deploymentServiceMock.getDeployments()).thenReturn(List.of(deploymentResponse));
+		when(deploymentServiceMock.getDeployments()).thenReturn(deploymentsResponse);
 
 		final var response = webTestClient.get()
 			.uri(builder -> builder.path(DEPLOYMENTS_PATH).build(Map.of("municipalityId", MUNICIPALITY_ID)))
 			.exchange()
 			.expectStatus().isOk()
-			.expectBodyList(DeploymentResponse.class)
+			.expectBody(DeploymentsResponse.class)
 			.returnResult()
 			.getResponseBody();
 
-		assertThat(response).hasSize(1);
-		assertThat(response.getFirst().getId()).isEqualTo("deploy-1");
+		assertThat(response).isNotNull();
+		assertThat(response.getDeployments()).hasSize(1);
+		assertThat(response.getDeployments().getFirst().getId()).isEqualTo("deploy-1");
 		verify(deploymentServiceMock).getDeployments();
 	}
 }

@@ -50,8 +50,9 @@ class ProcessServiceTest {
 
 		final var result = processService.getProcessDefinitions();
 
-		assertThat(result).hasSize(1);
-		assertThat(result.getFirst().getKey()).isEqualTo("invoice");
+		assertThat(result).isNotNull();
+		assertThat(result.getProcessDefinitions()).hasSize(1);
+		assertThat(result.getProcessDefinitions().getFirst().getKey()).isEqualTo("invoice");
 		verify(repositoryServiceMock).createProcessDefinitionQuery();
 	}
 
@@ -104,7 +105,8 @@ class ProcessServiceTest {
 
 		final var result = processService.getProcessInstances();
 
-		assertThat(result).hasSize(1);
+		assertThat(result).isNotNull();
+		assertThat(result.getProcessInstances()).hasSize(1);
 		verify(runtimeServiceMock).createProcessInstanceQuery();
 	}
 

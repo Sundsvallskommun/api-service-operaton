@@ -6,8 +6,11 @@ import org.operaton.bpm.engine.repository.Deployment;
 import org.operaton.bpm.engine.repository.ProcessDefinition;
 import org.operaton.bpm.engine.runtime.ProcessInstance;
 import se.sundsvall.operaton.api.model.DeploymentResponse;
+import se.sundsvall.operaton.api.model.DeploymentsResponse;
 import se.sundsvall.operaton.api.model.ProcessDefinitionResponse;
+import se.sundsvall.operaton.api.model.ProcessDefinitionsResponse;
 import se.sundsvall.operaton.api.model.ProcessInstanceResponse;
+import se.sundsvall.operaton.api.model.ProcessInstancesResponse;
 
 import static java.util.Collections.emptyList;
 import static java.util.Optional.ofNullable;
@@ -28,12 +31,13 @@ public final class OperatonMapper {
 			.orElse(null);
 	}
 
-	public static List<DeploymentResponse> toDeploymentResponses(final List<Deployment> deployments) {
-		return ofNullable(deployments)
-			.map(list -> list.stream()
-				.map(OperatonMapper::toDeploymentResponse)
-				.toList())
-			.orElse(emptyList());
+	public static DeploymentsResponse toDeploymentsResponse(final List<Deployment> deployments) {
+		return DeploymentsResponse.create()
+			.withDeployments(ofNullable(deployments)
+				.map(list -> list.stream()
+					.map(OperatonMapper::toDeploymentResponse)
+					.toList())
+				.orElse(emptyList()));
 	}
 
 	public static ProcessDefinitionResponse toProcessDefinitionResponse(final ProcessDefinition processDefinition) {
@@ -46,12 +50,13 @@ public final class OperatonMapper {
 			.orElse(null);
 	}
 
-	public static List<ProcessDefinitionResponse> toProcessDefinitionResponses(final List<ProcessDefinition> processDefinitions) {
-		return ofNullable(processDefinitions)
-			.map(list -> list.stream()
-				.map(OperatonMapper::toProcessDefinitionResponse)
-				.toList())
-			.orElse(emptyList());
+	public static ProcessDefinitionsResponse toProcessDefinitionsResponse(final List<ProcessDefinition> processDefinitions) {
+		return ProcessDefinitionsResponse.create()
+			.withProcessDefinitions(ofNullable(processDefinitions)
+				.map(list -> list.stream()
+					.map(OperatonMapper::toProcessDefinitionResponse)
+					.toList())
+				.orElse(emptyList()));
 	}
 
 	public static ProcessInstanceResponse toProcessInstanceResponse(final ProcessInstance processInstance) {
@@ -65,11 +70,12 @@ public final class OperatonMapper {
 			.orElse(null);
 	}
 
-	public static List<ProcessInstanceResponse> toProcessInstanceResponses(final List<ProcessInstance> processInstances) {
-		return ofNullable(processInstances)
-			.map(list -> list.stream()
-				.map(OperatonMapper::toProcessInstanceResponse)
-				.toList())
-			.orElse(emptyList());
+	public static ProcessInstancesResponse toProcessInstancesResponse(final List<ProcessInstance> processInstances) {
+		return ProcessInstancesResponse.create()
+			.withProcessInstances(ofNullable(processInstances)
+				.map(list -> list.stream()
+					.map(OperatonMapper::toProcessInstanceResponse)
+					.toList())
+				.orElse(emptyList()));
 	}
 }

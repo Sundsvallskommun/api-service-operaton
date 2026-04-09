@@ -7,7 +7,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,8 +18,9 @@ import org.springframework.web.bind.annotation.RestController;
 import se.sundsvall.dept44.common.validators.annotation.ValidMunicipalityId;
 import se.sundsvall.dept44.problem.Problem;
 import se.sundsvall.dept44.problem.violations.ConstraintViolationProblem;
-import se.sundsvall.operaton.api.model.ProcessDefinitionResponse;
+import se.sundsvall.operaton.api.model.ProcessDefinitionsResponse;
 import se.sundsvall.operaton.api.model.ProcessInstanceResponse;
+import se.sundsvall.operaton.api.model.ProcessInstancesResponse;
 import se.sundsvall.operaton.api.model.StartProcessInstanceRequest;
 import se.sundsvall.operaton.service.ProcessService;
 
@@ -56,7 +56,7 @@ class ProcessResource {
 		@ApiResponse(responseCode = "200", description = "Successful Operation", useReturnTypeSchema = true)
 	})
 	@GetMapping(value = "/process-definitions", produces = APPLICATION_JSON_VALUE)
-	ResponseEntity<List<ProcessDefinitionResponse>> getProcessDefinitions(
+	ResponseEntity<ProcessDefinitionsResponse> getProcessDefinitions(
 		@Parameter(name = "municipalityId", description = "Municipality id", example = "2281") @ValidMunicipalityId @PathVariable final String municipalityId) {
 
 		return ok(processService.getProcessDefinitions());
@@ -77,7 +77,7 @@ class ProcessResource {
 		@ApiResponse(responseCode = "200", description = "Successful Operation", useReturnTypeSchema = true)
 	})
 	@GetMapping(value = "/process-instances", produces = APPLICATION_JSON_VALUE)
-	ResponseEntity<List<ProcessInstanceResponse>> getProcessInstances(
+	ResponseEntity<ProcessInstancesResponse> getProcessInstances(
 		@Parameter(name = "municipalityId", description = "Municipality id", example = "2281") @ValidMunicipalityId @PathVariable final String municipalityId) {
 
 		return ok(processService.getProcessInstances());

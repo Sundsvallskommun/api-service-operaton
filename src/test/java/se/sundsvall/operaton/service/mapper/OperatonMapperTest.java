@@ -47,21 +47,25 @@ class OperatonMapperTest {
 	}
 
 	@Test
-	void toDeploymentResponses() {
+	void toDeploymentsResponse() {
 		final var deployment = mock(Deployment.class);
 		when(deployment.getId()).thenReturn("deploy-1");
 		when(deployment.getName()).thenReturn("test");
 		when(deployment.getDeploymentTime()).thenReturn(new Date());
 
-		final var result = OperatonMapper.toDeploymentResponses(List.of(deployment));
+		final var result = OperatonMapper.toDeploymentsResponse(List.of(deployment));
 
-		assertThat(result).hasSize(1);
-		assertThat(result.getFirst().getId()).isEqualTo("deploy-1");
+		assertThat(result).isNotNull();
+		assertThat(result.getDeployments()).hasSize(1);
+		assertThat(result.getDeployments().getFirst().getId()).isEqualTo("deploy-1");
 	}
 
 	@Test
-	void toDeploymentResponsesWithNull() {
-		assertThat(OperatonMapper.toDeploymentResponses(null)).isEmpty();
+	void toDeploymentsResponseWithNull() {
+		final var result = OperatonMapper.toDeploymentsResponse(null);
+
+		assertThat(result).isNotNull();
+		assertThat(result.getDeployments()).isEmpty();
 	}
 
 	@Test
@@ -87,19 +91,23 @@ class OperatonMapperTest {
 	}
 
 	@Test
-	void toProcessDefinitionResponses() {
+	void toProcessDefinitionsResponse() {
 		final var pd = mock(ProcessDefinition.class);
 		when(pd.getId()).thenReturn("invoice:1:4");
 		when(pd.getKey()).thenReturn("invoice");
 
-		final var result = OperatonMapper.toProcessDefinitionResponses(List.of(pd));
+		final var result = OperatonMapper.toProcessDefinitionsResponse(List.of(pd));
 
-		assertThat(result).hasSize(1);
+		assertThat(result).isNotNull();
+		assertThat(result.getProcessDefinitions()).hasSize(1);
 	}
 
 	@Test
-	void toProcessDefinitionResponsesWithNull() {
-		assertThat(OperatonMapper.toProcessDefinitionResponses(null)).isEmpty();
+	void toProcessDefinitionsResponseWithNull() {
+		final var result = OperatonMapper.toProcessDefinitionsResponse(null);
+
+		assertThat(result).isNotNull();
+		assertThat(result.getProcessDefinitions()).isEmpty();
 	}
 
 	@Test
@@ -127,17 +135,21 @@ class OperatonMapperTest {
 	}
 
 	@Test
-	void toProcessInstanceResponses() {
+	void toProcessInstancesResponse() {
 		final var pi = mock(ProcessInstance.class);
 		when(pi.getId()).thenReturn("pi-1");
 
-		final var result = OperatonMapper.toProcessInstanceResponses(List.of(pi));
+		final var result = OperatonMapper.toProcessInstancesResponse(List.of(pi));
 
-		assertThat(result).hasSize(1);
+		assertThat(result).isNotNull();
+		assertThat(result.getProcessInstances()).hasSize(1);
 	}
 
 	@Test
-	void toProcessInstanceResponsesWithNull() {
-		assertThat(OperatonMapper.toProcessInstanceResponses(null)).isEmpty();
+	void toProcessInstancesResponseWithNull() {
+		final var result = OperatonMapper.toProcessInstancesResponse(null);
+
+		assertThat(result).isNotNull();
+		assertThat(result.getProcessInstances()).isEmpty();
 	}
 }

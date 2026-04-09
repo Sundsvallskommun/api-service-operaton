@@ -15,9 +15,9 @@ import org.operaton.bpm.engine.variable.Variables;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -56,6 +56,9 @@ class LoggerWorkerTest {
 		when(topicBuilder.execute()).thenReturn(List.of());
 
 		loggerWorker.execute();
+
+		verify(externalTaskServiceMock).fetchAndLock(10, "logger-worker");
+		verifyNoMoreInteractions(externalTaskServiceMock);
 	}
 
 	@Test
@@ -72,6 +75,6 @@ class LoggerWorkerTest {
 
 		loggerWorker.execute();
 
-		verify(externalTaskServiceMock).handleFailure(eq("task-1"), eq("logger-worker"), eq("test error"), eq(0), eq(0L));
+		verify(externalTaskServiceMock).handleFailure("task-1", "logger-worker", "test error", 0, 0L);
 	}
 }

@@ -1,20 +1,20 @@
 package se.sundsvall.operaton.service;
 
-import java.util.List;
 import java.util.Map;
 import org.operaton.bpm.engine.RepositoryService;
 import org.operaton.bpm.engine.RuntimeService;
 import org.springframework.stereotype.Service;
 import se.sundsvall.dept44.problem.Problem;
-import se.sundsvall.operaton.api.model.ProcessDefinitionResponse;
+import se.sundsvall.operaton.api.model.ProcessDefinitionsResponse;
 import se.sundsvall.operaton.api.model.ProcessInstanceResponse;
+import se.sundsvall.operaton.api.model.ProcessInstancesResponse;
 import se.sundsvall.operaton.api.model.StartProcessInstanceRequest;
 import se.sundsvall.operaton.service.mapper.OperatonMapper;
 
 import static java.util.Optional.ofNullable;
-import static se.sundsvall.operaton.service.mapper.OperatonMapper.toProcessDefinitionResponses;
+import static se.sundsvall.operaton.service.mapper.OperatonMapper.toProcessDefinitionsResponse;
 import static se.sundsvall.operaton.service.mapper.OperatonMapper.toProcessInstanceResponse;
-import static se.sundsvall.operaton.service.mapper.OperatonMapper.toProcessInstanceResponses;
+import static se.sundsvall.operaton.service.mapper.OperatonMapper.toProcessInstancesResponse;
 
 @Service
 public class ProcessService {
@@ -29,11 +29,11 @@ public class ProcessService {
 		this.runtimeService = runtimeService;
 	}
 
-	public List<ProcessDefinitionResponse> getProcessDefinitions() {
+	public ProcessDefinitionsResponse getProcessDefinitions() {
 		final var definitions = repositoryService.createProcessDefinitionQuery()
 			.latestVersion()
 			.list();
-		return toProcessDefinitionResponses(definitions);
+		return toProcessDefinitionsResponse(definitions);
 	}
 
 	public ProcessInstanceResponse startProcessInstance(final StartProcessInstanceRequest request) {
@@ -45,11 +45,11 @@ public class ProcessService {
 		return toProcessInstanceResponse(processInstance);
 	}
 
-	public List<ProcessInstanceResponse> getProcessInstances() {
+	public ProcessInstancesResponse getProcessInstances() {
 		final var instances = runtimeService.createProcessInstanceQuery()
 			.active()
 			.list();
-		return toProcessInstanceResponses(instances);
+		return toProcessInstancesResponse(instances);
 	}
 
 	public ProcessInstanceResponse getProcessInstance(final String id) {
