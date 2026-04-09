@@ -1,6 +1,7 @@
 package se.sundsvall.operaton.service;
 
 import java.io.IOException;
+import org.operaton.bpm.engine.ProcessEngineException;
 import org.operaton.bpm.engine.RepositoryService;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -15,6 +16,7 @@ import static se.sundsvall.operaton.service.mapper.OperatonMapper.toDeploymentsR
 public class DeploymentService {
 
 	private static final String DEPLOYMENT_FAILED = "Failed to deploy BPMN file: %s";
+	private static final String INVALID_DEPLOYMENT_FILE = "Invalid deployment file: %s";
 
 	private final RepositoryService repositoryService;
 
@@ -31,6 +33,8 @@ public class DeploymentService {
 			return toDeploymentResponse(deployment);
 		} catch (final IOException e) {
 			throw Problem.internalServerError(DEPLOYMENT_FAILED.formatted(e.getMessage()));
+		} catch (final ProcessEngineException e) {
+			throw Problem.badRequest(INVALID_DEPLOYMENT_FILE.formatted(e.getMessage()));
 		}
 	}
 

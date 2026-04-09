@@ -3,6 +3,7 @@ package se.sundsvall.operaton.service;
 import java.util.Map;
 import org.operaton.bpm.engine.RepositoryService;
 import org.operaton.bpm.engine.RuntimeService;
+import org.operaton.bpm.engine.exception.NullValueException;
 import org.springframework.stereotype.Service;
 import se.sundsvall.dept44.problem.Problem;
 import se.sundsvall.operaton.api.model.ProcessDefinitionsResponse;
@@ -20,6 +21,7 @@ import static se.sundsvall.operaton.service.mapper.OperatonMapper.toProcessInsta
 public class ProcessService {
 
 	private static final String PROCESS_INSTANCE_NOT_FOUND = "Process instance with id '%s' not found";
+	private static final String PROCESS_DEFINITION_NOT_FOUND = "No process definition deployed with key '%s'";
 
 	private final RepositoryService repositoryService;
 	private final RuntimeService runtimeService;
@@ -38,11 +40,17 @@ public class ProcessService {
 
 	public ProcessInstanceResponse startProcessInstance(final StartProcessInstanceRequest request) {
 		final var variables = ofNullable(request.getVariables()).orElse(Map.of());
-		final var processInstance = runtimeService.startProcessInstanceByKey(
-			request.getProcessDefinitionKey(),
-			request.getBusinessKey(),
-			variables);
-		return toProcessInstanceResponse(processInstance);
+		try {
+			final var processInstance = runtimeService.startProcessInstanceByKey(
+				request.getProcessDefinitionKey(),
+				request.getBusinessKey(),
+				variables);
+			return toProcessInstanceResponse(processInstance);
+		} catch (final NullValueException _) {
+			throw Problem.notFound(PROCESS_DEFINITION_NOT_FOUND.formatted(request.getProcessDefinitionKey()));
+		} catch (final Exception _) {
+			throw Problem.internalServerError("Could not start process instance with business key '%s'", request.getBusinessKey());
+		}
 	}
 
 	public ProcessInstancesResponse getProcessInstances() {

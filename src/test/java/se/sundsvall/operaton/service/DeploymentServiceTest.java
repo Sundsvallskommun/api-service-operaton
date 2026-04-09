@@ -9,18 +9,22 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.operaton.bpm.engine.ProcessEngineException;
 import org.operaton.bpm.engine.RepositoryService;
 import org.operaton.bpm.engine.repository.Deployment;
 import org.operaton.bpm.engine.repository.DeploymentBuilder;
 import org.operaton.bpm.engine.repository.DeploymentQuery;
 import org.springframework.web.multipart.MultipartFile;
+import se.sundsvall.dept44.problem.ThrowableProblem;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.http.HttpStatus.BAD_REQUEST;
 
 @ExtendWith(MockitoExtension.class)
 class DeploymentServiceTest {
@@ -54,6 +58,26 @@ class DeploymentServiceTest {
 		assertThat(result.getId()).isEqualTo("deploy-1");
 		assertThat(result.getName()).isEqualTo("test-deployment");
 		verify(repositoryServiceMock).createDeployment();
+	}
+
+	@Test
+	void deployWithInvalidFile() throws IOException {
+		final var file = mock(MultipartFile.class);
+		final var deploymentBuilder = mock(DeploymentBuilder.class);
+		final var inputStream = new ByteArrayInputStream(new byte[0]);
+
+		when(file.getOriginalFilename()).thenReturn("broken.bpmn");
+		when(file.getInputStream()).thenReturn(inputStream);
+		when(repositoryServiceMock.createDeployment()).thenReturn(deploymentBuilder);
+		when(deploymentBuilder.name("broken")).thenReturn(deploymentBuilder);
+		when(deploymentBuilder.addInputStream(eq("broken.bpmn"), any())).thenReturn(deploymentBuilder);
+		when(deploymentBuilder.deploy()).thenThrow(new ProcessEngineException("parse error at line 1"));
+
+		final var exception = assertThrows(ThrowableProblem.class,
+			() -> deploymentService.deploy("broken", file));
+
+		assertThat(exception.getStatus()).isEqualTo(BAD_REQUEST);
+		assertThat(exception.getMessage()).contains("parse error");
 	}
 
 	@Test

@@ -9,6 +9,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.operaton.bpm.engine.RepositoryService;
 import org.operaton.bpm.engine.RuntimeService;
+import org.operaton.bpm.engine.exception.NullValueException;
 import org.operaton.bpm.engine.repository.ProcessDefinition;
 import org.operaton.bpm.engine.repository.ProcessDefinitionQuery;
 import org.operaton.bpm.engine.runtime.ProcessInstance;
@@ -75,6 +76,21 @@ class ProcessServiceTest {
 		assertThat(result.getId()).isEqualTo("pi-1");
 		assertThat(result.getBusinessKey()).isEqualTo("order-123");
 		verify(runtimeServiceMock).startProcessInstanceByKey("invoice", "order-123", Map.of("amount", 555));
+	}
+
+	@Test
+	void startProcessInstanceNotFound() {
+		final var request = StartProcessInstanceRequest.create()
+			.withProcessDefinitionKey("missing");
+
+		when(runtimeServiceMock.startProcessInstanceByKey("missing", null, Map.of()))
+			.thenThrow(new NullValueException("no processes deployed with key 'missing'"));
+
+		final var exception = assertThrows(ThrowableProblem.class,
+			() -> processService.startProcessInstance(request));
+
+		assertThat(exception.getStatus()).isEqualTo(NOT_FOUND);
+		assertThat(exception.getMessage()).contains("missing");
 	}
 
 	@Test

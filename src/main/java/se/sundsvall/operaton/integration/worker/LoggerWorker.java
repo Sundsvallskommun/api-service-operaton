@@ -8,8 +8,8 @@ import se.sundsvall.dept44.scheduling.Dept44Scheduled;
 import se.sundsvall.operaton.integration.worker.annotation.TopicWorker;
 
 /**
- * Example external task worker that logs a message from a process variable.
- * Demonstrates the self-documenting worker pattern.
+ * Example external task worker that logs a message from a process variable. Demonstrates the self-documenting worker
+ * pattern.
  */
 @Component
 @TopicWorker(
@@ -31,7 +31,7 @@ public class LoggerWorker {
 		this.externalTaskService = externalTaskService;
 	}
 
-	@Dept44Scheduled(cron = "${scheduler.logger-worker.cron:*/5 * * * * *}", name = "logger-worker", lockAtMostFor = "PT30S")
+	@Dept44Scheduled(cron = "${scheduler.logger-worker.cron:*/5 * * * * *}", name = WORKER_ID, lockAtMostFor = "PT30S")
 	public void execute() {
 		final var tasks = externalTaskService.fetchAndLock(10, WORKER_ID)
 			.topic(TOPIC, 60000)
