@@ -11,9 +11,8 @@ openapi:
 spring:
   application:
     name: api-service-operaton
-  sql:
-    init:
-      mode: always
+  flyway:
+    enabled: true
 operaton.bpm:
   admin-user:
     id: demo
