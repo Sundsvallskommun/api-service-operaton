@@ -54,16 +54,16 @@ public class SendEmailWorker extends AbstractTopicWorker {
 
 	@Override
 	protected Map<String, Object> handle(final LockedExternalTask task) {
-		final var municipalityId = stringVar(task, VAR_MUNICIPALITY_ID);
-		final var emailAddress = stringVar(task, VAR_EMAIL_ADDRESS);
+		final var municipalityId = requireVariable(task, VAR_MUNICIPALITY_ID, String.class);
+		final var emailAddress = requireVariable(task, VAR_EMAIL_ADDRESS, String.class);
 
 		final var request = new EmailRequest()
 			.emailAddress(emailAddress)
-			.subject(stringVar(task, VAR_SUBJECT))
-			.message(stringVar(task, VAR_MESSAGE));
+			.subject(requireVariable(task, VAR_SUBJECT, String.class))
+			.message(requireVariable(task, VAR_MESSAGE, String.class));
 
-		optionalStringVar(task, VAR_SENDER_NAME)
-			.ifPresent(name -> request.sender(new EmailSender().name(name).address(stringVar(task, VAR_SENDER_ADDRESS))));
+		optionalVariable(task, VAR_SENDER_NAME, String.class)
+			.ifPresent(name -> request.sender(new EmailSender().name(name).address(requireVariable(task, VAR_SENDER_ADDRESS, String.class))));
 
 		final var messageId = Optional.ofNullable(messagingClient.sendEmail(municipalityId, request).getMessageId())
 			.orElse(UNKNOWN_MESSAGE_ID);

@@ -52,7 +52,8 @@ class CreateErrandWorkerTest {
 			.putValue("title", "Test errand")
 			.putValue("priority", "HIGH")
 			.putValue("status", "NEW")
-			.putValue("reporterUserId", "user-1"));
+			.putValue("reporterUserId", "user-1")
+			.putValue("description", "Test description"));
 		when(supportManagementClientMock.createErrand(any(), any(), any())).thenReturn(responseEntity);
 
 		createErrandWorker.execute();

@@ -49,13 +49,13 @@ public class SendSmsWorker extends AbstractTopicWorker {
 
 	@Override
 	protected Map<String, Object> handle(final LockedExternalTask task) {
-		final var municipalityId = stringVar(task, VAR_MUNICIPALITY_ID);
-		final var mobileNumber = stringVar(task, VAR_MOBILE_NUMBER);
+		final var municipalityId = requireVariable(task, VAR_MUNICIPALITY_ID, String.class);
+		final var mobileNumber = requireVariable(task, VAR_MOBILE_NUMBER, String.class);
 
 		final var request = new SmsRequest()
 			.mobileNumber(mobileNumber)
-			.message(stringVar(task, VAR_MESSAGE))
-			.sender(stringVar(task, VAR_SENDER));
+			.message(requireVariable(task, VAR_MESSAGE, String.class))
+			.sender(requireVariable(task, VAR_SENDER, String.class));
 
 		final var messageId = Optional.ofNullable(messagingClient.sendSms(municipalityId, request).getMessageId())
 			.orElse(UNKNOWN_MESSAGE_ID);

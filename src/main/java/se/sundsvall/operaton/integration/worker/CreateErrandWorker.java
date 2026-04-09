@@ -67,18 +67,18 @@ public class CreateErrandWorker extends AbstractTopicWorker {
 	@Override
 	protected Map<String, Object> handle(final LockedExternalTask task) {
 		final var errand = new Errand()
-			.title(stringVar(task, VAR_TITLE))
-			.priority(Errand.PriorityEnum.fromValue(optionalStringVar(task, VAR_PRIORITY).orElse(DEFAULT_PRIORITY)))
-			.status(optionalStringVar(task, VAR_STATUS).orElse(DEFAULT_STATUS))
-			.reporterUserId(stringVar(task, VAR_REPORTER_USER_ID))
-			.description(stringVar(task, VAR_DESCRIPTION));
+			.title(requireVariable(task, VAR_TITLE, String.class))
+			.priority(Errand.PriorityEnum.fromValue(optionalVariable(task, VAR_PRIORITY, String.class).orElse(DEFAULT_PRIORITY)))
+			.status(optionalVariable(task, VAR_STATUS, String.class).orElse(DEFAULT_STATUS))
+			.reporterUserId(requireVariable(task, VAR_REPORTER_USER_ID, String.class))
+			.description(requireVariable(task, VAR_DESCRIPTION, String.class));
 
-		optionalStringVar(task, VAR_CATEGORY)
-			.ifPresent(category -> errand.classification(new Classification().category(category).type(stringVar(task, VAR_TYPE))));
+		optionalVariable(task, VAR_CATEGORY, String.class)
+			.ifPresent(category -> errand.classification(new Classification().category(category).type(requireVariable(task, VAR_TYPE, String.class))));
 
 		final var response = supportManagementClient.createErrand(
-			stringVar(task, VAR_MUNICIPALITY_ID),
-			stringVar(task, VAR_NAMESPACE),
+			requireVariable(task, VAR_MUNICIPALITY_ID, String.class),
+			requireVariable(task, VAR_NAMESPACE, String.class),
 			errand);
 
 		final var errandId = extractErrandId(response);

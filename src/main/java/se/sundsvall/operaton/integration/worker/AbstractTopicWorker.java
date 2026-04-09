@@ -41,18 +41,29 @@ public abstract class AbstractTopicWorker {
 	}
 
 	/**
-	 * Read a string-typed process variable from the task. Returns {@code null} if the variable is absent.
+	 * Read a required process variable of the expected type. Throws if the variable is missing or has a different type —
+	 * both conditions are bugs in the workflow definition and surface as BPMN incidents via {@link #processTasks()}.
 	 */
-	protected static String stringVar(final LockedExternalTask task, final String name) {
-		return (String) task.getVariables().get(name);
+	protected static <T> T requireVariable(final LockedExternalTask task, final String name, final Class<T> type) {
+		return optionalVariable(task, name, type)
+			.orElseThrow(() -> new IllegalStateException(
+				"Required process variable '%s' is missing on task %s".formatted(name, task.getId())));
 	}
 
 	/**
-	 * Read an optional string-typed process variable from the task. Use when you need to provide a default or skip
-	 * downstream logic when the variable is missing.
+	 * Read an optional process variable of the expected type. Empty if the variable is absent. Throws if it is present but
+	 * of a different type than expected.
 	 */
-	protected static Optional<String> optionalStringVar(final LockedExternalTask task, final String name) {
-		return ofNullable(stringVar(task, name));
+	protected static <T> Optional<T> optionalVariable(final LockedExternalTask task, final String name, final Class<T> type) {
+		return ofNullable(task.getVariables().get(name))
+			.map(value -> {
+				if (!type.isInstance(value)) {
+					throw new IllegalStateException(
+						"Process variable '%s' on task %s expected to be %s but was %s".formatted(
+							name, task.getId(), type.getSimpleName(), value.getClass().getSimpleName()));
+				}
+				return type.cast(value);
+			});
 	}
 
 	protected static Map<String, Object> emptyOutput() {
