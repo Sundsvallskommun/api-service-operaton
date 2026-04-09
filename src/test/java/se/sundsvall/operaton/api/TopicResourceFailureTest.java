@@ -26,6 +26,7 @@ class TopicResourceFailureTest {
 
 	private static final String INVALID_MUNICIPALITY_ID = "bad-municipality-id";
 	private static final String TOPICS_PATH = "/{municipalityId}/topics";
+	private static final String TEMPLATES_PATH = "/{municipalityId}/topics/templates";
 
 	@MockitoBean
 	private DeploymentService deploymentServiceMock;
@@ -43,6 +44,23 @@ class TopicResourceFailureTest {
 	void getTopicsWithInvalidMunicipalityId() {
 		final var response = webTestClient.get()
 			.uri(builder -> builder.path(TOPICS_PATH).build(Map.of("municipalityId", INVALID_MUNICIPALITY_ID)))
+			.exchange()
+			.expectStatus().isBadRequest()
+			.expectBody(ConstraintViolationProblem.class)
+			.returnResult()
+			.getResponseBody();
+
+		assertThat(response).isNotNull();
+		assertThat(response.getTitle()).isEqualTo("Constraint Violation");
+		assertThat(response.getStatus()).isEqualTo(BAD_REQUEST);
+
+		verifyNoInteractions(topicServiceMock);
+	}
+
+	@Test
+	void getElementTemplatesWithInvalidMunicipalityId() {
+		final var response = webTestClient.get()
+			.uri(builder -> builder.path(TEMPLATES_PATH).build(Map.of("municipalityId", INVALID_MUNICIPALITY_ID)))
 			.exchange()
 			.expectStatus().isBadRequest()
 			.expectBody(ConstraintViolationProblem.class)

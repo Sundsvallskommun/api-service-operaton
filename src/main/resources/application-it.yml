@@ -3,4 +3,61 @@
 #========================================
 logging:
   level:
-    root: DEBUG
+    root: INFO
+    se.sundsvall: DEBUG
+operaton.bpm:
+  generic-properties:
+    properties:
+      skip-isolation-level-check: true
+  jmx-enabled: false
+integration:
+  messaging:
+    url: http://messaging.url
+    connect-timeout: 5
+    read-timeout: 30
+  support-management:
+    url: http://support-management.url
+    connect-timeout: 5
+    read-timeout: 30
+spring:
+  security:
+    oauth2:
+      client:
+        provider:
+          messaging:
+            token-uri: http://localhost/token
+          support-management:
+            token-uri: http://localhost/token
+        registration:
+          messaging:
+            authorization-grant-type: client_credentials
+            client-id: the-client-id
+            client-secret: the-client-secret
+          support-management:
+            authorization-grant-type: client_credentials
+            client-id: the-client-id
+            client-secret: the-client-secret
+  datasource:
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+    url: jdbc:tc:mariadb:10.6:///
+  flyway:
+    enabled: true
+  jmx:
+    enabled: false
+  jpa:
+    properties:
+      hibernate:
+        format_sql: true
+        hbm2ddl:
+          schema-generation:
+            script:
+              append: false
+      jakarta:
+        persistence:
+          schema-generation:
+            create-source: metadata
+            database:
+              action: update
+            scripts:
+              action: create
+              create-target: target/database/generated-schema.sql

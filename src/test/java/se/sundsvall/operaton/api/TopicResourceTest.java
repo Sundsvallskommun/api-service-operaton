@@ -10,6 +10,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import se.sundsvall.operaton.Application;
+import se.sundsvall.operaton.api.model.ElementTemplate;
 import se.sundsvall.operaton.api.model.TopicDescription;
 import se.sundsvall.operaton.service.DeploymentService;
 import se.sundsvall.operaton.service.ProcessService;
@@ -28,6 +29,7 @@ class TopicResourceTest {
 	private static final String MUNICIPALITY_ID = "2281";
 	private static final String TOPICS_PATH = "/{municipalityId}/topics";
 	private static final String TOPIC_PATH = "/{municipalityId}/topics/{topic}";
+	private static final String TEMPLATES_PATH = "/{municipalityId}/topics/templates";
 
 	@MockitoBean
 	private DeploymentService deploymentServiceMock;
@@ -83,5 +85,29 @@ class TopicResourceTest {
 		assertThat(response).isNotNull();
 		assertThat(response.getTopic()).isEqualTo("send-email");
 		verify(topicServiceMock).getTopic("send-email");
+	}
+
+	@Test
+	void getElementTemplates() {
+		final var template = ElementTemplate.create()
+			.withId("se.sundsvall.operaton.SendEmail")
+			.withName("Send Email")
+			.withSchema("https://unpkg.com/@camunda/element-templates-json-schema/resources/schema.json")
+			.withAppliesTo(List.of("bpmn:ServiceTask"));
+
+		when(topicServiceMock.getElementTemplates()).thenReturn(List.of(template));
+
+		final var response = webTestClient.get()
+			.uri(builder -> builder.path(TEMPLATES_PATH).build(Map.of("municipalityId", MUNICIPALITY_ID)))
+			.exchange()
+			.expectStatus().isOk()
+			.expectBodyList(ElementTemplate.class)
+			.returnResult()
+			.getResponseBody();
+
+		assertThat(response).hasSize(1);
+		assertThat(response.getFirst().getId()).isEqualTo("se.sundsvall.operaton.SendEmail");
+		assertThat(response.getFirst().getName()).isEqualTo("Send Email");
+		verify(topicServiceMock).getElementTemplates();
 	}
 }

@@ -13,11 +13,28 @@ spring:
     name: api-service-operaton
   flyway:
     enabled: true
+  security:
+    oauth2:
+      client:
+        registration:
+          messaging:
+            authorization-grant-type: client_credentials
+            provider: messaging
+          support-management:
+            authorization-grant-type: client_credentials
+            provider: support-management
 operaton.bpm:
   admin-user:
     id: demo
     password: demo
     firstName: Demo
+integration:
+  messaging:
+    connect-timeout: 5
+    read-timeout: 30
+  support-management:
+    connect-timeout: 5
+    read-timeout: 30
 scheduler:
   logger-worker:
     cron: "*/5 * * * * *"

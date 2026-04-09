@@ -58,4 +58,36 @@ class TopicServiceTest {
 		assertThat(exception.getStatus()).isEqualTo(NOT_FOUND);
 		verify(topicRegistryMock).getByTopic("non-existent");
 	}
+
+	@Test
+	void getElementTemplates() {
+		final var sendEmail = TopicDescription.create()
+			.withTopic("send-email")
+			.withDescription("Sends an email")
+			.withInputVariables(List.of("municipalityId", "emailAddress"));
+		final var logMessage = TopicDescription.create()
+			.withTopic("log-message")
+			.withDescription("Logs a message");
+		when(topicRegistryMock.getAll()).thenReturn(List.of(sendEmail, logMessage));
+
+		final var result = topicService.getElementTemplates();
+
+		assertThat(result).hasSize(2);
+		assertThat(result.getFirst().getId()).isEqualTo("se.sundsvall.operaton.SendEmail");
+		assertThat(result.getFirst().getName()).isEqualTo("Send Email");
+		assertThat(result.getFirst().getProperties()).hasSize(3); // topic + 2 inputs
+		assertThat(result.get(1).getId()).isEqualTo("se.sundsvall.operaton.LogMessage");
+		assertThat(result.get(1).getProperties()).hasSize(1); // topic only
+		verify(topicRegistryMock).getAll();
+	}
+
+	@Test
+	void getElementTemplatesEmpty() {
+		when(topicRegistryMock.getAll()).thenReturn(List.of());
+
+		final var result = topicService.getElementTemplates();
+
+		assertThat(result).isEmpty();
+		verify(topicRegistryMock).getAll();
+	}
 }

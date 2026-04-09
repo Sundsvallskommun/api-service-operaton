@@ -40,6 +40,18 @@ class TopicRegistryTest {
 		assertThat(topicRegistry.getAll()).isEmpty();
 	}
 
+	@Test
+	void testAnnotationFoundOnSubclass() {
+		// Simulates a CGLIB proxy: a subclass that inherits @TopicWorker from its parent class.
+		// @TopicWorker is NOT @Inherited, so the registry must use AnnotationUtils.findAnnotation
+		// to walk the class hierarchy rather than Class.getAnnotation.
+		final var bean = new SubclassedWorker();
+
+		topicRegistry.postProcessAfterInitialization(bean, "subclassedWorker");
+
+		assertThat(topicRegistry.getByTopic("test-topic")).isPresent();
+	}
+
 	@TopicWorker(
 		topic = "test-topic",
 		description = "A test worker",
@@ -50,5 +62,8 @@ class TopicRegistryTest {
 			"output1"
 		})
 	private static class TestWorker {
+	}
+
+	private static class SubclassedWorker extends TestWorker {
 	}
 }
