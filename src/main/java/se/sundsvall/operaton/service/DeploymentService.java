@@ -3,6 +3,7 @@ package se.sundsvall.operaton.service;
 import java.io.IOException;
 import org.operaton.bpm.engine.ProcessEngineException;
 import org.operaton.bpm.engine.RepositoryService;
+import org.operaton.bpm.engine.exception.NotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import se.sundsvall.dept44.problem.Problem;
@@ -17,6 +18,7 @@ public class DeploymentService {
 
 	private static final String DEPLOYMENT_FAILED = "Failed to deploy BPMN file: %s";
 	private static final String INVALID_DEPLOYMENT_FILE = "Invalid deployment file: %s";
+	private static final String DEPLOYMENT_NOT_FOUND = "Deployment '%s' not found";
 
 	private final RepositoryService repositoryService;
 
@@ -44,5 +46,15 @@ public class DeploymentService {
 			.desc()
 			.list();
 		return toDeploymentsResponse(deployments);
+	}
+
+	public void deleteDeployment(final String deploymentId, final boolean cascade) {
+		try {
+			repositoryService.deleteDeployment(deploymentId, cascade);
+		} catch (final NotFoundException _) {
+			throw Problem.notFound(DEPLOYMENT_NOT_FOUND.formatted(deploymentId));
+		} catch (final ProcessEngineException e) {
+			throw Problem.badRequest("Cannot delete deployment '%s': %s".formatted(deploymentId, e.getMessage()));
+		}
 	}
 }

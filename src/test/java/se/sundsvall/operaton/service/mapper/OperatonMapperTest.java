@@ -75,6 +75,7 @@ class OperatonMapperTest {
 		when(pd.getKey()).thenReturn("invoice");
 		when(pd.getName()).thenReturn("Invoice Process");
 		when(pd.getVersion()).thenReturn(1);
+		when(pd.getDeploymentId()).thenReturn("deploy-42");
 
 		final var result = OperatonMapper.toProcessDefinitionResponse(pd);
 
@@ -83,6 +84,7 @@ class OperatonMapperTest {
 		assertThat(result.getKey()).isEqualTo("invoice");
 		assertThat(result.getName()).isEqualTo("Invoice Process");
 		assertThat(result.getVersion()).isEqualTo(1);
+		assertThat(result.getDeploymentId()).isEqualTo("deploy-42");
 	}
 
 	@Test

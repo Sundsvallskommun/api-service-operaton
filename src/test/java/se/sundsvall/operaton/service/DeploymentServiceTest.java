@@ -11,6 +11,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.operaton.bpm.engine.ProcessEngineException;
 import org.operaton.bpm.engine.RepositoryService;
+import org.operaton.bpm.engine.exception.NotFoundException;
 import org.operaton.bpm.engine.repository.Deployment;
 import org.operaton.bpm.engine.repository.DeploymentBuilder;
 import org.operaton.bpm.engine.repository.DeploymentQuery;
@@ -21,10 +22,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
+import static org.springframework.http.HttpStatus.NOT_FOUND;
 
 @ExtendWith(MockitoExtension.class)
 class DeploymentServiceTest {
@@ -99,5 +103,37 @@ class DeploymentServiceTest {
 		assertThat(result.getDeployments()).hasSize(1);
 		assertThat(result.getDeployments().getFirst().getId()).isEqualTo("deploy-1");
 		verify(repositoryServiceMock).createDeploymentQuery();
+	}
+
+	@Test
+	void deleteDeployment() {
+		doNothing().when(repositoryServiceMock).deleteDeployment("deploy-1", true);
+
+		deploymentService.deleteDeployment("deploy-1", true);
+
+		verify(repositoryServiceMock).deleteDeployment("deploy-1", true);
+	}
+
+	@Test
+	void deleteDeploymentNotFound() {
+		doThrow(new NotFoundException("not found"))
+			.when(repositoryServiceMock).deleteDeployment("non-existent", false);
+
+		final var exception = assertThrows(ThrowableProblem.class,
+			() -> deploymentService.deleteDeployment("non-existent", false));
+
+		assertThat(exception.getStatus()).isEqualTo(NOT_FOUND);
+	}
+
+	@Test
+	void deleteDeploymentWithRunningInstances() {
+		doThrow(new ProcessEngineException("has running instances"))
+			.when(repositoryServiceMock).deleteDeployment("deploy-1", false);
+
+		final var exception = assertThrows(ThrowableProblem.class,
+			() -> deploymentService.deleteDeployment("deploy-1", false));
+
+		assertThat(exception.getStatus()).isEqualTo(BAD_REQUEST);
+		assertThat(exception.getMessage()).contains("has running instances");
 	}
 }

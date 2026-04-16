@@ -28,8 +28,11 @@ public final class ElementTemplateMapper {
 	static final String APPLIES_TO_SERVICE_TASK = "bpmn:ServiceTask";
 	static final String BINDING_TYPE_PROPERTY = "property";
 	static final String BINDING_TYPE_INPUT_PARAMETER = "camunda:inputParameter";
+	static final String BINDING_NAME_TYPE = "camunda:type";
 	static final String BINDING_NAME_TOPIC = "camunda:topic";
 	static final String PROPERTY_TYPE_STRING = "String";
+	static final String TYPE_PROPERTY_LABEL = "Implementation";
+	static final String TYPE_PROPERTY_VALUE_EXTERNAL = "external";
 	static final String TOPIC_PROPERTY_LABEL = "Topic";
 
 	private ElementTemplateMapper() {}
@@ -48,6 +51,18 @@ public final class ElementTemplateMapper {
 
 	private static List<ElementTemplateProperty> buildProperties(final TopicDescription topic) {
 		final List<ElementTemplateProperty> properties = new ArrayList<>();
+		// camunda:type="external" marks the Service Task as an external task so
+		// Operaton routes it to the matching worker at runtime. Without this,
+		// the task runs as a synchronous Java/expression invocation and no
+		// worker is ever called.
+		properties.add(ElementTemplateProperty.create()
+			.withLabel(TYPE_PROPERTY_LABEL)
+			.withType(PROPERTY_TYPE_STRING)
+			.withValue(TYPE_PROPERTY_VALUE_EXTERNAL)
+			.withEditable(Boolean.FALSE)
+			.withBinding(ElementTemplateBinding.create()
+				.withType(BINDING_TYPE_PROPERTY)
+				.withName(BINDING_NAME_TYPE)));
 		properties.add(ElementTemplateProperty.create()
 			.withLabel(TOPIC_PROPERTY_LABEL)
 			.withType(PROPERTY_TYPE_STRING)

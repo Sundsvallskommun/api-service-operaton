@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -26,6 +27,7 @@ import se.sundsvall.operaton.service.DeploymentService;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 import static org.springframework.http.MediaType.APPLICATION_PROBLEM_JSON_VALUE;
 import static org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE;
+import static org.springframework.http.ResponseEntity.noContent;
 import static org.springframework.http.ResponseEntity.ok;
 
 @Tag(name = "Deployments", description = "Deploy and manage BPMN process definitions and DMN decision tables")
@@ -72,5 +74,19 @@ class DeploymentResource {
 		@Parameter(name = "municipalityId", description = "Municipality id", example = "2281") @ValidMunicipalityId @PathVariable final String municipalityId) {
 
 		return ok(deploymentService.getDeployments());
+	}
+
+	@Operation(summary = "Delete a deployment and its process definitions. Use cascade=true to also terminate running process instances", responses = {
+		@ApiResponse(responseCode = "204", description = "Deployment deleted"),
+		@ApiResponse(responseCode = "404", description = "Not Found", content = @Content(mediaType = APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = Problem.class)))
+	})
+	@DeleteMapping("/{id}")
+	ResponseEntity<Void> deleteDeployment(
+		@Parameter(name = "municipalityId", description = "Municipality id", example = "2281") @ValidMunicipalityId @PathVariable final String municipalityId,
+		@Parameter(name = "id", description = "Deployment id") @PathVariable final String id,
+		@Parameter(name = "cascade", description = "Also delete running process instances") @RequestParam(defaultValue = "false") final boolean cascade) {
+
+		deploymentService.deleteDeployment(id, cascade);
+		return noContent().build();
 	}
 }

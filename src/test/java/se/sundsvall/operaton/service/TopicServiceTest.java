@@ -75,9 +75,11 @@ class TopicServiceTest {
 		assertThat(result).hasSize(2);
 		assertThat(result.getFirst().getId()).isEqualTo("se.sundsvall.operaton.SendEmail");
 		assertThat(result.getFirst().getName()).isEqualTo("Send Email");
-		assertThat(result.getFirst().getProperties()).hasSize(3); // topic + 2 inputs
+		// camunda:type + camunda:topic + 2 inputs
+		assertThat(result.getFirst().getProperties()).hasSize(4);
 		assertThat(result.get(1).getId()).isEqualTo("se.sundsvall.operaton.LogMessage");
-		assertThat(result.get(1).getProperties()).hasSize(1); // topic only
+		// camunda:type + camunda:topic, no inputs
+		assertThat(result.get(1).getProperties()).hasSize(2);
 		verify(topicRegistryMock).getAll();
 	}
 

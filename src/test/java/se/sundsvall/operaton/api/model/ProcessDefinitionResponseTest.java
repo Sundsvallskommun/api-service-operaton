@@ -29,18 +29,21 @@ class ProcessDefinitionResponseTest {
 		final var key = "invoice";
 		final var name = "Invoice Process";
 		final var version = 1;
+		final var deploymentId = "deploy-42";
 
 		final var result = ProcessDefinitionResponse.create()
 			.withId(id)
 			.withKey(key)
 			.withName(name)
-			.withVersion(version);
+			.withVersion(version)
+			.withDeploymentId(deploymentId);
 
 		assertThat(result).hasNoNullFieldsOrPropertiesExcept();
 		assertThat(result.getId()).isEqualTo(id);
 		assertThat(result.getKey()).isEqualTo(key);
 		assertThat(result.getName()).isEqualTo(name);
 		assertThat(result.getVersion()).isEqualTo(version);
+		assertThat(result.getDeploymentId()).isEqualTo(deploymentId);
 	}
 
 	@Test

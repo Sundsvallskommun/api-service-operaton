@@ -32,6 +32,7 @@ class DeploymentResourceTest {
 
 	private static final String MUNICIPALITY_ID = "2281";
 	private static final String DEPLOYMENTS_PATH = "/{municipalityId}/deployments";
+	private static final String DEPLOYMENT_PATH = "/{municipalityId}/deployments/{id}";
 
 	@MockitoBean
 	private DeploymentService deploymentServiceMock;
@@ -93,5 +94,28 @@ class DeploymentResourceTest {
 		assertThat(response.getDeployments()).hasSize(1);
 		assertThat(response.getDeployments().getFirst().getId()).isEqualTo("deploy-1");
 		verify(deploymentServiceMock).getDeployments();
+	}
+
+	@Test
+	void deleteDeployment() {
+		webTestClient.delete()
+			.uri(builder -> builder.path(DEPLOYMENT_PATH)
+				.queryParam("cascade", "true")
+				.build(Map.of("municipalityId", MUNICIPALITY_ID, "id", "deploy-1")))
+			.exchange()
+			.expectStatus().isNoContent();
+
+		verify(deploymentServiceMock).deleteDeployment("deploy-1", true);
+	}
+
+	@Test
+	void deleteDeploymentWithoutCascade() {
+		webTestClient.delete()
+			.uri(builder -> builder.path(DEPLOYMENT_PATH)
+				.build(Map.of("municipalityId", MUNICIPALITY_ID, "id", "deploy-1")))
+			.exchange()
+			.expectStatus().isNoContent();
+
+		verify(deploymentServiceMock).deleteDeployment("deploy-1", false);
 	}
 }
