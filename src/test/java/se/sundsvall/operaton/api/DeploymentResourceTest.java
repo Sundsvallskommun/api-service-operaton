@@ -15,6 +15,7 @@ import se.sundsvall.operaton.Application;
 import se.sundsvall.operaton.api.model.DeploymentResponse;
 import se.sundsvall.operaton.api.model.DeploymentsResponse;
 import se.sundsvall.operaton.service.DeploymentService;
+import se.sundsvall.operaton.service.DmnService;
 import se.sundsvall.operaton.service.ProcessService;
 import se.sundsvall.operaton.service.TopicService;
 
@@ -42,6 +43,9 @@ class DeploymentResourceTest {
 
 	@MockitoBean
 	private TopicService topicServiceMock;
+
+	@MockitoBean
+	private DmnService dmnServiceMock;
 
 	@Autowired
 	private WebTestClient webTestClient;
