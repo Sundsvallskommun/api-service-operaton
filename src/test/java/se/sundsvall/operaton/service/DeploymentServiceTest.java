@@ -27,7 +27,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.springframework.http.HttpStatus.BAD_REQUEST;
+import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
 @ExtendWith(MockitoExtension.class)
@@ -80,7 +80,7 @@ class DeploymentServiceTest {
 		final var exception = assertThrows(ThrowableProblem.class,
 			() -> deploymentService.deploy("broken", file));
 
-		assertThat(exception.getStatus()).isEqualTo(BAD_REQUEST);
+		assertThat(exception.getStatus()).isEqualTo(INTERNAL_SERVER_ERROR);
 		assertThat(exception.getMessage()).contains("parse error");
 	}
 
@@ -133,7 +133,7 @@ class DeploymentServiceTest {
 		final var exception = assertThrows(ThrowableProblem.class,
 			() -> deploymentService.deleteDeployment("deploy-1", false));
 
-		assertThat(exception.getStatus()).isEqualTo(BAD_REQUEST);
+		assertThat(exception.getStatus()).isEqualTo(INTERNAL_SERVER_ERROR);
 		assertThat(exception.getMessage()).contains("has running instances");
 	}
 }

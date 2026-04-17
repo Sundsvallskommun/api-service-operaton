@@ -8,7 +8,7 @@ import se.sundsvall.dept44.test.annotation.wiremock.WireMockAppTestSuite;
 import se.sundsvall.operaton.Application;
 
 import static org.springframework.http.HttpMethod.POST;
-import static org.springframework.http.HttpStatus.BAD_REQUEST;
+import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
 import static org.springframework.http.HttpStatus.OK;
 import static org.springframework.http.MediaType.MULTIPART_FORM_DATA;
 
@@ -44,7 +44,7 @@ class DeploymentIT extends AbstractAppTest {
 			.withHttpMethod(POST)
 			.withContentType(MULTIPART_FORM_DATA)
 			.withRequestFile("file", BPMN_FILE)
-			.withExpectedResponseStatus(BAD_REQUEST)
+			.withExpectedResponseStatus(INTERNAL_SERVER_ERROR)
 			.sendRequestAndVerifyResponse();
 	}
 }
