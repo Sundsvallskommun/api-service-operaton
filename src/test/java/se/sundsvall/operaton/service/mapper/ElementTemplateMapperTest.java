@@ -9,12 +9,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNoException;
 import static se.sundsvall.operaton.service.mapper.ElementTemplateMapper.APPLIES_TO_SERVICE_TASK;
 import static se.sundsvall.operaton.service.mapper.ElementTemplateMapper.BINDING_NAME_TOPIC;
+import static se.sundsvall.operaton.service.mapper.ElementTemplateMapper.BINDING_NAME_TYPE;
 import static se.sundsvall.operaton.service.mapper.ElementTemplateMapper.BINDING_TYPE_INPUT_PARAMETER;
 import static se.sundsvall.operaton.service.mapper.ElementTemplateMapper.BINDING_TYPE_PROPERTY;
 import static se.sundsvall.operaton.service.mapper.ElementTemplateMapper.ID_PREFIX;
 import static se.sundsvall.operaton.service.mapper.ElementTemplateMapper.PROPERTY_TYPE_STRING;
 import static se.sundsvall.operaton.service.mapper.ElementTemplateMapper.SCHEMA_URL;
 import static se.sundsvall.operaton.service.mapper.ElementTemplateMapper.TOPIC_PROPERTY_LABEL;
+import static se.sundsvall.operaton.service.mapper.ElementTemplateMapper.TYPE_PROPERTY_LABEL;
+import static se.sundsvall.operaton.service.mapper.ElementTemplateMapper.TYPE_PROPERTY_VALUE_EXTERNAL;
 import static se.sundsvall.operaton.service.mapper.ElementTemplateMapper.humanize;
 import static se.sundsvall.operaton.service.mapper.ElementTemplateMapper.toElementTemplate;
 import static se.sundsvall.operaton.service.mapper.ElementTemplateMapper.toPascalCase;
@@ -50,9 +53,19 @@ class ElementTemplateMapperTest {
 		assertThat(result.getName()).isEqualTo("Send Email");
 		assertThat(result.getDescription()).isEqualTo("Sends an email via the Messaging API");
 		assertThat(result.getAppliesTo()).containsExactly(APPLIES_TO_SERVICE_TASK);
-		assertThat(result.getProperties()).hasSize(7);
+		// 1 camunda:type property + 1 camunda:topic property + 6 input parameters = 8
+		assertThat(result.getProperties()).hasSize(8);
 
-		final var topicProperty = result.getProperties().getFirst();
+		final var typeProperty = result.getProperties().getFirst();
+		assertThat(typeProperty.getLabel()).isEqualTo(TYPE_PROPERTY_LABEL);
+		assertThat(typeProperty.getType()).isEqualTo(PROPERTY_TYPE_STRING);
+		assertThat(typeProperty.getValue()).isEqualTo(TYPE_PROPERTY_VALUE_EXTERNAL);
+		assertThat(typeProperty.getEditable()).isFalse();
+		assertThat(typeProperty.getBinding().getType()).isEqualTo(BINDING_TYPE_PROPERTY);
+		assertThat(typeProperty.getBinding().getName()).isEqualTo(BINDING_NAME_TYPE);
+		assertThat(typeProperty.getConstraints()).isNull();
+
+		final var topicProperty = result.getProperties().get(1);
 		assertThat(topicProperty.getLabel()).isEqualTo(TOPIC_PROPERTY_LABEL);
 		assertThat(topicProperty.getType()).isEqualTo(PROPERTY_TYPE_STRING);
 		assertThat(topicProperty.getValue()).isEqualTo("send-email");
@@ -61,10 +74,10 @@ class ElementTemplateMapperTest {
 		assertThat(topicProperty.getBinding().getName()).isEqualTo(BINDING_NAME_TOPIC);
 		assertThat(topicProperty.getConstraints()).isNull();
 
-		assertThat(result.getProperties().subList(1, 7))
+		assertThat(result.getProperties().subList(2, 8))
 			.extracting("label")
 			.containsExactly("Municipality Id", "Email Address", "Subject", "Message", "Sender Name", "Sender Address");
-		assertThat(result.getProperties().subList(1, 7))
+		assertThat(result.getProperties().subList(2, 8))
 			.allSatisfy(p -> {
 				assertThat(p.getType()).isEqualTo(PROPERTY_TYPE_STRING);
 				assertThat(p.getValue()).isNull();
@@ -72,7 +85,7 @@ class ElementTemplateMapperTest {
 				assertThat(p.getBinding().getType()).isEqualTo(BINDING_TYPE_INPUT_PARAMETER);
 				assertThat(p.getConstraints().getNotEmpty()).isTrue();
 			});
-		assertThat(result.getProperties().subList(1, 7))
+		assertThat(result.getProperties().subList(2, 8))
 			.extracting(p -> p.getBinding().getName())
 			.containsExactly("municipalityId", "emailAddress", "subject", "message", "senderName", "senderAddress");
 	}
@@ -88,9 +101,11 @@ class ElementTemplateMapperTest {
 		final var result = toElementTemplate(topic);
 
 		assertThat(result).isNotNull();
-		assertThat(result.getProperties()).hasSize(2);
-		assertThat(result.getProperties().getFirst().getBinding().getName()).isEqualTo(BINDING_NAME_TOPIC);
-		assertThat(result.getProperties().get(1).getBinding().getName()).isEqualTo("mobileNumber");
+		// camunda:type + camunda:topic + 1 input = 3
+		assertThat(result.getProperties()).hasSize(3);
+		assertThat(result.getProperties().getFirst().getBinding().getName()).isEqualTo(BINDING_NAME_TYPE);
+		assertThat(result.getProperties().get(1).getBinding().getName()).isEqualTo(BINDING_NAME_TOPIC);
+		assertThat(result.getProperties().get(2).getBinding().getName()).isEqualTo("mobileNumber");
 	}
 
 	@Test
@@ -104,8 +119,10 @@ class ElementTemplateMapperTest {
 		assertThat(result).isNotNull();
 		assertThat(result.getId()).isEqualTo(ID_PREFIX + "LogMessage");
 		assertThat(result.getName()).isEqualTo("Log Message");
-		assertThat(result.getProperties()).hasSize(1);
-		assertThat(result.getProperties().getFirst().getLabel()).isEqualTo(TOPIC_PROPERTY_LABEL);
+		// camunda:type + camunda:topic, no inputs
+		assertThat(result.getProperties()).hasSize(2);
+		assertThat(result.getProperties().getFirst().getLabel()).isEqualTo(TYPE_PROPERTY_LABEL);
+		assertThat(result.getProperties().get(1).getLabel()).isEqualTo(TOPIC_PROPERTY_LABEL);
 	}
 
 	@Test
@@ -116,7 +133,7 @@ class ElementTemplateMapperTest {
 
 		final var result = toElementTemplate(topic);
 
-		assertThat(result.getProperties()).hasSize(1);
+		assertThat(result.getProperties()).hasSize(2);
 	}
 
 	@Test

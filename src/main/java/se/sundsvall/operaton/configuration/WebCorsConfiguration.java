@@ -40,7 +40,7 @@ public class WebCorsConfiguration implements WebMvcConfigurer {
 	public void addCorsMappings(final CorsRegistry registry) {
 		registry.addMapping("/**")
 			.allowedOrigins(allowedOrigins)
-			.allowedMethods("GET", "POST", "OPTIONS")
+			.allowedMethods("GET", "POST", "DELETE", "OPTIONS")
 			.allowedHeaders("Content-Type", "Authorization", "X-Requested-With")
 			.allowCredentials(true);
 	}

@@ -13,6 +13,7 @@ import se.sundsvall.operaton.Application;
 import se.sundsvall.operaton.api.model.ElementTemplate;
 import se.sundsvall.operaton.api.model.TopicDescription;
 import se.sundsvall.operaton.service.DeploymentService;
+import se.sundsvall.operaton.service.DmnService;
 import se.sundsvall.operaton.service.ProcessService;
 import se.sundsvall.operaton.service.TopicService;
 
@@ -39,6 +40,9 @@ class TopicResourceTest {
 
 	@MockitoBean
 	private TopicService topicServiceMock;
+
+	@MockitoBean
+	private DmnService dmnServiceMock;
 
 	@Autowired
 	private WebTestClient webTestClient;

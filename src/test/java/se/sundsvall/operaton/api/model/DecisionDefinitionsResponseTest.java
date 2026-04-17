@@ -1,5 +1,6 @@
 package se.sundsvall.operaton.api.model;
 
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import static com.google.code.beanmatchers.BeanMatchers.hasValidBeanConstructor;
@@ -11,11 +12,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.CoreMatchers.allOf;
 import static org.hamcrest.MatcherAssert.assertThat;
 
-class ProcessDefinitionResponseTest {
+class DecisionDefinitionsResponseTest {
 
 	@Test
 	void testBean() {
-		assertThat(ProcessDefinitionResponse.class, allOf(
+		assertThat(DecisionDefinitionsResponse.class, allOf(
 			hasValidBeanConstructor(),
 			hasValidGettersAndSetters(),
 			hasValidBeanHashCode(),
@@ -25,29 +26,17 @@ class ProcessDefinitionResponseTest {
 
 	@Test
 	void testBuilderMethods() {
-		final var id = "invoice:1:4";
-		final var key = "invoice";
-		final var name = "Invoice Process";
-		final var version = 1;
-		final var deploymentId = "deploy-42";
+		final var decisionDefinitions = List.of(DecisionDefinitionResponse.create().withId("approve-loan:1:5"));
 
-		final var result = ProcessDefinitionResponse.create()
-			.withId(id)
-			.withKey(key)
-			.withName(name)
-			.withVersion(version)
-			.withDeploymentId(deploymentId);
+		final var result = DecisionDefinitionsResponse.create()
+			.withDecisionDefinitions(decisionDefinitions);
 
-		assertThat(result).hasNoNullFieldsOrPropertiesExcept();
-		assertThat(result.getId()).isEqualTo(id);
-		assertThat(result.getKey()).isEqualTo(key);
-		assertThat(result.getName()).isEqualTo(name);
-		assertThat(result.getVersion()).isEqualTo(version);
-		assertThat(result.getDeploymentId()).isEqualTo(deploymentId);
+		assertThat(result).hasNoNullFieldsOrProperties();
+		assertThat(result.getDecisionDefinitions()).isEqualTo(decisionDefinitions);
 	}
 
 	@Test
 	void testNoDirtOnCreatedBean() {
-		assertThat(ProcessDefinitionResponse.create()).hasAllNullFieldsOrPropertiesExcept("version");
+		assertThat(DecisionDefinitionsResponse.create()).hasAllNullFieldsOrProperties();
 	}
 }

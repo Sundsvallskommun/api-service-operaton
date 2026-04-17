@@ -23,10 +23,12 @@ import static org.springframework.http.HttpStatus.BAD_REQUEST;
 @SpringBootTest(classes = Application.class, webEnvironment = RANDOM_PORT)
 @AutoConfigureWebTestClient
 @ActiveProfiles("junit")
-class DeploymentResourceFailureTest {
+class DecisionResourceFailureTest {
 
 	private static final String INVALID_MUNICIPALITY_ID = "bad-municipality-id";
-	private static final String DEPLOYMENTS_PATH = "/{municipalityId}/deployments";
+	private static final String DECISION_DEFINITIONS_PATH = "/{municipalityId}/decision-definitions";
+	private static final String DECISION_DEFINITION_PATH = "/{municipalityId}/decision-definitions/{id}";
+	private static final String DECISION_DEFINITION_XML_PATH = "/{municipalityId}/decision-definitions/{id}/xml";
 
 	@MockitoBean
 	private DeploymentService deploymentServiceMock;
@@ -44,9 +46,9 @@ class DeploymentResourceFailureTest {
 	private WebTestClient webTestClient;
 
 	@Test
-	void getDeploymentsWithInvalidMunicipalityId() {
+	void getDecisionDefinitionsWithInvalidMunicipalityId() {
 		final var response = webTestClient.get()
-			.uri(builder -> builder.path(DEPLOYMENTS_PATH).build(Map.of("municipalityId", INVALID_MUNICIPALITY_ID)))
+			.uri(builder -> builder.path(DECISION_DEFINITIONS_PATH).build(Map.of("municipalityId", INVALID_MUNICIPALITY_ID)))
 			.exchange()
 			.expectStatus().isBadRequest()
 			.expectBody(ConstraintViolationProblem.class)
@@ -57,6 +59,42 @@ class DeploymentResourceFailureTest {
 		assertThat(response.getTitle()).isEqualTo("Constraint Violation");
 		assertThat(response.getStatus()).isEqualTo(BAD_REQUEST);
 
-		verifyNoInteractions(deploymentServiceMock);
+		verifyNoInteractions(dmnServiceMock);
+	}
+
+	@Test
+	void getDecisionDefinitionWithInvalidMunicipalityId() {
+		final var response = webTestClient.get()
+			.uri(builder -> builder.path(DECISION_DEFINITION_PATH).build(Map.of(
+				"municipalityId", INVALID_MUNICIPALITY_ID,
+				"id", "approve-loan:1:5")))
+			.exchange()
+			.expectStatus().isBadRequest()
+			.expectBody(ConstraintViolationProblem.class)
+			.returnResult()
+			.getResponseBody();
+
+		assertThat(response).isNotNull();
+		assertThat(response.getTitle()).isEqualTo("Constraint Violation");
+
+		verifyNoInteractions(dmnServiceMock);
+	}
+
+	@Test
+	void getDecisionDefinitionXmlWithInvalidMunicipalityId() {
+		final var response = webTestClient.get()
+			.uri(builder -> builder.path(DECISION_DEFINITION_XML_PATH).build(Map.of(
+				"municipalityId", INVALID_MUNICIPALITY_ID,
+				"id", "approve-loan:1:5")))
+			.exchange()
+			.expectStatus().isBadRequest()
+			.expectBody(ConstraintViolationProblem.class)
+			.returnResult()
+			.getResponseBody();
+
+		assertThat(response).isNotNull();
+		assertThat(response.getTitle()).isEqualTo("Constraint Violation");
+
+		verifyNoInteractions(dmnServiceMock);
 	}
 }

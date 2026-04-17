@@ -1,5 +1,6 @@
 package se.sundsvall.operaton.service;
 
+import java.io.ByteArrayInputStream;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -7,6 +8,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.operaton.bpm.engine.ProcessEngineException;
 import org.operaton.bpm.engine.RepositoryService;
 import org.operaton.bpm.engine.RuntimeService;
 import org.operaton.bpm.engine.exception.NullValueException;
@@ -152,6 +154,58 @@ class ProcessServiceTest {
 
 		final var exception = assertThrows(ThrowableProblem.class,
 			() -> processService.getProcessInstance("non-existent"));
+
+		assertThat(exception.getStatus()).isEqualTo(NOT_FOUND);
+	}
+
+	@Test
+	void getProcessDefinition() {
+		final var pd = mock(ProcessDefinition.class);
+		when(pd.getId()).thenReturn("invoice:1:4");
+		when(pd.getKey()).thenReturn("invoice");
+		when(pd.getName()).thenReturn("Invoice Process");
+		when(pd.getVersion()).thenReturn(1);
+		when(pd.getDeploymentId()).thenReturn("deploy-1");
+		when(repositoryServiceMock.getProcessDefinition("invoice:1:4")).thenReturn(pd);
+
+		final var result = processService.getProcessDefinition("invoice:1:4");
+
+		assertThat(result.getId()).isEqualTo("invoice:1:4");
+		assertThat(result.getKey()).isEqualTo("invoice");
+		assertThat(result.getDeploymentId()).isEqualTo("deploy-1");
+		verify(repositoryServiceMock).getProcessDefinition("invoice:1:4");
+	}
+
+	@Test
+	void getProcessDefinitionNotFound() {
+		when(repositoryServiceMock.getProcessDefinition("non-existent"))
+			.thenThrow(new ProcessEngineException("not found"));
+
+		final var exception = assertThrows(ThrowableProblem.class,
+			() -> processService.getProcessDefinition("non-existent"));
+
+		assertThat(exception.getStatus()).isEqualTo(NOT_FOUND);
+	}
+
+	@Test
+	void getProcessModel() {
+		final var xml = "<bpmn>test</bpmn>".getBytes();
+		when(repositoryServiceMock.getProcessModel("invoice:1:4"))
+			.thenReturn(new ByteArrayInputStream(xml));
+
+		final var result = processService.getProcessModel("invoice:1:4");
+
+		assertThat(result).isEqualTo(xml);
+		verify(repositoryServiceMock).getProcessModel("invoice:1:4");
+	}
+
+	@Test
+	void getProcessModelNotFound() {
+		when(repositoryServiceMock.getProcessModel("non-existent"))
+			.thenThrow(new ProcessEngineException("not found"));
+
+		final var exception = assertThrows(ThrowableProblem.class,
+			() -> processService.getProcessModel("non-existent"));
 
 		assertThat(exception.getStatus()).isEqualTo(NOT_FOUND);
 	}

@@ -11,11 +11,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.CoreMatchers.allOf;
 import static org.hamcrest.MatcherAssert.assertThat;
 
-class ProcessDefinitionResponseTest {
+class DecisionDefinitionResponseTest {
 
 	@Test
 	void testBean() {
-		assertThat(ProcessDefinitionResponse.class, allOf(
+		assertThat(DecisionDefinitionResponse.class, allOf(
 			hasValidBeanConstructor(),
 			hasValidGettersAndSetters(),
 			hasValidBeanHashCode(),
@@ -25,13 +25,13 @@ class ProcessDefinitionResponseTest {
 
 	@Test
 	void testBuilderMethods() {
-		final var id = "invoice:1:4";
-		final var key = "invoice";
-		final var name = "Invoice Process";
+		final var id = "approve-loan:1:5";
+		final var key = "approve-loan";
+		final var name = "Approve Loan";
 		final var version = 1;
-		final var deploymentId = "deploy-42";
+		final var deploymentId = "deploy-1";
 
-		final var result = ProcessDefinitionResponse.create()
+		final var result = DecisionDefinitionResponse.create()
 			.withId(id)
 			.withKey(key)
 			.withName(name)
@@ -48,6 +48,6 @@ class ProcessDefinitionResponseTest {
 
 	@Test
 	void testNoDirtOnCreatedBean() {
-		assertThat(ProcessDefinitionResponse.create()).hasAllNullFieldsOrPropertiesExcept("version");
+		assertThat(DecisionDefinitionResponse.create()).hasAllNullFieldsOrPropertiesExcept("version");
 	}
 }

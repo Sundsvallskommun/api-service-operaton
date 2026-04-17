@@ -15,6 +15,7 @@ import se.sundsvall.operaton.api.model.ProcessInstanceResponse;
 import se.sundsvall.operaton.api.model.ProcessInstancesResponse;
 import se.sundsvall.operaton.api.model.StartProcessInstanceRequest;
 import se.sundsvall.operaton.service.DeploymentService;
+import se.sundsvall.operaton.service.DmnService;
 import se.sundsvall.operaton.service.ProcessService;
 import se.sundsvall.operaton.service.TopicService;
 
@@ -32,6 +33,8 @@ class ProcessResourceTest {
 
 	private static final String MUNICIPALITY_ID = "2281";
 	private static final String PROCESS_DEFINITIONS_PATH = "/{municipalityId}/process-definitions";
+	private static final String PROCESS_DEFINITION_PATH = "/{municipalityId}/process-definitions/{id}";
+	private static final String PROCESS_DEFINITION_XML_PATH = "/{municipalityId}/process-definitions/{id}/xml";
 	private static final String PROCESS_INSTANCES_PATH = "/{municipalityId}/process-instances";
 	private static final String PROCESS_INSTANCE_PATH = "/{municipalityId}/process-instances/{id}";
 
@@ -43,6 +46,9 @@ class ProcessResourceTest {
 
 	@MockitoBean
 	private TopicService topicServiceMock;
+
+	@MockitoBean
+	private DmnService dmnServiceMock;
 
 	@Autowired
 	private WebTestClient webTestClient;
@@ -138,5 +144,51 @@ class ProcessResourceTest {
 		assertThat(response).isNotNull();
 		assertThat(response.getId()).isEqualTo("pi-1");
 		verify(processServiceMock).getProcessInstance("pi-1");
+	}
+
+	@Test
+	void getProcessDefinition() {
+		final var pd = ProcessDefinitionResponse.create()
+			.withId("invoice:1:4")
+			.withKey("invoice")
+			.withName("Invoice Process")
+			.withVersion(1)
+			.withDeploymentId("deploy-1");
+
+		when(processServiceMock.getProcessDefinition("invoice:1:4")).thenReturn(pd);
+
+		final var response = webTestClient.get()
+			.uri(builder -> builder.path(PROCESS_DEFINITION_PATH).build(Map.of(
+				"municipalityId", MUNICIPALITY_ID,
+				"id", "invoice:1:4")))
+			.exchange()
+			.expectStatus().isOk()
+			.expectBody(ProcessDefinitionResponse.class)
+			.returnResult()
+			.getResponseBody();
+
+		assertThat(response).isNotNull();
+		assertThat(response.getId()).isEqualTo("invoice:1:4");
+		assertThat(response.getDeploymentId()).isEqualTo("deploy-1");
+		verify(processServiceMock).getProcessDefinition("invoice:1:4");
+	}
+
+	@Test
+	void getProcessDefinitionXml() {
+		final var bpmnXml = "<bpmn>test</bpmn>".getBytes();
+		when(processServiceMock.getProcessModel("invoice:1:4")).thenReturn(bpmnXml);
+
+		final var response = webTestClient.get()
+			.uri(builder -> builder.path(PROCESS_DEFINITION_XML_PATH).build(Map.of(
+				"municipalityId", MUNICIPALITY_ID,
+				"id", "invoice:1:4")))
+			.exchange()
+			.expectStatus().isOk()
+			.expectBody(byte[].class)
+			.returnResult()
+			.getResponseBody();
+
+		assertThat(response).isEqualTo(bpmnXml);
+		verify(processServiceMock).getProcessModel("invoice:1:4");
 	}
 }

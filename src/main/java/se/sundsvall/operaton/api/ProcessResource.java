@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 import se.sundsvall.dept44.common.validators.annotation.ValidMunicipalityId;
 import se.sundsvall.dept44.problem.Problem;
 import se.sundsvall.dept44.problem.violations.ConstraintViolationProblem;
+import se.sundsvall.operaton.api.model.ProcessDefinitionResponse;
 import se.sundsvall.operaton.api.model.ProcessDefinitionsResponse;
 import se.sundsvall.operaton.api.model.ProcessInstanceResponse;
 import se.sundsvall.operaton.api.model.ProcessInstancesResponse;
@@ -26,6 +27,7 @@ import se.sundsvall.operaton.service.ProcessService;
 
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 import static org.springframework.http.MediaType.APPLICATION_PROBLEM_JSON_VALUE;
+import static org.springframework.http.MediaType.APPLICATION_XML_VALUE;
 import static org.springframework.http.ResponseEntity.ok;
 
 @Tag(name = "Processes", description = "Manage deployed process definitions and running process instances")
@@ -60,6 +62,30 @@ class ProcessResource {
 		@Parameter(name = "municipalityId", description = "Municipality id", example = "2281") @ValidMunicipalityId @PathVariable final String municipalityId) {
 
 		return ok(processService.getProcessDefinitions());
+	}
+
+	@Operation(summary = "Get a specific process definition by ID", responses = {
+		@ApiResponse(responseCode = "200", description = "Successful Operation", useReturnTypeSchema = true),
+		@ApiResponse(responseCode = "404", description = "Not Found", content = @Content(mediaType = APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = Problem.class)))
+	})
+	@GetMapping(value = "/process-definitions/{id}", produces = APPLICATION_JSON_VALUE)
+	ResponseEntity<ProcessDefinitionResponse> getProcessDefinition(
+		@Parameter(name = "municipalityId", description = "Municipality id", example = "2281") @ValidMunicipalityId @PathVariable final String municipalityId,
+		@Parameter(name = "id", description = "Process definition id", example = "send-email-process:1:4") @PathVariable final String id) {
+
+		return ok(processService.getProcessDefinition(id));
+	}
+
+	@Operation(summary = "Get the BPMN XML for a specific process definition", responses = {
+		@ApiResponse(responseCode = "200", description = "Successful Operation"),
+		@ApiResponse(responseCode = "404", description = "Not Found", content = @Content(mediaType = APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = Problem.class)))
+	})
+	@GetMapping(value = "/process-definitions/{id}/xml", produces = APPLICATION_XML_VALUE)
+	ResponseEntity<byte[]> getProcessDefinitionXml(
+		@Parameter(name = "municipalityId", description = "Municipality id", example = "2281") @ValidMunicipalityId @PathVariable final String municipalityId,
+		@Parameter(name = "id", description = "Process definition id", example = "send-email-process:1:4") @PathVariable final String id) {
+
+		return ok(processService.getProcessModel(id));
 	}
 
 	@Operation(summary = "Start a new process instance by process definition key, optionally with variables", responses = {

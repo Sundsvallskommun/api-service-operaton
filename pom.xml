@@ -45,6 +45,16 @@
 			<artifactId>operaton-bpm-spring-boot-starter-webapp</artifactId>
 			<version>${operaton.spring-boot.version}</version>
 		</dependency>
+		<!-- Exposes /engine-rest/* with HTTP Basic auth (or anonymous when dept44's
+				permit-all SecurityFilterChain is in front). Needed for external
+				task clients (pw-e-signing etc.) to poll this engine over HTTP.
+				The webapp starter alone only mounts a session-cookie-auth API at
+				/operaton/api/engine/engine/* which is not usable by clients. -->
+		<dependency>
+			<groupId>org.operaton.bpm.springboot</groupId>
+			<artifactId>operaton-bpm-spring-boot-starter-rest</artifactId>
+			<version>${operaton.spring-boot.version}</version>
+		</dependency>
 		<dependency>
 			<groupId>com.sun.xml.bind</groupId>
 			<artifactId>jaxb-impl</artifactId>
