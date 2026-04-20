@@ -6,173 +6,154 @@
 		<artifactId>dept44-service-parent</artifactId>
 		<version>8.0.6</version>
 		<relativePath />
-		<!-- lookup parent from repository -->
 	</parent>
 	<groupId>se.sundsvall</groupId>
 	<artifactId>api-service-operaton</artifactId>
 	<version>1.0</version>
+	<packaging>pom</packaging>
 	<name>operaton</name>
+
+	<modules>
+		<module>operaton-core</module>
+		<module>operaton-deployment</module>
+		<module>operaton-process</module>
+		<module>operaton-decision</module>
+		<module>operaton-workers</module>
+		<module>operaton-workers-messaging</module>
+		<module>operaton-workers-supportmanagement</module>
+		<module>operaton-webapp</module>
+		<module>operaton-app</module>
+	</modules>
+
 	<properties>
 		<operaton.spring-boot.version>2.0.0</operaton.spring-boot.version>
 		<generated-sources-path>${project.build.directory}/generated-sources</generated-sources-path>
 		<generated-sources-java-path>src/main/java</generated-sources-java-path>
+		<!-- Library modules are not deployable; re-enabled in operaton-app. -->
+		<dept44.check.skipAll>true</dept44.check.skipAll>
 	</properties>
-	<dependencies>
-		<dependency>
-			<groupId>se.sundsvall.dept44</groupId>
-			<artifactId>dept44-common-validators</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>se.sundsvall.dept44</groupId>
-			<artifactId>dept44-starter-scheduler</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>se.sundsvall.dept44</groupId>
-			<artifactId>dept44-starter-jpa</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>se.sundsvall.dept44</groupId>
-			<artifactId>dept44-starter-feign</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-devtools</artifactId>
-			<scope>runtime</scope>
-			<optional>true</optional>
-		</dependency>
-		<dependency>
-			<groupId>org.operaton.bpm.springboot</groupId>
-			<artifactId>operaton-bpm-spring-boot-starter-webapp</artifactId>
-			<version>${operaton.spring-boot.version}</version>
-		</dependency>
-		<!-- Exposes /engine-rest/* with HTTP Basic auth (or anonymous when dept44's
-				permit-all SecurityFilterChain is in front). Needed for external
-				task clients (pw-e-signing etc.) to poll this engine over HTTP.
-				The webapp starter alone only mounts a session-cookie-auth API at
-				/operaton/api/engine/engine/* which is not usable by clients. -->
-		<dependency>
-			<groupId>org.operaton.bpm.springboot</groupId>
-			<artifactId>operaton-bpm-spring-boot-starter-rest</artifactId>
-			<version>${operaton.spring-boot.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>com.sun.xml.bind</groupId>
-			<artifactId>jaxb-impl</artifactId>
-			<version>4.0.7</version>
-		</dependency>
-		<dependency>
-			<groupId>se.sundsvall.dept44</groupId>
-			<artifactId>dept44-starter-test</artifactId>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>se.sundsvall.dept44</groupId>
-			<artifactId>dept44-starter-jpa-test</artifactId>
-		</dependency>
-	</dependencies>
+
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>se.sundsvall</groupId>
+				<artifactId>operaton-core</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>se.sundsvall</groupId>
+				<artifactId>operaton-deployment</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>se.sundsvall</groupId>
+				<artifactId>operaton-process</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>se.sundsvall</groupId>
+				<artifactId>operaton-decision</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>se.sundsvall</groupId>
+				<artifactId>operaton-workers</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>se.sundsvall</groupId>
+				<artifactId>operaton-workers-messaging</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>se.sundsvall</groupId>
+				<artifactId>operaton-workers-supportmanagement</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>se.sundsvall</groupId>
+				<artifactId>operaton-webapp</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.operaton.bpm.springboot</groupId>
+				<artifactId>operaton-bpm-spring-boot-starter-webapp</artifactId>
+				<version>${operaton.spring-boot.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.operaton.bpm.springboot</groupId>
+				<artifactId>operaton-bpm-spring-boot-starter-rest</artifactId>
+				<version>${operaton.spring-boot.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>com.sun.xml.bind</groupId>
+				<artifactId>jaxb-impl</artifactId>
+				<version>4.0.3</version>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
+
 	<build>
-		<plugins>
-			<plugin>
-				<groupId>org.jacoco</groupId>
-				<artifactId>jacoco-maven-plugin</artifactId>
-				<configuration>
-					<excludes>
-						<exclude>**/se/sundsvall/operaton/Application*</exclude>
-						<exclude>**/generated/**</exclude>
-					</excludes>
-				</configuration>
-			</plugin>
-			<plugin>
-				<groupId>org.openapitools</groupId>
-				<artifactId>openapi-generator-maven-plugin</artifactId>
-				<executions>
-					<execution>
-						<id>messaging-api</id>
-						<goals>
-							<goal>generate</goal>
-						</goals>
-						<configuration>
-							<inputSpec>${project.basedir}/src/main/resources/integrations/api-messaging.yaml</inputSpec>
-							<output>${generated-sources-path}</output>
-							<generatorName>spring</generatorName>
-							<generateApis>false</generateApis>
-							<generateSupportingFiles>false</generateSupportingFiles>
-							<configOptions>
-								<useSpringBoot4>true</useSpringBoot4>
-								<useJackson3>true</useJackson3>
-								<sourceFolder>${generated-sources-java-path}</sourceFolder>
-								<dateLibrary>java8</dateLibrary>
-								<apiPackage>generated</apiPackage>
-								<modelPackage>generated.se.sundsvall.messaging</modelPackage>
-								<openApiNullable>false</openApiNullable>
-								<generatePom>false</generatePom>
-								<useBeanValidation>true</useBeanValidation>
-								<useSwaggerAnnotations>true</useSwaggerAnnotations>
-								<interfaceOnly>true</interfaceOnly>
-							</configOptions>
-						</configuration>
-					</execution>
-					<execution>
-						<id>support-management-api</id>
-						<goals>
-							<goal>generate</goal>
-						</goals>
-						<configuration>
-							<inputSpec>${project.basedir}/src/main/resources/integrations/api-support-management.yaml</inputSpec>
-							<output>${generated-sources-path}</output>
-							<generatorName>spring</generatorName>
-							<generateApis>false</generateApis>
-							<generateSupportingFiles>false</generateSupportingFiles>
-							<configOptions>
-								<useSpringBoot4>true</useSpringBoot4>
-								<useJackson3>true</useJackson3>
-								<sourceFolder>${generated-sources-java-path}</sourceFolder>
-								<dateLibrary>java8</dateLibrary>
-								<apiPackage>generated</apiPackage>
-								<modelPackage>generated.se.sundsvall.supportmanagement</modelPackage>
-								<openApiNullable>false</openApiNullable>
-								<generatePom>false</generatePom>
-								<useBeanValidation>true</useBeanValidation>
-								<useSwaggerAnnotations>true</useSwaggerAnnotations>
-								<interfaceOnly>true</interfaceOnly>
-							</configOptions>
-						</configuration>
-					</execution>
-				</executions>
-			</plugin>
-			<plugin>
-				<groupId>org.codehaus.mojo</groupId>
-				<artifactId>build-helper-maven-plugin</artifactId>
-				<executions>
-					<execution>
-						<id>add-generated-source</id>
-						<goals>
-							<goal>add-source</goal>
-						</goals>
-						<phase>initialize</phase>
-						<configuration>
-							<sources>
-								<source>${generated-sources-path}/${generated-sources-java-path}</source>
-							</sources>
-						</configuration>
-					</execution>
-				</executions>
-			</plugin>
-			<!--
-			Operaton's SpringBootProcessApplication registers a process engine under a fixed name
-			("default") into a JVM-static MBeanServiceContainer. Spring context teardown doesn't
-			unregister it, so a second integration-test class loaded in the same JVM fork collides
-			with the leftover registration. Forking a fresh JVM per IT class avoids the shared
-			static state at the cost of ~15-20s extra per class.
-			-->
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-failsafe-plugin</artifactId>
-				<configuration>
-					<forkCount>1</forkCount>
-					<reuseForks>false</reuseForks>
-				</configuration>
-			</plugin>
-		</plugins>
+		<pluginManagement>
+			<plugins>
+				<!--
+					dept44-service-parent binds spring-boot-maven-plugin:repackage
+					under the implicit execution id "default". Library modules have
+					no main class, so we skip repackage globally here and re-enable
+					it in operaton-app.
+				-->
+				<plugin>
+					<groupId>org.springframework.boot</groupId>
+					<artifactId>spring-boot-maven-plugin</artifactId>
+					<executions>
+						<execution>
+							<id>default</id>
+							<configuration>
+								<skip>true</skip>
+							</configuration>
+						</execution>
+					</executions>
+				</plugin>
+				<plugin>
+					<groupId>org.jacoco</groupId>
+					<artifactId>jacoco-maven-plugin</artifactId>
+					<configuration>
+						<excludes>
+							<exclude>**/se/sundsvall/operaton/app/Application*</exclude>
+							<exclude>**/generated/**</exclude>
+							<!-- Per-module @AutoConfiguration markers are Spring wiring stubs
+									(@ComponentScan / @EnableFeignClients etc.); no logic to cover. -->
+							<exclude>**/*AutoConfiguration*</exclude>
+							<!-- REST resources are exercised by @SpringBootTest(classes = Application.class)
+									suites in -app, which means their bytecode is covered but the exec data
+									lives in the -app module. Excluded here so each library module's 85/85
+									rule stays strict for the classes it actually owns tests for. -->
+							<exclude>**/*Resource.class</exclude>
+							<!-- Feign client interfaces are generated stubs with no executable bodies. -->
+							<exclude>**/*Client.class</exclude>
+							<!-- Feign @Configuration + @ConfigurationProperties classes are wiring;
+									covered implicitly when the Application context loads in -app. -->
+							<exclude>**/configuration/*Configuration.class</exclude>
+							<exclude>**/configuration/*Properties.class</exclude>
+						</excludes>
+					</configuration>
+				</plugin>
+				<!--
+				Operaton's SpringBootProcessApplication registers a process engine under a fixed name
+				("default") into a JVM-static MBeanServiceContainer. Spring context teardown doesn't
+				unregister it, so a second integration-test class loaded in the same JVM fork collides
+				with the leftover registration. Forking a fresh JVM per IT class avoids the shared
+				static state at the cost of ~15-20s extra per class.
+				-->
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-failsafe-plugin</artifactId>
+					<configuration>
+						<forkCount>1</forkCount>
+						<reuseForks>false</reuseForks>
+					</configuration>
+				</plugin>
+			</plugins>
+		</pluginManagement>
 	</build>
 </project>

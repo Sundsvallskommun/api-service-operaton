@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>se.sundsvall</groupId>
+		<artifactId>api-service-operaton</artifactId>
+		<version>1.0</version>
+	</parent>
+	<artifactId>operaton-webapp</artifactId>
+	<!--
+		Optional module: pulls in the Operaton Cockpit / Tasklist / Admin
+		webapps at /operaton/*. Deployables that want a headless engine
+		(e.g. a slim central hub for architecture option C, or a remote-worker
+		container) simply omit this dependency. All operaton-bpm-starter-webapp
+		autoconfiguration remains untouched — this module just attaches it
+		to the reactor as an opt-in concern.
+	-->
+	<dependencies>
+		<dependency>
+			<groupId>se.sundsvall</groupId>
+			<artifactId>operaton-core</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.operaton.bpm.springboot</groupId>
+			<artifactId>operaton-bpm-spring-boot-starter-webapp</artifactId>
+		</dependency>
+	</dependencies>
+</project>
