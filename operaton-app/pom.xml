@@ -80,6 +80,13 @@
 						<id>default</id>
 						<configuration>
 							<skip>false</skip>
+							<!--
+								Paketo's Maven buildpack globs for target/*.[ejw]ar at the
+								reactor root. Write the repackaged fat jar there so the
+								image build finds it without requiring BP_MAVEN_BUILT_* env
+								overrides (project.toml is ignored by our pipeline).
+							-->
+							<outputDirectory>${project.parent.basedir}/target</outputDirectory>
 						</configuration>
 					</execution>
 				</executions>
