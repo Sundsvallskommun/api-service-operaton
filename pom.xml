@@ -159,10 +159,28 @@
 		</pluginManagement>
 		<plugins>
 			<!--
-				CI runs `clean verify clean`; the trailing clean deletes each module's
-				target/ before the next module resolves it from the reactor. Bind
-				install to verify so sibling jars land in the local repo cache and
-				survive the cleanup.
+				CI runs `clean verify clean` per module. Between verify of module N
+				and compile of module N+1, the trailing clean wipes N's target/ —
+				and Maven's reactor workspace-reader still hands dependents a
+				classpath entry pointing at that now-missing jar. javac silently
+				drops the missing entry and only fails later on "package does not
+				exist" for classes that lived in it.
+
+				CI clones fresh each run, so the leading clean is redundant and
+				the trailing clean is actively harmful. Skip clean-plugin entirely
+				so target/ survives the whole reactor.
+			-->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-clean-plugin</artifactId>
+				<configuration>
+					<skip>true</skip>
+				</configuration>
+			</plugin>
+			<!--
+				Defense-in-depth: also install each module's jar into the local
+				repo during verify, so dependents can resolve siblings even if
+				something else wipes target/.
 			-->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
