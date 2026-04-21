@@ -155,5 +155,26 @@
 				</plugin>
 			</plugins>
 		</pluginManagement>
+		<plugins>
+			<!--
+				CI runs `clean verify clean`; the trailing clean deletes each module's
+				target/ before the next module resolves it from the reactor. Bind
+				install to verify so sibling jars land in the local repo cache and
+				survive the cleanup.
+			-->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-install-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>install-at-verify</id>
+						<goals>
+							<goal>install</goal>
+						</goals>
+						<phase>verify</phase>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
 	</build>
 </project>
