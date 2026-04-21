@@ -11,6 +11,8 @@
 	<properties>
 		<!-- Re-enable dept44 build checks (OpenAPI properties, truststore) on the deployable module. -->
 		<dept44.check.skipAll>false</dept44.check.skipAll>
+		<!-- Re-enable spring-boot repackage on the deployable module. -->
+		<spring-boot.repackage.skip>false</spring-boot.repackage.skip>
 	</properties>
 
 	<dependencies>
