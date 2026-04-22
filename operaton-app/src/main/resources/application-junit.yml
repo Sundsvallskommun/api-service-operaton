@@ -18,6 +18,10 @@ integration:
     url: http://support-management.url
     connect-timeout: 5
     read-timeout: 30
+  care-management:
+    url: http://care-management.url
+    connect-timeout: 5
+    read-timeout: 30
 spring:
   security:
     oauth2:
@@ -27,12 +31,18 @@ spring:
             token-uri: http://localhost/token
           support-management:
             token-uri: http://localhost/token
+          care-management:
+            token-uri: http://localhost/token
         registration:
           messaging:
             authorization-grant-type: client_credentials
             client-id: the-client-id
             client-secret: the-client-secret
           support-management:
+            authorization-grant-type: client_credentials
+            client-id: the-client-id
+            client-secret: the-client-secret
+          care-management:
             authorization-grant-type: client_credentials
             client-id: the-client-id
             client-secret: the-client-secret

@@ -12,6 +12,10 @@
 		"name": "Create Errand"
 	},
 	{
+		"id": "se.sundsvall.operaton.UpdateErrand",
+		"name": "Update Errand"
+	},
+	{
 		"id": "se.sundsvall.operaton.LogMessage",
 		"name": "Log Message"
 	}

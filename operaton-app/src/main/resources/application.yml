@@ -23,6 +23,9 @@ spring:
           support-management:
             authorization-grant-type: client_credentials
             provider: support-management
+          care-management:
+            authorization-grant-type: client_credentials
+            provider: care-management
 operaton.bpm:
   admin-user:
     id: demo
@@ -33,6 +36,9 @@ integration:
     connect-timeout: 5
     read-timeout: 30
   support-management:
+    connect-timeout: 5
+    read-timeout: 30
+  care-management:
     connect-timeout: 5
     read-timeout: 30
 scheduler:
