@@ -46,6 +46,10 @@
 		</dependency>
 		<dependency>
 			<groupId>se.sundsvall</groupId>
+			<artifactId>operaton-workers-caremanagement</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>se.sundsvall</groupId>
 			<artifactId>operaton-webapp</artifactId>
 		</dependency>
 		<dependency>

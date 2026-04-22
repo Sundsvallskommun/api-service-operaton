@@ -1,0 +1,2478 @@
+openapi: 3.1.0
+info:
+  title: care-management
+  contact: { }
+  license:
+    name: MIT License
+    url: https://opensource.org/licenses/MIT
+  version: "1.0"
+servers:
+  - url: http://localhost:52282
+    description: Generated server url
+tags:
+  - name: Errand parameters
+    description: Errand parameter operations
+  - name: Errand stakeholders
+    description: Errand stakeholder operations
+  - name: Stakeholder parameters
+    description: Stakeholder parameter operations
+  - name: Metadata
+    description: Metadata (lookup) operations
+  - name: Namespace config
+    description: Namespace configuration operations
+  - name: Errands
+    description: Errand operations
+  - name: Errand attachments
+    description: Errand attachment operations
+paths:
+  /{municipalityId}/{namespace}/namespace-config:
+    get:
+      tags:
+        - Namespace config
+      summary: Read namespace config
+      operationId: readNamespaceConfig
+      parameters:
+        - name: municipalityId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: 2281
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "[\\w|\\-]+"
+          example: MY_NAMESPACE
+      responses:
+        "200":
+          description: Successful Operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NamespaceConfig"
+        "404":
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "400":
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Problem"
+                  - $ref: "#/components/schemas/ConstraintViolationProblem"
+        "500":
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+    post:
+      tags:
+        - Namespace config
+      summary: Create namespace config
+      operationId: createNamespaceConfig
+      parameters:
+        - name: municipalityId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: 2281
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "[\\w|\\-]+"
+          example: MY_NAMESPACE
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NamespaceConfig"
+        required: true
+      responses:
+        "201":
+          description: Successful operation
+          headers:
+            Location:
+              style: simple
+              schema:
+                type: string
+        "400":
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Problem"
+                  - $ref: "#/components/schemas/ConstraintViolationProblem"
+        "500":
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+    delete:
+      tags:
+        - Namespace config
+      summary: Delete namespace config
+      operationId: deleteNamespaceConfig
+      parameters:
+        - name: municipalityId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: 2281
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "[\\w|\\-]+"
+          example: MY_NAMESPACE
+      responses:
+        "204":
+          description: Successful operation
+        "404":
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "400":
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Problem"
+                  - $ref: "#/components/schemas/ConstraintViolationProblem"
+        "500":
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+    patch:
+      tags:
+        - Namespace config
+      summary: Update namespace config
+      operationId: updateNamespaceConfig
+      parameters:
+        - name: municipalityId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: 2281
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "[\\w|\\-]+"
+          example: MY_NAMESPACE
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NamespaceConfig"
+        required: true
+      responses:
+        "204":
+          description: Successful operation
+        "404":
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "400":
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Problem"
+                  - $ref: "#/components/schemas/ConstraintViolationProblem"
+        "500":
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /{municipalityId}/{namespace}/metadata:
+    get:
+      tags:
+        - Metadata
+      summary: List lookups
+      operationId: readLookups
+      parameters:
+        - name: municipalityId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "[\\w|\\-]+"
+        - name: kind
+          in: query
+          description: Lookup kind
+          required: true
+          schema:
+            type: string
+            enum:
+              - CATEGORY
+              - STATUS
+              - TYPE
+              - ROLE
+              - CONTACT_REASON
+      responses:
+        "200":
+          description: Successful Operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Lookup"
+        "400":
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Problem"
+                  - $ref: "#/components/schemas/ConstraintViolationProblem"
+        "500":
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+    post:
+      tags:
+        - Metadata
+      summary: Create lookup
+      operationId: createLookup
+      parameters:
+        - name: municipalityId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "[\\w|\\-]+"
+        - name: kind
+          in: query
+          description: Lookup kind
+          required: true
+          schema:
+            type: string
+            enum:
+              - CATEGORY
+              - STATUS
+              - TYPE
+              - ROLE
+              - CONTACT_REASON
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Lookup"
+        required: true
+      responses:
+        "201":
+          description: Successful operation
+          headers:
+            Location:
+              style: simple
+              schema:
+                type: string
+        "400":
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Problem"
+                  - $ref: "#/components/schemas/ConstraintViolationProblem"
+        "500":
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /{municipalityId}/{namespace}/errands:
+    get:
+      tags:
+        - Errands
+      summary: Find errands
+      description: Query for errands with optional spring-filter expression
+      operationId: findErrands
+      parameters:
+        - name: municipalityId
+          in: path
+          description: Municipality id
+          required: true
+          schema:
+            type: string
+          example: 2281
+        - name: namespace
+          in: path
+          description: Namespace
+          required: true
+          schema:
+            type: string
+            pattern: "[\\w|\\-]+"
+          example: MY_NAMESPACE
+        - name: filter
+          in: query
+          description: "Syntax description: [spring-filter](https://github.com/turkraft/spring-filter/blob/85730f950a5f8623159cc0eb4d737555f9382bb7/README.md#syntax)"
+          required: false
+          schema:
+            type: string
+          example: status:'NEW' and created>'2024-01-01T00:00:00.000+01:00'
+        - name: page
+          in: query
+          description: Zero-based page index (0..N)
+          required: false
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: size
+          in: query
+          description: The size of the page to be returned
+          required: false
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+        - name: sort
+          in: query
+          description: "Sorting criteria in the format: property,(asc|desc). Default\
+          \ sort order is ascending. Multiple sort criteria are supported."
+          required: false
+          schema:
+            type: array
+            default:
+              - "touched,DESC"
+            items:
+              type: string
+      responses:
+        "200":
+          description: Successful Operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FindErrandsResponse"
+        "400":
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Problem"
+                  - $ref: "#/components/schemas/ConstraintViolationProblem"
+        "500":
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+    post:
+      tags:
+        - Errands
+      summary: Create errand
+      description: Creates a new errand
+      operationId: createErrand
+      parameters:
+        - name: municipalityId
+          in: path
+          description: Municipality id
+          required: true
+          schema:
+            type: string
+          example: 2281
+        - name: namespace
+          in: path
+          description: Namespace
+          required: true
+          schema:
+            type: string
+            pattern: "[\\w|\\-]+"
+          example: MY_NAMESPACE
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Errand"
+        required: true
+      responses:
+        "201":
+          description: Successful operation
+          headers:
+            Location:
+              style: simple
+              schema:
+                type: string
+        "400":
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Problem"
+                  - $ref: "#/components/schemas/ConstraintViolationProblem"
+        "500":
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /{municipalityId}/{namespace}/errands/{errandId}/stakeholders:
+    get:
+      tags:
+        - Errand stakeholders
+      summary: List stakeholders
+      operationId: readStakeholders
+      parameters:
+        - name: municipalityId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: 2281
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "[\\w|\\-]+"
+          example: MY_NAMESPACE
+        - name: errandId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Successful Operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Stakeholder"
+        "400":
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Problem"
+                  - $ref: "#/components/schemas/ConstraintViolationProblem"
+        "500":
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+    post:
+      tags:
+        - Errand stakeholders
+      summary: Create stakeholder
+      description: Creates a new stakeholder on the errand
+      operationId: createStakeholder
+      parameters:
+        - name: municipalityId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: 2281
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "[\\w|\\-]+"
+          example: MY_NAMESPACE
+        - name: errandId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Stakeholder"
+        required: true
+      responses:
+        "201":
+          description: Successful operation
+          headers:
+            Location:
+              style: simple
+              schema:
+                type: string
+        "400":
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Problem"
+                  - $ref: "#/components/schemas/ConstraintViolationProblem"
+        "500":
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /{municipalityId}/{namespace}/errands/{errandId}/stakeholders/{stakeholderId}/parameters:
+    get:
+      tags:
+        - Stakeholder parameters
+      summary: List stakeholder parameters
+      operationId: readParameters
+      parameters:
+        - name: municipalityId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: 2281
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "[\\w|\\-]+"
+          example: MY_NAMESPACE
+        - name: errandId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: stakeholderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Successful Operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StakeholderParameter"
+        "400":
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Problem"
+                  - $ref: "#/components/schemas/ConstraintViolationProblem"
+        "500":
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+    post:
+      tags:
+        - Stakeholder parameters
+      summary: Create stakeholder parameter
+      operationId: createParameter
+      parameters:
+        - name: municipalityId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: 2281
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "[\\w|\\-]+"
+          example: MY_NAMESPACE
+        - name: errandId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: stakeholderId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StakeholderParameter"
+        required: true
+      responses:
+        "201":
+          description: Successful operation
+          headers:
+            Location:
+              style: simple
+              schema:
+                type: string
+        "400":
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Problem"
+                  - $ref: "#/components/schemas/ConstraintViolationProblem"
+        "500":
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /{municipalityId}/{namespace}/errands/{errandId}/parameters:
+    get:
+      tags:
+        - Errand parameters
+      summary: List parameters
+      operationId: readParameters_1
+      parameters:
+        - name: municipalityId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: 2281
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "[\\w|\\-]+"
+          example: MY_NAMESPACE
+        - name: errandId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Successful Operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Parameter"
+        "400":
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Problem"
+                  - $ref: "#/components/schemas/ConstraintViolationProblem"
+        "500":
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+    post:
+      tags:
+        - Errand parameters
+      summary: Create parameter
+      operationId: createParameter_1
+      parameters:
+        - name: municipalityId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: 2281
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "[\\w|\\-]+"
+          example: MY_NAMESPACE
+        - name: errandId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Parameter"
+        required: true
+      responses:
+        "201":
+          description: Successful operation
+          headers:
+            Location:
+              style: simple
+              schema:
+                type: string
+        "400":
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Problem"
+                  - $ref: "#/components/schemas/ConstraintViolationProblem"
+        "500":
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /{municipalityId}/{namespace}/errands/{errandId}/attachments:
+    get:
+      tags:
+        - Errand attachments
+      summary: List attachments
+      description: Fetches all attachment metadata for the errand
+      operationId: readAttachments
+      parameters:
+        - name: municipalityId
+          in: path
+          description: Municipality id
+          required: true
+          schema:
+            type: string
+          example: 2281
+        - name: namespace
+          in: path
+          description: Namespace
+          required: true
+          schema:
+            type: string
+            pattern: "[\\w|\\-]+"
+          example: MY_NAMESPACE
+        - name: errandId
+          in: path
+          description: Errand id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Successful Operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Attachment"
+        "400":
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Problem"
+                  - $ref: "#/components/schemas/ConstraintViolationProblem"
+        "500":
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+    post:
+      tags:
+        - Errand attachments
+      summary: Create attachment
+      description: Uploads a new attachment for the errand
+      operationId: createAttachment
+      parameters:
+        - name: municipalityId
+          in: path
+          description: Municipality id
+          required: true
+          schema:
+            type: string
+          example: 2281
+        - name: namespace
+          in: path
+          description: Namespace
+          required: true
+          schema:
+            type: string
+            pattern: "[\\w|\\-]+"
+          example: MY_NAMESPACE
+        - name: errandId
+          in: path
+          description: Errand id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+              required:
+                - file
+        required: true
+      responses:
+        "201":
+          description: Successful operation
+          headers:
+            Location:
+              style: simple
+              schema:
+                type: string
+        "400":
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Problem"
+                  - $ref: "#/components/schemas/ConstraintViolationProblem"
+        "500":
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /{municipalityId}/{namespace}/metadata/{name}:
+    get:
+      tags:
+        - Metadata
+      summary: Read lookup
+      operationId: readLookup
+      parameters:
+        - name: municipalityId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "[\\w|\\-]+"
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+        - name: kind
+          in: query
+          description: Lookup kind
+          required: true
+          schema:
+            type: string
+            enum:
+              - CATEGORY
+              - STATUS
+              - TYPE
+              - ROLE
+              - CONTACT_REASON
+      responses:
+        "200":
+          description: Successful Operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lookup"
+        "404":
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "400":
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Problem"
+                  - $ref: "#/components/schemas/ConstraintViolationProblem"
+        "500":
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+    delete:
+      tags:
+        - Metadata
+      summary: Delete lookup
+      operationId: deleteLookup
+      parameters:
+        - name: municipalityId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "[\\w|\\-]+"
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+        - name: kind
+          in: query
+          description: Lookup kind
+          required: true
+          schema:
+            type: string
+            enum:
+              - CATEGORY
+              - STATUS
+              - TYPE
+              - ROLE
+              - CONTACT_REASON
+      responses:
+        "204":
+          description: Successful operation
+        "404":
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "400":
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Problem"
+                  - $ref: "#/components/schemas/ConstraintViolationProblem"
+        "500":
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+    patch:
+      tags:
+        - Metadata
+      summary: Update lookup
+      operationId: updateLookup
+      parameters:
+        - name: municipalityId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "[\\w|\\-]+"
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+        - name: kind
+          in: query
+          description: Lookup kind
+          required: true
+          schema:
+            type: string
+            enum:
+              - CATEGORY
+              - STATUS
+              - TYPE
+              - ROLE
+              - CONTACT_REASON
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Lookup"
+        required: true
+      responses:
+        "204":
+          description: Successful operation
+        "404":
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "400":
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Problem"
+                  - $ref: "#/components/schemas/ConstraintViolationProblem"
+        "500":
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /{municipalityId}/{namespace}/errands/{errandId}:
+    get:
+      tags:
+        - Errands
+      summary: Read errand
+      description: Fetches the errand that matches the provided id
+      operationId: readErrand
+      parameters:
+        - name: municipalityId
+          in: path
+          description: Municipality id
+          required: true
+          schema:
+            type: string
+          example: 2281
+        - name: namespace
+          in: path
+          description: Namespace
+          required: true
+          schema:
+            type: string
+            pattern: "[\\w|\\-]+"
+          example: MY_NAMESPACE
+        - name: errandId
+          in: path
+          description: Errand id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Successful Operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Errand"
+        "404":
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "400":
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Problem"
+                  - $ref: "#/components/schemas/ConstraintViolationProblem"
+        "500":
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+    delete:
+      tags:
+        - Errands
+      summary: Delete errand
+      description: Deletes the errand
+      operationId: deleteErrand
+      parameters:
+        - name: municipalityId
+          in: path
+          description: Municipality id
+          required: true
+          schema:
+            type: string
+          example: 2281
+        - name: namespace
+          in: path
+          description: Namespace
+          required: true
+          schema:
+            type: string
+            pattern: "[\\w|\\-]+"
+          example: MY_NAMESPACE
+        - name: errandId
+          in: path
+          description: Errand id
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Successful operation
+        "404":
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "400":
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Problem"
+                  - $ref: "#/components/schemas/ConstraintViolationProblem"
+        "500":
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+    patch:
+      tags:
+        - Errands
+      summary: Update errand
+      description: Patches the errand with the supplied attributes
+      operationId: updateErrand
+      parameters:
+        - name: municipalityId
+          in: path
+          description: Municipality id
+          required: true
+          schema:
+            type: string
+          example: 2281
+        - name: namespace
+          in: path
+          description: Namespace
+          required: true
+          schema:
+            type: string
+            pattern: "[\\w|\\-]+"
+          example: MY_NAMESPACE
+        - name: errandId
+          in: path
+          description: Errand id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchErrand"
+        required: true
+      responses:
+        "204":
+          description: Successful operation
+        "404":
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "400":
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Problem"
+                  - $ref: "#/components/schemas/ConstraintViolationProblem"
+        "500":
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /{municipalityId}/{namespace}/errands/{errandId}/stakeholders/{stakeholderId}:
+    get:
+      tags:
+        - Errand stakeholders
+      summary: Read stakeholder
+      operationId: readStakeholder
+      parameters:
+        - name: municipalityId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: 2281
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "[\\w|\\-]+"
+          example: MY_NAMESPACE
+        - name: errandId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: stakeholderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Successful Operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Stakeholder"
+        "404":
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "400":
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Problem"
+                  - $ref: "#/components/schemas/ConstraintViolationProblem"
+        "500":
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+    delete:
+      tags:
+        - Errand stakeholders
+      summary: Delete stakeholder
+      operationId: deleteStakeholder
+      parameters:
+        - name: municipalityId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: 2281
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "[\\w|\\-]+"
+          example: MY_NAMESPACE
+        - name: errandId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: stakeholderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Successful operation
+        "404":
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "400":
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Problem"
+                  - $ref: "#/components/schemas/ConstraintViolationProblem"
+        "500":
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+    patch:
+      tags:
+        - Errand stakeholders
+      summary: Update stakeholder
+      operationId: updateStakeholder
+      parameters:
+        - name: municipalityId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: 2281
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "[\\w|\\-]+"
+          example: MY_NAMESPACE
+        - name: errandId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: stakeholderId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Stakeholder"
+        required: true
+      responses:
+        "204":
+          description: Successful operation
+        "404":
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "400":
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Problem"
+                  - $ref: "#/components/schemas/ConstraintViolationProblem"
+        "500":
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /{municipalityId}/{namespace}/errands/{errandId}/stakeholders/{stakeholderId}/parameters/{parameterId}:
+    get:
+      tags:
+        - Stakeholder parameters
+      summary: Read stakeholder parameter
+      operationId: readParameter
+      parameters:
+        - name: municipalityId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: 2281
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "[\\w|\\-]+"
+          example: MY_NAMESPACE
+        - name: errandId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: stakeholderId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: parameterId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Successful Operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StakeholderParameter"
+        "404":
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "400":
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Problem"
+                  - $ref: "#/components/schemas/ConstraintViolationProblem"
+        "500":
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+    delete:
+      tags:
+        - Stakeholder parameters
+      summary: Delete stakeholder parameter
+      operationId: deleteParameter
+      parameters:
+        - name: municipalityId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: 2281
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "[\\w|\\-]+"
+          example: MY_NAMESPACE
+        - name: errandId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: stakeholderId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: parameterId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "204":
+          description: Successful operation
+        "404":
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "400":
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Problem"
+                  - $ref: "#/components/schemas/ConstraintViolationProblem"
+        "500":
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+    patch:
+      tags:
+        - Stakeholder parameters
+      summary: Update stakeholder parameter
+      operationId: updateParameter
+      parameters:
+        - name: municipalityId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: 2281
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "[\\w|\\-]+"
+          example: MY_NAMESPACE
+        - name: errandId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: stakeholderId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: parameterId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StakeholderParameter"
+        required: true
+      responses:
+        "204":
+          description: Successful operation
+        "404":
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "400":
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Problem"
+                  - $ref: "#/components/schemas/ConstraintViolationProblem"
+        "500":
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /{municipalityId}/{namespace}/errands/{errandId}/parameters/{parameterId}:
+    get:
+      tags:
+        - Errand parameters
+      summary: Read parameter
+      operationId: readParameter_1
+      parameters:
+        - name: municipalityId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: 2281
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "[\\w|\\-]+"
+          example: MY_NAMESPACE
+        - name: errandId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: parameterId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Successful Operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Parameter"
+        "404":
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "400":
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Problem"
+                  - $ref: "#/components/schemas/ConstraintViolationProblem"
+        "500":
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+    delete:
+      tags:
+        - Errand parameters
+      summary: Delete parameter
+      operationId: deleteParameter_1
+      parameters:
+        - name: municipalityId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: 2281
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "[\\w|\\-]+"
+          example: MY_NAMESPACE
+        - name: errandId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: parameterId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Successful operation
+        "404":
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "400":
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Problem"
+                  - $ref: "#/components/schemas/ConstraintViolationProblem"
+        "500":
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+    patch:
+      tags:
+        - Errand parameters
+      summary: Update parameter
+      operationId: updateParameter_1
+      parameters:
+        - name: municipalityId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: 2281
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "[\\w|\\-]+"
+          example: MY_NAMESPACE
+        - name: errandId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: parameterId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Parameter"
+        required: true
+      responses:
+        "204":
+          description: Successful operation
+        "404":
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "400":
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Problem"
+                  - $ref: "#/components/schemas/ConstraintViolationProblem"
+        "500":
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /{municipalityId}/{namespace}/errands/{errandId}/attachments/{attachmentId}:
+    get:
+      tags:
+        - Errand attachments
+      summary: Read attachment metadata
+      description: Fetches the attachment metadata
+      operationId: readAttachment
+      parameters:
+        - name: municipalityId
+          in: path
+          description: Municipality id
+          required: true
+          schema:
+            type: string
+          example: 2281
+        - name: namespace
+          in: path
+          description: Namespace
+          required: true
+          schema:
+            type: string
+            pattern: "[\\w|\\-]+"
+          example: MY_NAMESPACE
+        - name: errandId
+          in: path
+          description: Errand id
+          required: true
+          schema:
+            type: string
+        - name: attachmentId
+          in: path
+          description: Attachment id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Successful Operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Attachment"
+        "404":
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "400":
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Problem"
+                  - $ref: "#/components/schemas/ConstraintViolationProblem"
+        "500":
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+    delete:
+      tags:
+        - Errand attachments
+      summary: Delete attachment
+      description: Deletes the attachment
+      operationId: deleteAttachment
+      parameters:
+        - name: municipalityId
+          in: path
+          description: Municipality id
+          required: true
+          schema:
+            type: string
+          example: 2281
+        - name: namespace
+          in: path
+          description: Namespace
+          required: true
+          schema:
+            type: string
+            pattern: "[\\w|\\-]+"
+          example: MY_NAMESPACE
+        - name: errandId
+          in: path
+          description: Errand id
+          required: true
+          schema:
+            type: string
+        - name: attachmentId
+          in: path
+          description: Attachment id
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Successful operation
+        "404":
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "400":
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Problem"
+                  - $ref: "#/components/schemas/ConstraintViolationProblem"
+        "500":
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /{municipalityId}/{namespace}/errands/{errandId}/attachments/{attachmentId}/file:
+    get:
+      tags:
+        - Errand attachments
+      summary: Download attachment file
+      description: Streams the attachment file content
+      operationId: streamAttachmentFile
+      parameters:
+        - name: municipalityId
+          in: path
+          description: Municipality id
+          required: true
+          schema:
+            type: string
+          example: 2281
+        - name: namespace
+          in: path
+          description: Namespace
+          required: true
+          schema:
+            type: string
+            pattern: "[\\w|\\-]+"
+          example: MY_NAMESPACE
+        - name: errandId
+          in: path
+          description: Errand id
+          required: true
+          schema:
+            type: string
+        - name: attachmentId
+          in: path
+          description: Attachment id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Successful Operation
+        "404":
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "400":
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Problem"
+                  - $ref: "#/components/schemas/ConstraintViolationProblem"
+        "500":
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /api-docs:
+    get:
+      tags:
+        - API
+      summary: OpenAPI
+      operationId: getApiDocs
+      responses:
+        "200":
+          description: OK
+          content:
+            application/yaml:
+              schema:
+                type: string
+      x-auth-type: None
+      x-throttling-tier: Unlimited
+      x-wso2-mutual-ssl: Optional
+components:
+  schemas:
+    NamespaceConfig:
+      type: object
+      description: NamespaceConfig model
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Unique identifier
+          examples:
+            - "1"
+          readOnly: true
+        displayName:
+          type: string
+          description: Display name of the namespace
+          examples:
+            - My namespace
+        shortCode:
+          type: string
+          description: Short code for the namespace
+          examples:
+            - MY
+        created:
+          type: string
+          format: date-time
+          description: Created timestamp
+          readOnly: true
+        modified:
+          type: string
+          format: date-time
+          description: Modified timestamp
+          readOnly: true
+    Problem:
+      type: object
+      properties:
+        title:
+          type: string
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri
+        type:
+          type: string
+          format: uri
+        status:
+          type: integer
+          format: int32
+    ConstraintViolationProblem:
+      type: object
+      properties:
+        type:
+          type: string
+          format: uri
+        status:
+          type: integer
+          format: int32
+        violations:
+          type: array
+          items:
+            $ref: "#/components/schemas/Violation"
+        title:
+          type: string
+        causeAsProblem:
+          $ref: "#/components/schemas/ThrowableProblem"
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri
+    ThrowableProblem:
+      type: object
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+          format: int32
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri
+        causeAsProblem: { }
+    Violation:
+      type: object
+      properties:
+        field:
+          type: string
+        message:
+          type: string
+    Lookup:
+      type: object
+      description: "Lookup model - metadata entry (category, status, type, role, contact\
+        \ reason)"
+      properties:
+        name:
+          type: string
+          description: Name (machine-friendly key) of the lookup
+          examples:
+            - NEW
+        displayName:
+          type: string
+          description: Display name
+          examples:
+            - New case
+        created:
+          type: string
+          format: date-time
+          description: Created timestamp
+          readOnly: true
+        modified:
+          type: string
+          format: date-time
+          description: Modified timestamp
+          readOnly: true
+    ContactChannel:
+      type: object
+      description: ContactChannel model
+      properties:
+        key:
+          type: string
+          description: The key of the contact channel
+          examples:
+            - Email
+        value:
+          type: string
+          description: The value of the contact channel
+          examples:
+            - joe.doe@example.com
+    Errand:
+      type: object
+      description: Errand model
+      properties:
+        id:
+          type: string
+          description: Unique identifier of the errand
+          examples:
+            - cb20c51f-fcf3-42c0-b613-de563634a8ec
+          readOnly: true
+        municipalityId:
+          type: string
+          description: Municipality id
+          examples:
+            - "2281"
+          readOnly: true
+        namespace:
+          type: string
+          description: Namespace
+          examples:
+            - MY_NAMESPACE
+          readOnly: true
+        title:
+          type: string
+          description: Title for the errand
+          examples:
+            - Title of the errand
+        category:
+          type: string
+          description: Category for the errand
+          examples:
+            - CATEGORY-1
+        type:
+          type: string
+          description: Type for the errand
+          examples:
+            - TYPE-1
+        status:
+          type: string
+          description: Status of the errand
+          examples:
+            - NEW
+        description:
+          type: string
+          description: Description of the errand
+          examples:
+            - Long description text
+        priority:
+          type: string
+          description: Priority of the errand
+          examples:
+            - HIGH
+        reporterUserId:
+          type: string
+          description: User id of the reporter
+          examples:
+            - joe01doe
+        assignedUserId:
+          type: string
+          description: User id of the assignee
+          examples:
+            - jane02doe
+        contactReason:
+          type: string
+          description: Contact reason (name of a CONTACT_REASON lookup)
+          examples:
+            - PHONE
+        contactReasonDescription:
+          type: string
+          description: Contact reason description
+          examples:
+            - The reporter called in
+        externalTags:
+          type: array
+          description: External tags associated with the errand
+          items:
+            $ref: "#/components/schemas/ExternalTag"
+        stakeholders:
+          type: array
+          description: Stakeholders associated with the errand
+          items:
+            $ref: "#/components/schemas/Stakeholder"
+        parameters:
+          type: array
+          description: Parameters for the errand
+          items:
+            $ref: "#/components/schemas/Parameter"
+        created:
+          type: string
+          format: date-time
+          description: Created timestamp
+          readOnly: true
+        modified:
+          type: string
+          format: date-time
+          description: Modified timestamp
+          readOnly: true
+        touched:
+          type: string
+          format: date-time
+          description: Touched timestamp
+          readOnly: true
+    ExternalTag:
+      type: object
+      description: ExternalTag model
+      properties:
+        key:
+          type: string
+          description: The key of the external tag
+          examples:
+            - caseId
+        value:
+          type: string
+          description: The value of the external tag
+          examples:
+            - "12345"
+    Parameter:
+      type: object
+      description: Parameter model
+      properties:
+        id:
+          type: string
+          description: Unique identifier
+          examples:
+            - cb20c51f-fcf3-42c0-b613-de563634a8ec
+          readOnly: true
+        displayName:
+          type: string
+          description: Display name of the parameter
+          examples:
+            - Priority level
+        parameterGroup:
+          type: string
+          description: Grouping for the parameter
+          examples:
+            - contact
+        key:
+          type: string
+          description: Key of the parameter
+          examples:
+            - priorityLevel
+        values:
+          type: array
+          description: Values of the parameter
+          items:
+            type: string
+    Stakeholder:
+      type: object
+      description: Stakeholder model
+      properties:
+        id:
+          type: string
+          description: Unique identifier
+          examples:
+            - cb20c51f-fcf3-42c0-b613-de563634a8ec
+          readOnly: true
+        externalId:
+          type: string
+          description: External id for the stakeholder
+          examples:
+            - 81471222-5798-11e9-ae24-57fa13b361e1
+        externalIdType:
+          type: string
+          description: Type of external id
+          examples:
+            - PRIVATE
+        role:
+          type: string
+          description: Role of the stakeholder
+          examples:
+            - APPLICANT
+        firstName:
+          type: string
+          description: First name
+          examples:
+            - Joe
+        lastName:
+          type: string
+          description: Last name
+          examples:
+            - Doe
+        organizationName:
+          type: string
+          description: Organization name
+          examples:
+            - Sundsvalls kommun
+        address:
+          type: string
+          description: Address
+          examples:
+            - Storgatan 1
+        careOf:
+          type: string
+          description: Care of
+          examples:
+            - c/o Doe
+        zipCode:
+          type: string
+          description: Zip code
+          examples:
+            - "85248"
+        city:
+          type: string
+          description: City
+          examples:
+            - Sundsvall
+        country:
+          type: string
+          description: Country
+          examples:
+            - Sweden
+        contactChannels:
+          type: array
+          description: Contact channels for the stakeholder
+          items:
+            $ref: "#/components/schemas/ContactChannel"
+        parameters:
+          type: array
+          description: Parameters for the stakeholder
+          items:
+            $ref: "#/components/schemas/StakeholderParameter"
+    StakeholderParameter:
+      type: object
+      description: StakeholderParameter model
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Unique identifier
+          examples:
+            - "42"
+          readOnly: true
+        displayName:
+          type: string
+          description: Display name of the parameter
+          examples:
+            - Phone number
+        key:
+          type: string
+          description: Key of the parameter
+          examples:
+            - phoneNumber
+        values:
+          type: array
+          description: Values of the parameter
+          items:
+            type: string
+    PatchErrand:
+      type: object
+      description: PatchErrand model - only patchable fields
+      properties:
+        title:
+          type: string
+          description: Title for the errand
+          examples:
+            - Title of the errand
+        category:
+          type: string
+          description: Category for the errand
+          examples:
+            - CATEGORY-1
+        type:
+          type: string
+          description: Type for the errand
+          examples:
+            - TYPE-1
+        status:
+          type: string
+          description: Status of the errand
+          examples:
+            - NEW
+        description:
+          type: string
+          description: Description of the errand
+        priority:
+          type: string
+          description: Priority of the errand
+          examples:
+            - HIGH
+        reporterUserId:
+          type: string
+          description: User id of the reporter
+          examples:
+            - joe01doe
+        assignedUserId:
+          type: string
+          description: User id of the assignee
+          examples:
+            - jane02doe
+        contactReason:
+          type: string
+          description: Contact reason (name of a CONTACT_REASON lookup)
+          examples:
+            - PHONE
+        contactReasonDescription:
+          type: string
+          description: Contact reason description
+        externalTags:
+          type: array
+          description: External tags associated with the errand
+          items:
+            $ref: "#/components/schemas/ExternalTag"
+    Direction:
+      type: string
+      enum:
+        - ASC
+        - DESC
+    FindErrandsResponse:
+      type: object
+      description: Paged errand response
+      properties:
+        errands:
+          type: array
+          items:
+            $ref: "#/components/schemas/Errand"
+            readOnly: true
+        _meta:
+          $ref: "#/components/schemas/PagingAndSortingMetaData"
+          readOnly: true
+    PagingAndSortingMetaData:
+      type: object
+      description: PagingAndSortingMetaData model
+      properties:
+        page:
+          type: integer
+          format: int32
+          description: Current page
+          examples:
+            - "5"
+          readOnly: true
+        limit:
+          type: integer
+          format: int32
+          description: Displayed objects per page
+          examples:
+            - "20"
+          readOnly: true
+        count:
+          type: integer
+          format: int32
+          description: Displayed objects on current page
+          examples:
+            - "13"
+          readOnly: true
+        totalRecords:
+          type: integer
+          format: int64
+          description: Total amount of hits based on provided search parameters
+          examples:
+            - "98"
+          readOnly: true
+        totalPages:
+          type: integer
+          format: int32
+          description: Total amount of pages based on provided search parameters
+          examples:
+            - "23"
+          readOnly: true
+        sortBy:
+          type: array
+          items:
+            type: string
+            description: The properties to sort by
+            examples:
+              - property
+            readOnly: true
+        sortDirection:
+          $ref: "#/components/schemas/Direction"
+          description: The sort order direction
+          examples:
+            - ASC
+    Attachment:
+      type: object
+      description: Attachment model
+      properties:
+        id:
+          type: string
+          description: Unique identifier
+          examples:
+            - cb20c51f-fcf3-42c0-b613-de563634a8ec
+          readOnly: true
+        fileName:
+          type: string
+          description: File name
+          examples:
+            - my-file.pdf
+        mimeType:
+          type: string
+          description: Mime type
+          examples:
+            - application/pdf
+        fileSize:
+          type: integer
+          format: int32
+          description: File size in bytes
+          examples:
+            - "1024"
+          readOnly: true
+        created:
+          type: string
+          format: date-time
+          description: Created timestamp
+          readOnly: true
+        modified:
+          type: string
+          format: date-time
+          description: Modified timestamp
+          readOnly: true
+  securitySchemes: { }

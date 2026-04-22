@@ -23,6 +23,7 @@
 		<module>operaton-workers-supportmanagement</module>
 		<module>operaton-webapp</module>
 		<module>operaton-app</module>
+		<module>operaton-workers-caremanagement</module>
 	</modules>
 
 	<properties>
@@ -70,6 +71,11 @@
 			<dependency>
 				<groupId>se.sundsvall</groupId>
 				<artifactId>operaton-workers-supportmanagement</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>se.sundsvall</groupId>
+				<artifactId>operaton-workers-caremanagement</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 			<dependency>
