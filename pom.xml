@@ -12,20 +12,18 @@
 	<version>1.0</version>
 	<packaging>pom</packaging>
 	<name>operaton</name>
-
 	<modules>
+		<module>operaton-app</module>
 		<module>operaton-core</module>
+		<module>operaton-decision</module>
 		<module>operaton-deployment</module>
 		<module>operaton-process</module>
-		<module>operaton-decision</module>
+		<module>operaton-webapp</module>
 		<module>operaton-workers</module>
+		<module>operaton-workers-caremanagement</module>
 		<module>operaton-workers-messaging</module>
 		<module>operaton-workers-supportmanagement</module>
-		<module>operaton-webapp</module>
-		<module>operaton-app</module>
-		<module>operaton-workers-caremanagement</module>
 	</modules>
-
 	<properties>
 		<operaton.spring-boot.version>2.0.0</operaton.spring-boot.version>
 		<generated-sources-path>${project.build.directory}/generated-sources</generated-sources-path>
@@ -35,7 +33,6 @@
 		<!-- Library modules have no main class; skip repackage globally, re-enabled in operaton-app. -->
 		<spring-boot.repackage.skip>true</spring-boot.repackage.skip>
 	</properties>
-
 	<dependencyManagement>
 		<dependencies>
 			<dependency>
@@ -100,7 +97,6 @@
 			</dependency>
 		</dependencies>
 	</dependencyManagement>
-
 	<build>
 		<pluginManagement>
 			<plugins>
