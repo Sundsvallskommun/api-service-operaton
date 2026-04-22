@@ -64,7 +64,7 @@ class CreateErrandWorkerTest {
 
 		final var errandCaptor = ArgumentCaptor.forClass(Errand.class);
 		verify(careManagementClientMock).createErrand(eq("2281"), eq("my-namespace"), errandCaptor.capture());
-		verify(externalTaskServiceMock).complete(eq("task-1"), eq("create-errand-worker"), eq(java.util.Map.of("errandId", "errand-123")));
+		verify(externalTaskServiceMock).complete("task-1", "create-errand-worker", java.util.Map.of("errandId", "errand-123"));
 
 		final var errand = errandCaptor.getValue();
 		assertThat(errand.getTitle()).isEqualTo("Test errand");
@@ -128,7 +128,7 @@ class CreateErrandWorkerTest {
 
 		createErrandWorker.execute();
 
-		verify(externalTaskServiceMock).complete(eq("task-3"), eq("create-errand-worker"), eq(java.util.Map.of("errandId", "unknown")));
+		verify(externalTaskServiceMock).complete("task-3", "create-errand-worker", java.util.Map.of("errandId", "unknown"));
 	}
 
 	@Test

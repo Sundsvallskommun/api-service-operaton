@@ -62,7 +62,7 @@ class UpdateErrandWorkerTest {
 
 		final var patchCaptor = ArgumentCaptor.forClass(PatchErrand.class);
 		verify(careManagementClientMock).updateErrand(eq("2281"), eq("my-namespace"), eq("errand-123"), patchCaptor.capture());
-		verify(externalTaskServiceMock).complete(eq("task-1"), eq("update-errand-worker"), eq(Map.of()));
+		verify(externalTaskServiceMock).complete("task-1", "update-errand-worker", Map.of());
 
 		final var patch = patchCaptor.getValue();
 		assertThat(patch.getTitle()).isEqualTo("Updated title");
