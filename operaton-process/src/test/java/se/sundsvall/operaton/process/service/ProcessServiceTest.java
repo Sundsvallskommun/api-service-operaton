@@ -304,8 +304,10 @@ class ProcessServiceTest {
 		when(query.processInstanceId("missing")).thenReturn(query);
 		when(query.singleResult()).thenReturn(null);
 
+		final var request = ModifyVariablesRequest.create().withModifications(Map.of("k", "v"));
+
 		final var exception = assertThrows(ThrowableProblem.class,
-			() -> processService.modifyProcessInstanceVariables("missing", ModifyVariablesRequest.create().withModifications(Map.of("k", "v"))));
+			() -> processService.modifyProcessInstanceVariables("missing", request));
 
 		assertThat(exception.getStatus()).isEqualTo(NOT_FOUND);
 		verify(runtimeServiceMock, never()).setVariables(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyMap());
