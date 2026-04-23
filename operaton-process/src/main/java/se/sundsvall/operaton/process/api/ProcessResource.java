@@ -126,7 +126,7 @@ class ProcessResource {
 	}
 
 	@Operation(summary = "Modify variables (add, update, delete) on a running process instance", responses = {
-		@ApiResponse(responseCode = "204", description = "Variables modified"),
+		@ApiResponse(responseCode = "204", description = "No Content"),
 		@ApiResponse(responseCode = "404", description = "Not Found", content = @Content(mediaType = APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = Problem.class)))
 	})
 	@PostMapping(value = "/process-instances/{id}/variables", consumes = APPLICATION_JSON_VALUE)

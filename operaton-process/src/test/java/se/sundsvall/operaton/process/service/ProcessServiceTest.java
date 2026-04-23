@@ -22,6 +22,10 @@ import se.sundsvall.operaton.process.api.model.StartProcessInstanceRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -59,7 +63,7 @@ class ProcessServiceTest {
 		assertThat(result.getProcessDefinitions()).hasSize(1);
 		assertThat(result.getProcessDefinitions().getFirst().getKey()).isEqualTo("invoice");
 		verify(repositoryServiceMock).createProcessDefinitionQuery();
-		verify(query, never()).processDefinitionName(org.mockito.ArgumentMatchers.any());
+		verify(query, never()).processDefinitionName(any());
 	}
 
 	@Test
@@ -263,7 +267,7 @@ class ProcessServiceTest {
 		processService.modifyProcessInstanceVariables("pi-1", request);
 
 		verify(runtimeServiceMock).setVariables("pi-1", Map.of("amount", 100));
-		verify(runtimeServiceMock, never()).removeVariables(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyCollection());
+		verify(runtimeServiceMock, never()).removeVariables(anyString(), anyCollection());
 	}
 
 	@Test
@@ -280,7 +284,7 @@ class ProcessServiceTest {
 		processService.modifyProcessInstanceVariables("pi-1", request);
 
 		verify(runtimeServiceMock).removeVariables("pi-1", List.of("oldKey"));
-		verify(runtimeServiceMock, never()).setVariables(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyMap());
+		verify(runtimeServiceMock, never()).setVariables(anyString(), anyMap());
 	}
 
 	@Test
@@ -293,8 +297,8 @@ class ProcessServiceTest {
 
 		processService.modifyProcessInstanceVariables("pi-1", ModifyVariablesRequest.create());
 
-		verify(runtimeServiceMock, never()).setVariables(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyMap());
-		verify(runtimeServiceMock, never()).removeVariables(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyCollection());
+		verify(runtimeServiceMock, never()).setVariables(anyString(), anyMap());
+		verify(runtimeServiceMock, never()).removeVariables(anyString(), anyCollection());
 	}
 
 	@Test
@@ -310,6 +314,6 @@ class ProcessServiceTest {
 			() -> processService.modifyProcessInstanceVariables("missing", request));
 
 		assertThat(exception.getStatus()).isEqualTo(NOT_FOUND);
-		verify(runtimeServiceMock, never()).setVariables(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyMap());
+		verify(runtimeServiceMock, never()).setVariables(anyString(), anyMap());
 	}
 }

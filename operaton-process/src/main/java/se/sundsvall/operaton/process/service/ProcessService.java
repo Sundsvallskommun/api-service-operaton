@@ -2,7 +2,6 @@ package se.sundsvall.operaton.process.service;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.List;
 import java.util.Map;
 import org.operaton.bpm.engine.ProcessEngineException;
 import org.operaton.bpm.engine.RepositoryService;
@@ -80,14 +79,12 @@ public class ProcessService {
 
 	public void modifyProcessInstanceVariables(final String id, final ModifyVariablesRequest request) {
 		ensureProcessInstanceExists(id);
-		final var modifications = ofNullable(request.getModifications()).orElseGet(Map::of);
-		final var deletions = ofNullable(request.getDeletions()).orElseGet(List::of);
-		if (!modifications.isEmpty()) {
-			runtimeService.setVariables(id, modifications);
-		}
-		if (!deletions.isEmpty()) {
-			runtimeService.removeVariables(id, deletions);
-		}
+		ofNullable(request.getModifications())
+			.filter(modifications -> !modifications.isEmpty())
+			.ifPresent(modifications -> runtimeService.setVariables(id, modifications));
+		ofNullable(request.getDeletions())
+			.filter(deletions -> !deletions.isEmpty())
+			.ifPresent(deletions -> runtimeService.removeVariables(id, deletions));
 	}
 
 	private void ensureProcessInstanceExists(final String id) {

@@ -1,5 +1,6 @@
 package se.sundsvall.operaton.process.api;
 
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -58,7 +59,7 @@ class ProcessResourceTest {
 	@Test
 	void getProcessDefinitions() {
 		final var processDefinitionsResponse = ProcessDefinitionsResponse.create()
-			.withProcessDefinitions(java.util.List.of(ProcessDefinitionResponse.create()
+			.withProcessDefinitions(List.of(ProcessDefinitionResponse.create()
 				.withId("invoice:1:4")
 				.withKey("invoice")
 				.withName("Invoice Process")
@@ -132,7 +133,7 @@ class ProcessResourceTest {
 	@Test
 	void getProcessInstances() {
 		final var processInstancesResponse = ProcessInstancesResponse.create()
-			.withProcessInstances(java.util.List.of(ProcessInstanceResponse.create().withId("pi-1")));
+			.withProcessInstances(List.of(ProcessInstanceResponse.create().withId("pi-1")));
 
 		when(processServiceMock.getProcessInstances()).thenReturn(processInstancesResponse);
 
