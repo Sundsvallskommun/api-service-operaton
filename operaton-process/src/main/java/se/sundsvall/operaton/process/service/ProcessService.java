@@ -2,6 +2,7 @@ package se.sundsvall.operaton.process.service;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
 import java.util.Map;
 import org.operaton.bpm.engine.ProcessEngineException;
 import org.operaton.bpm.engine.RepositoryService;
@@ -9,6 +10,7 @@ import org.operaton.bpm.engine.RuntimeService;
 import org.operaton.bpm.engine.exception.NullValueException;
 import org.springframework.stereotype.Service;
 import se.sundsvall.dept44.problem.Problem;
+import se.sundsvall.operaton.process.api.model.ModifyVariablesRequest;
 import se.sundsvall.operaton.process.api.model.ProcessDefinitionResponse;
 import se.sundsvall.operaton.process.api.model.ProcessDefinitionsResponse;
 import se.sundsvall.operaton.process.api.model.ProcessInstanceResponse;
@@ -37,11 +39,12 @@ public class ProcessService {
 		this.runtimeService = runtimeService;
 	}
 
-	public ProcessDefinitionsResponse getProcessDefinitions() {
-		final var definitions = repositoryService.createProcessDefinitionQuery()
-			.latestVersion()
-			.list();
-		return toProcessDefinitionsResponse(definitions);
+	public ProcessDefinitionsResponse getProcessDefinitions(final String name) {
+		var query = repositoryService.createProcessDefinitionQuery().latestVersion();
+		if (name != null) {
+			query = query.processDefinitionName(name);
+		}
+		return toProcessDefinitionsResponse(query.list());
 	}
 
 	public ProcessInstanceResponse startProcessInstance(final StartProcessInstanceRequest request) {
@@ -73,6 +76,27 @@ public class ProcessService {
 		return ofNullable(instance)
 			.map(ProcessMapper::toProcessInstanceResponse)
 			.orElseThrow(() -> Problem.notFound(PROCESS_INSTANCE_NOT_FOUND.formatted(id)));
+	}
+
+	public void modifyProcessInstanceVariables(final String id, final ModifyVariablesRequest request) {
+		ensureProcessInstanceExists(id);
+		final var modifications = ofNullable(request.getModifications()).orElseGet(Map::of);
+		final var deletions = ofNullable(request.getDeletions()).orElseGet(List::of);
+		if (!modifications.isEmpty()) {
+			runtimeService.setVariables(id, modifications);
+		}
+		if (!deletions.isEmpty()) {
+			runtimeService.removeVariables(id, deletions);
+		}
+	}
+
+	private void ensureProcessInstanceExists(final String id) {
+		final var exists = runtimeService.createProcessInstanceQuery()
+			.processInstanceId(id)
+			.singleResult() != null;
+		if (!exists) {
+			throw Problem.notFound(PROCESS_INSTANCE_NOT_FOUND.formatted(id));
+		}
 	}
 
 	public ProcessDefinitionResponse getProcessDefinition(final String processDefinitionId) {

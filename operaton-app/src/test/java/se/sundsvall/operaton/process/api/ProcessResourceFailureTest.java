@@ -31,6 +31,7 @@ class ProcessResourceFailureTest {
 	private static final String MUNICIPALITY_ID = "2281";
 	private static final String PROCESS_DEFINITIONS_PATH = "/{municipalityId}/process-definitions";
 	private static final String PROCESS_INSTANCES_PATH = "/{municipalityId}/process-instances";
+	private static final String PROCESS_INSTANCE_VARIABLES_PATH = "/{municipalityId}/process-instances/{id}/variables";
 
 	@MockitoBean
 	private DeploymentService deploymentServiceMock;
@@ -73,6 +74,26 @@ class ProcessResourceFailureTest {
 			.uri(builder -> builder.path(PROCESS_INSTANCES_PATH).build(Map.of("municipalityId", MUNICIPALITY_ID)))
 			.contentType(APPLICATION_JSON)
 			.bodyValue(request)
+			.exchange()
+			.expectStatus().isBadRequest()
+			.expectBody(ConstraintViolationProblem.class)
+			.returnResult()
+			.getResponseBody();
+
+		assertThat(response).isNotNull();
+		assertThat(response.getTitle()).isEqualTo("Constraint Violation");
+
+		verifyNoInteractions(processServiceMock);
+	}
+
+	@Test
+	void modifyProcessInstanceVariablesWithInvalidMunicipalityId() {
+		final var response = webTestClient.post()
+			.uri(builder -> builder.path(PROCESS_INSTANCE_VARIABLES_PATH).build(Map.of(
+				"municipalityId", INVALID_MUNICIPALITY_ID,
+				"id", "pi-1")))
+			.contentType(APPLICATION_JSON)
+			.bodyValue(se.sundsvall.operaton.process.api.model.ModifyVariablesRequest.create())
 			.exchange()
 			.expectStatus().isBadRequest()
 			.expectBody(ConstraintViolationProblem.class)
