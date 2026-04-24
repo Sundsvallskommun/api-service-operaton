@@ -14,10 +14,12 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import se.sundsvall.dept44.common.validators.annotation.ValidMunicipalityId;
 import se.sundsvall.dept44.problem.Problem;
 import se.sundsvall.dept44.problem.violations.ConstraintViolationProblem;
+import se.sundsvall.operaton.process.api.model.ModifyVariablesRequest;
 import se.sundsvall.operaton.process.api.model.ProcessDefinitionResponse;
 import se.sundsvall.operaton.process.api.model.ProcessDefinitionsResponse;
 import se.sundsvall.operaton.process.api.model.ProcessInstanceResponse;
@@ -28,6 +30,7 @@ import se.sundsvall.operaton.process.service.ProcessService;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 import static org.springframework.http.MediaType.APPLICATION_PROBLEM_JSON_VALUE;
 import static org.springframework.http.MediaType.APPLICATION_XML_VALUE;
+import static org.springframework.http.ResponseEntity.noContent;
 import static org.springframework.http.ResponseEntity.ok;
 
 @Tag(name = "Processes", description = "Manage deployed process definitions and running process instances")
@@ -54,14 +57,15 @@ class ProcessResource {
 		this.processService = processService;
 	}
 
-	@Operation(summary = "List the latest version of all deployed process definitions", responses = {
+	@Operation(summary = "List the latest version of all deployed process definitions, optionally filtered by name", responses = {
 		@ApiResponse(responseCode = "200", description = "Successful Operation", useReturnTypeSchema = true)
 	})
 	@GetMapping(value = "/process-definitions", produces = APPLICATION_JSON_VALUE)
 	ResponseEntity<ProcessDefinitionsResponse> getProcessDefinitions(
-		@Parameter(name = "municipalityId", description = "Municipality id", example = "2281") @ValidMunicipalityId @PathVariable final String municipalityId) {
+		@Parameter(name = "municipalityId", description = "Municipality id", example = "2281") @ValidMunicipalityId @PathVariable final String municipalityId,
+		@Parameter(name = "name", description = "Filter by process definition name (latest version that matches)") @RequestParam(name = "name", required = false) final String name) {
 
-		return ok(processService.getProcessDefinitions());
+		return ok(processService.getProcessDefinitions(name));
 	}
 
 	@Operation(summary = "Get a specific process definition by ID", responses = {
@@ -119,5 +123,19 @@ class ProcessResource {
 		@Parameter(name = "id", description = "Process instance id") @PathVariable final String id) {
 
 		return ok(processService.getProcessInstance(id));
+	}
+
+	@Operation(summary = "Modify variables (add, update, delete) on a running process instance", responses = {
+		@ApiResponse(responseCode = "204", description = "No Content"),
+		@ApiResponse(responseCode = "404", description = "Not Found", content = @Content(mediaType = APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = Problem.class)))
+	})
+	@PostMapping(value = "/process-instances/{id}/variables", consumes = APPLICATION_JSON_VALUE)
+	ResponseEntity<Void> modifyProcessInstanceVariables(
+		@Parameter(name = "municipalityId", description = "Municipality id", example = "2281") @ValidMunicipalityId @PathVariable final String municipalityId,
+		@Parameter(name = "id", description = "Process instance id") @PathVariable final String id,
+		@Valid @RequestBody final ModifyVariablesRequest request) {
+
+		processService.modifyProcessInstanceVariables(id, request);
+		return noContent().build();
 	}
 }

@@ -1,5 +1,6 @@
 package se.sundsvall.operaton.process.api;
 
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,6 +12,7 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 import se.sundsvall.operaton.app.Application;
 import se.sundsvall.operaton.decision.service.DmnService;
 import se.sundsvall.operaton.deployment.service.DeploymentService;
+import se.sundsvall.operaton.process.api.model.ModifyVariablesRequest;
 import se.sundsvall.operaton.process.api.model.ProcessDefinitionResponse;
 import se.sundsvall.operaton.process.api.model.ProcessDefinitionsResponse;
 import se.sundsvall.operaton.process.api.model.ProcessInstanceResponse;
@@ -37,6 +39,7 @@ class ProcessResourceTest {
 	private static final String PROCESS_DEFINITION_XML_PATH = "/{municipalityId}/process-definitions/{id}/xml";
 	private static final String PROCESS_INSTANCES_PATH = "/{municipalityId}/process-instances";
 	private static final String PROCESS_INSTANCE_PATH = "/{municipalityId}/process-instances/{id}";
+	private static final String PROCESS_INSTANCE_VARIABLES_PATH = "/{municipalityId}/process-instances/{id}/variables";
 
 	@MockitoBean
 	private DeploymentService deploymentServiceMock;
@@ -56,13 +59,13 @@ class ProcessResourceTest {
 	@Test
 	void getProcessDefinitions() {
 		final var processDefinitionsResponse = ProcessDefinitionsResponse.create()
-			.withProcessDefinitions(java.util.List.of(ProcessDefinitionResponse.create()
+			.withProcessDefinitions(List.of(ProcessDefinitionResponse.create()
 				.withId("invoice:1:4")
 				.withKey("invoice")
 				.withName("Invoice Process")
 				.withVersion(1)));
 
-		when(processServiceMock.getProcessDefinitions()).thenReturn(processDefinitionsResponse);
+		when(processServiceMock.getProcessDefinitions(null)).thenReturn(processDefinitionsResponse);
 
 		final var response = webTestClient.get()
 			.uri(builder -> builder.path(PROCESS_DEFINITIONS_PATH).build(Map.of("municipalityId", MUNICIPALITY_ID)))
@@ -75,7 +78,29 @@ class ProcessResourceTest {
 		assertThat(response).isNotNull();
 		assertThat(response.getProcessDefinitions()).hasSize(1);
 		assertThat(response.getProcessDefinitions().getFirst().getKey()).isEqualTo("invoice");
-		verify(processServiceMock).getProcessDefinitions();
+		verify(processServiceMock).getProcessDefinitions(null);
+	}
+
+	@Test
+	void getProcessDefinitionsFilteredByName() {
+		final var processDefinitionsResponse = ProcessDefinitionsResponse.create()
+			.withProcessDefinitions(java.util.List.of(ProcessDefinitionResponse.create()
+				.withKey("invoice")
+				.withName("Invoice Process")));
+
+		when(processServiceMock.getProcessDefinitions("Invoice Process")).thenReturn(processDefinitionsResponse);
+
+		final var response = webTestClient.get()
+			.uri(builder -> builder.path(PROCESS_DEFINITIONS_PATH).queryParam("name", "Invoice Process").build(Map.of("municipalityId", MUNICIPALITY_ID)))
+			.exchange()
+			.expectStatus().isOk()
+			.expectBody(ProcessDefinitionsResponse.class)
+			.returnResult()
+			.getResponseBody();
+
+		assertThat(response).isNotNull();
+		assertThat(response.getProcessDefinitions()).hasSize(1);
+		verify(processServiceMock).getProcessDefinitions("Invoice Process");
 	}
 
 	@Test
@@ -108,7 +133,7 @@ class ProcessResourceTest {
 	@Test
 	void getProcessInstances() {
 		final var processInstancesResponse = ProcessInstancesResponse.create()
-			.withProcessInstances(java.util.List.of(ProcessInstanceResponse.create().withId("pi-1")));
+			.withProcessInstances(List.of(ProcessInstanceResponse.create().withId("pi-1")));
 
 		when(processServiceMock.getProcessInstances()).thenReturn(processInstancesResponse);
 
@@ -171,6 +196,25 @@ class ProcessResourceTest {
 		assertThat(response.getId()).isEqualTo("invoice:1:4");
 		assertThat(response.getDeploymentId()).isEqualTo("deploy-1");
 		verify(processServiceMock).getProcessDefinition("invoice:1:4");
+	}
+
+	@Test
+	void modifyProcessInstanceVariables() {
+		final var request = ModifyVariablesRequest.create()
+			.withModifications(Map.of("amount", 100))
+			.withDeletions(java.util.List.of("oldKey"));
+
+		webTestClient.post()
+			.uri(builder -> builder.path(PROCESS_INSTANCE_VARIABLES_PATH).build(Map.of(
+				"municipalityId", MUNICIPALITY_ID,
+				"id", "pi-1")))
+			.contentType(APPLICATION_JSON)
+			.bodyValue(request)
+			.exchange()
+			.expectStatus().isNoContent()
+			.expectBody().isEmpty();
+
+		verify(processServiceMock).modifyProcessInstanceVariables("pi-1", request);
 	}
 
 	@Test

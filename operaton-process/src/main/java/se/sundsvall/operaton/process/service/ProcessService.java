@@ -9,6 +9,7 @@ import org.operaton.bpm.engine.RuntimeService;
 import org.operaton.bpm.engine.exception.NullValueException;
 import org.springframework.stereotype.Service;
 import se.sundsvall.dept44.problem.Problem;
+import se.sundsvall.operaton.process.api.model.ModifyVariablesRequest;
 import se.sundsvall.operaton.process.api.model.ProcessDefinitionResponse;
 import se.sundsvall.operaton.process.api.model.ProcessDefinitionsResponse;
 import se.sundsvall.operaton.process.api.model.ProcessInstanceResponse;
@@ -37,11 +38,12 @@ public class ProcessService {
 		this.runtimeService = runtimeService;
 	}
 
-	public ProcessDefinitionsResponse getProcessDefinitions() {
-		final var definitions = repositoryService.createProcessDefinitionQuery()
-			.latestVersion()
-			.list();
-		return toProcessDefinitionsResponse(definitions);
+	public ProcessDefinitionsResponse getProcessDefinitions(final String name) {
+		var query = repositoryService.createProcessDefinitionQuery().latestVersion();
+		if (name != null) {
+			query = query.processDefinitionName(name);
+		}
+		return toProcessDefinitionsResponse(query.list());
 	}
 
 	public ProcessInstanceResponse startProcessInstance(final StartProcessInstanceRequest request) {
@@ -73,6 +75,25 @@ public class ProcessService {
 		return ofNullable(instance)
 			.map(ProcessMapper::toProcessInstanceResponse)
 			.orElseThrow(() -> Problem.notFound(PROCESS_INSTANCE_NOT_FOUND.formatted(id)));
+	}
+
+	public void modifyProcessInstanceVariables(final String id, final ModifyVariablesRequest request) {
+		ensureProcessInstanceExists(id);
+		ofNullable(request.getModifications())
+			.filter(modifications -> !modifications.isEmpty())
+			.ifPresent(modifications -> runtimeService.setVariables(id, modifications));
+		ofNullable(request.getDeletions())
+			.filter(deletions -> !deletions.isEmpty())
+			.ifPresent(deletions -> runtimeService.removeVariables(id, deletions));
+	}
+
+	private void ensureProcessInstanceExists(final String id) {
+		final var exists = runtimeService.createProcessInstanceQuery()
+			.processInstanceId(id)
+			.singleResult() != null;
+		if (!exists) {
+			throw Problem.notFound(PROCESS_INSTANCE_NOT_FOUND.formatted(id));
+		}
 	}
 
 	public ProcessDefinitionResponse getProcessDefinition(final String processDefinitionId) {

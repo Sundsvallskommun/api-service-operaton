@@ -17,11 +17,17 @@ import org.operaton.bpm.engine.repository.ProcessDefinitionQuery;
 import org.operaton.bpm.engine.runtime.ProcessInstance;
 import org.operaton.bpm.engine.runtime.ProcessInstanceQuery;
 import se.sundsvall.dept44.problem.ThrowableProblem;
+import se.sundsvall.operaton.process.api.model.ModifyVariablesRequest;
 import se.sundsvall.operaton.process.api.model.StartProcessInstanceRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
@@ -51,12 +57,31 @@ class ProcessServiceTest {
 		when(processDefinition.getName()).thenReturn("Invoice Process");
 		when(processDefinition.getVersion()).thenReturn(1);
 
-		final var result = processService.getProcessDefinitions();
+		final var result = processService.getProcessDefinitions(null);
 
 		assertThat(result).isNotNull();
 		assertThat(result.getProcessDefinitions()).hasSize(1);
 		assertThat(result.getProcessDefinitions().getFirst().getKey()).isEqualTo("invoice");
 		verify(repositoryServiceMock).createProcessDefinitionQuery();
+		verify(query, never()).processDefinitionName(any());
+	}
+
+	@Test
+	void getProcessDefinitionsFilteredByName() {
+		final var query = mock(ProcessDefinitionQuery.class);
+		final var processDefinition = mock(ProcessDefinition.class);
+
+		when(repositoryServiceMock.createProcessDefinitionQuery()).thenReturn(query);
+		when(query.latestVersion()).thenReturn(query);
+		when(query.processDefinitionName("Invoice Process")).thenReturn(query);
+		when(query.list()).thenReturn(List.of(processDefinition));
+		when(processDefinition.getKey()).thenReturn("invoice");
+		when(processDefinition.getName()).thenReturn("Invoice Process");
+
+		final var result = processService.getProcessDefinitions("Invoice Process");
+
+		assertThat(result.getProcessDefinitions()).hasSize(1);
+		verify(query).processDefinitionName("Invoice Process");
 	}
 
 	@Test
@@ -208,5 +233,87 @@ class ProcessServiceTest {
 			() -> processService.getProcessModel("non-existent"));
 
 		assertThat(exception.getStatus()).isEqualTo(NOT_FOUND);
+	}
+
+	@Test
+	void modifyProcessInstanceVariables() {
+		final var query = mock(ProcessInstanceQuery.class);
+		final var processInstance = mock(ProcessInstance.class);
+		when(runtimeServiceMock.createProcessInstanceQuery()).thenReturn(query);
+		when(query.processInstanceId("pi-1")).thenReturn(query);
+		when(query.singleResult()).thenReturn(processInstance);
+
+		final var request = ModifyVariablesRequest.create()
+			.withModifications(Map.of("amount", 100))
+			.withDeletions(List.of("oldKey"));
+
+		processService.modifyProcessInstanceVariables("pi-1", request);
+
+		verify(runtimeServiceMock).setVariables("pi-1", Map.of("amount", 100));
+		verify(runtimeServiceMock).removeVariables("pi-1", List.of("oldKey"));
+	}
+
+	@Test
+	void modifyProcessInstanceVariables_onlyModifications() {
+		final var query = mock(ProcessInstanceQuery.class);
+		final var processInstance = mock(ProcessInstance.class);
+		when(runtimeServiceMock.createProcessInstanceQuery()).thenReturn(query);
+		when(query.processInstanceId("pi-1")).thenReturn(query);
+		when(query.singleResult()).thenReturn(processInstance);
+
+		final var request = ModifyVariablesRequest.create()
+			.withModifications(Map.of("amount", 100));
+
+		processService.modifyProcessInstanceVariables("pi-1", request);
+
+		verify(runtimeServiceMock).setVariables("pi-1", Map.of("amount", 100));
+		verify(runtimeServiceMock, never()).removeVariables(anyString(), anyCollection());
+	}
+
+	@Test
+	void modifyProcessInstanceVariables_onlyDeletions() {
+		final var query = mock(ProcessInstanceQuery.class);
+		final var processInstance = mock(ProcessInstance.class);
+		when(runtimeServiceMock.createProcessInstanceQuery()).thenReturn(query);
+		when(query.processInstanceId("pi-1")).thenReturn(query);
+		when(query.singleResult()).thenReturn(processInstance);
+
+		final var request = ModifyVariablesRequest.create()
+			.withDeletions(List.of("oldKey"));
+
+		processService.modifyProcessInstanceVariables("pi-1", request);
+
+		verify(runtimeServiceMock).removeVariables("pi-1", List.of("oldKey"));
+		verify(runtimeServiceMock, never()).setVariables(anyString(), anyMap());
+	}
+
+	@Test
+	void modifyProcessInstanceVariables_noOpWhenEmpty() {
+		final var query = mock(ProcessInstanceQuery.class);
+		final var processInstance = mock(ProcessInstance.class);
+		when(runtimeServiceMock.createProcessInstanceQuery()).thenReturn(query);
+		when(query.processInstanceId("pi-1")).thenReturn(query);
+		when(query.singleResult()).thenReturn(processInstance);
+
+		processService.modifyProcessInstanceVariables("pi-1", ModifyVariablesRequest.create());
+
+		verify(runtimeServiceMock, never()).setVariables(anyString(), anyMap());
+		verify(runtimeServiceMock, never()).removeVariables(anyString(), anyCollection());
+	}
+
+	@Test
+	void modifyProcessInstanceVariables_notFound() {
+		final var query = mock(ProcessInstanceQuery.class);
+		when(runtimeServiceMock.createProcessInstanceQuery()).thenReturn(query);
+		when(query.processInstanceId("missing")).thenReturn(query);
+		when(query.singleResult()).thenReturn(null);
+
+		final var request = ModifyVariablesRequest.create().withModifications(Map.of("k", "v"));
+
+		final var exception = assertThrows(ThrowableProblem.class,
+			() -> processService.modifyProcessInstanceVariables("missing", request));
+
+		assertThat(exception.getStatus()).isEqualTo(NOT_FOUND);
+		verify(runtimeServiceMock, never()).setVariables(anyString(), anyMap());
 	}
 }
