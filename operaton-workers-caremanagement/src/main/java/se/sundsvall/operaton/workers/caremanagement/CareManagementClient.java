@@ -1,6 +1,8 @@
 package se.sundsvall.operaton.workers.caremanagement;
 
+import generated.se.sundsvall.caremanagement.Decision;
 import generated.se.sundsvall.caremanagement.Errand;
+import generated.se.sundsvall.caremanagement.Parameter;
 import generated.se.sundsvall.caremanagement.PatchErrand;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import org.springframework.cloud.openfeign.FeignClient;
@@ -33,4 +35,18 @@ public interface CareManagementClient {
 		@PathVariable final String namespace,
 		@PathVariable final String errandId,
 		@RequestBody final PatchErrand patchErrand);
+
+	@PostMapping(path = "/{municipalityId}/{namespace}/errands/{errandId}/parameters", consumes = APPLICATION_JSON_VALUE)
+	ResponseEntity<Void> createErrandParameter(
+		@PathVariable final String municipalityId,
+		@PathVariable final String namespace,
+		@PathVariable final String errandId,
+		@RequestBody final Parameter parameter);
+
+	@PostMapping(path = "/{municipalityId}/{namespace}/errands/{errandId}/decisions", consumes = APPLICATION_JSON_VALUE)
+	ResponseEntity<Void> createErrandDecision(
+		@PathVariable final String municipalityId,
+		@PathVariable final String namespace,
+		@PathVariable final String errandId,
+		@RequestBody final Decision decision);
 }
