@@ -758,6 +758,106 @@ paths:
             application/problem+json:
               schema:
                 $ref: "#/components/schemas/Problem"
+  /{municipalityId}/{namespace}/errands/{errandId}/decisions:
+    get:
+      tags:
+        - Errand decisions
+      summary: List decisions
+      operationId: readDecisions
+      parameters:
+        - name: municipalityId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: 2281
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "[\\w|\\-]+"
+          example: MY_NAMESPACE
+        - name: errandId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Successful Operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Decision"
+        "400":
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Problem"
+                  - $ref: "#/components/schemas/ConstraintViolationProblem"
+        "500":
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+    post:
+      tags:
+        - Errand decisions
+      summary: Create decision
+      operationId: createDecision
+      parameters:
+        - name: municipalityId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: 2281
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "[\\w|\\-]+"
+          example: MY_NAMESPACE
+        - name: errandId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Decision"
+        required: true
+      responses:
+        "201":
+          description: Successful operation
+          headers:
+            Location:
+              style: simple
+              schema:
+                type: string
+        "400":
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Problem"
+                  - $ref: "#/components/schemas/ConstraintViolationProblem"
+        "500":
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
   /{municipalityId}/{namespace}/errands/{errandId}/attachments:
     get:
       tags:
@@ -2213,6 +2313,44 @@ components:
           description: Values of the parameter
           items:
             type: string
+    Decision:
+      type: object
+      description: Decision recorded against an errand
+      properties:
+        id:
+          type: string
+          description: Unique identifier
+          examples:
+            - cb20c51f-fcf3-42c0-b613-de563634a8ec
+          readOnly: true
+        decisionType:
+          type: string
+          description: Decision category (e.g. RECOMMENDATION, PAYMENT)
+          examples:
+            - PAYMENT
+        value:
+          type: string
+          description: Decision value (e.g. APPROVED, REJECTED, or a calculated value)
+          examples:
+            - APPROVED
+        description:
+          type: string
+          description: Optional human-readable description or motivation
+          examples:
+            - Beslutsförslag enligt regelverk - 7900 kr, ingen varning
+        createdBy:
+          type: string
+          description: Identifier of the actor that produced the decision
+          examples:
+            - operaton
+        created:
+          type: string
+          format: date-time
+          description: Timestamp the decision was recorded
+          readOnly: true
+      required:
+        - decisionType
+        - value
     Stakeholder:
       type: object
       description: Stakeholder model

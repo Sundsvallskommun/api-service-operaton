@@ -16,6 +16,14 @@
 		"name": "Update Errand"
 	},
 	{
+		"id": "se.sundsvall.operaton.UpdateErrandParameter",
+		"name": "Update Errand Parameter"
+	},
+	{
+		"id": "se.sundsvall.operaton.AddErrandDecision",
+		"name": "Add Errand Decision"
+	},
+	{
 		"id": "se.sundsvall.operaton.LogMessage",
 		"name": "Log Message"
 	}
