@@ -11,6 +11,8 @@ import se.sundsvall.dept44.scheduling.Dept44Scheduled;
 import se.sundsvall.operaton.workers.framework.AbstractTopicWorker;
 import se.sundsvall.operaton.workers.framework.annotation.TopicWorker;
 
+import static se.sundsvall.dept44.util.LogUtils.sanitizeForLogging;
+
 @Component
 @TopicWorker(
 	topic = "add-errand-decision",
@@ -62,7 +64,10 @@ public class AddErrandDecisionWorker extends AbstractTopicWorker {
 			errandId,
 			decision);
 
-		LOG.info("Decision {} (type {}) added to errand {}", decision.getValue(), decision.getDecisionType(), errandId);
+		final var sanitizedValue = sanitizeForLogging(decision.getValue());
+		final var sanitizedType = sanitizeForLogging(decision.getDecisionType());
+		final var sanitizedErrandId = sanitizeForLogging(errandId);
+		LOG.info("Decision {} (type {}) added to errand {}", sanitizedValue, sanitizedType, sanitizedErrandId);
 		return emptyOutput();
 	}
 }

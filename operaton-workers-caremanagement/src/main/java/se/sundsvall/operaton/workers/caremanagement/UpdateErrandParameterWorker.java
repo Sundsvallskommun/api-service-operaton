@@ -12,6 +12,8 @@ import se.sundsvall.dept44.scheduling.Dept44Scheduled;
 import se.sundsvall.operaton.workers.framework.AbstractTopicWorker;
 import se.sundsvall.operaton.workers.framework.annotation.TopicWorker;
 
+import static se.sundsvall.dept44.util.LogUtils.sanitizeForLogging;
+
 @Component
 @TopicWorker(
 	topic = "update-errand-parameter",
@@ -63,7 +65,9 @@ public class UpdateErrandParameterWorker extends AbstractTopicWorker {
 			errandId,
 			parameter);
 
-		LOG.info("Errand parameter {} added to errand {}", parameter.getKey(), errandId);
+		final var sanitizedKey = sanitizeForLogging(parameter.getKey());
+		final var sanitizedErrandId = sanitizeForLogging(errandId);
+		LOG.info("Errand parameter {} added to errand {}", sanitizedKey, sanitizedErrandId);
 		return emptyOutput();
 	}
 }

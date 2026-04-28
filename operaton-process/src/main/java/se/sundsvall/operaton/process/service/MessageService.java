@@ -9,6 +9,7 @@ import se.sundsvall.dept44.problem.Problem;
 import se.sundsvall.operaton.process.api.model.CorrelationMessageRequest;
 
 import static java.util.Optional.ofNullable;
+import static se.sundsvall.dept44.util.LogUtils.sanitizeForLogging;
 
 @Service
 public class MessageService {
@@ -35,8 +36,10 @@ public class MessageService {
 			if (results.isEmpty()) {
 				throw Problem.notFound(NO_PROCESS_INSTANCE_WAITING.formatted(request.getMessageName(), request.getBusinessKey()));
 			}
+			final var sanitizedMessageName = sanitizeForLogging(request.getMessageName());
+			final var sanitizedBusinessKey = sanitizeForLogging(request.getBusinessKey());
 			LOG.info("Correlated message '{}' with business key '{}' to {} process instance(s)",
-				request.getMessageName(), request.getBusinessKey(), results.size());
+				sanitizedMessageName, sanitizedBusinessKey, results.size());
 		} catch (final ProcessEngineException e) {
 			throw Problem.internalServerError(CORRELATION_FAILED.formatted(request.getMessageName(), request.getBusinessKey(), e.getMessage()));
 		}
