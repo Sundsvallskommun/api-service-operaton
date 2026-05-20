@@ -23,6 +23,10 @@ integration:
     url: http://care-management.url
     connect-timeout: 5
     read-timeout: 30
+  financial-aid:
+    url: http://financial-aid.url
+    connect-timeout: 5
+    read-timeout: 30
 spring:
   security:
     oauth2:
@@ -34,6 +38,8 @@ spring:
             token-uri: http://localhost/token
           care-management:
             token-uri: http://localhost/token
+          financial-aid:
+            token-uri: http://localhost/token
         registration:
           messaging:
             authorization-grant-type: client_credentials
@@ -44,6 +50,10 @@ spring:
             client-id: the-client-id
             client-secret: the-client-secret
           care-management:
+            authorization-grant-type: client_credentials
+            client-id: the-client-id
+            client-secret: the-client-secret
+          financial-aid:
             authorization-grant-type: client_credentials
             client-id: the-client-id
             client-secret: the-client-secret

@@ -26,6 +26,9 @@ spring:
           care-management:
             authorization-grant-type: client_credentials
             provider: care-management
+          financial-aid:
+            authorization-grant-type: client_credentials
+            provider: financial-aid
 operaton.bpm:
   admin-user:
     id: demo
@@ -41,6 +44,11 @@ integration:
   care-management:
     connect-timeout: 5
     read-timeout: 30
+  financial-aid:
+    connect-timeout: 5
+    read-timeout: 30
 scheduler:
   logger-worker:
+    cron: "*/5 * * * * *"
+  fetch-financial-aid-basis:
     cron: "*/5 * * * * *"

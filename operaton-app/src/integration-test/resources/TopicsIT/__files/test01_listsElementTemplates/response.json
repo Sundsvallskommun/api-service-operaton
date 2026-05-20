@@ -24,6 +24,10 @@
 		"name": "Add Errand Decision"
 	},
 	{
+		"id": "se.sundsvall.operaton.FetchFinancialAidBasis",
+		"name": "Fetch Financial Aid Basis"
+	},
+	{
 		"id": "se.sundsvall.operaton.LogMessage",
 		"name": "Log Message"
 	}
