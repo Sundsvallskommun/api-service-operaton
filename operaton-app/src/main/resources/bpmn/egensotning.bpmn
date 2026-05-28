@@ -1,0 +1,327 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+	xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+	xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+	xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+	xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	id="Definitions_Egensotning"
+	targetNamespace="http://bpmn.io/schema/bpmn">
+
+	<!-- Message declaration for the komplettering-received catch event -->
+	<bpmn:message id="Message_KompletteringMottagen" name="komplettering-received" />
+
+	<bpmn:process id="egensotning-process" name="Hantera ansökan om egensotning" isExecutable="true" camunda:historyTimeToLive="P30D">
+
+		<!-- ============================================================
+		     START
+		     ============================================================ -->
+		<bpmn:startEvent id="AnsokanMottagen" name="Ansökan mottagen">
+			<bpmn:outgoing>Flow_Start_MeddelaBSK</bpmn:outgoing>
+		</bpmn:startEvent>
+		<bpmn:sequenceFlow id="Flow_Start_MeddelaBSK" sourceRef="AnsokanMottagen" targetRef="MeddelaBSK" />
+
+		<bpmn:serviceTask id="MeddelaBSK" name="Meddela BSK" camunda:type="external" camunda:topic="rtj-notify-bsk">
+			<bpmn:incoming>Flow_Start_MeddelaBSK</bpmn:incoming>
+			<bpmn:outgoing>Flow_MeddelaBSK_GranskaUnderlag</bpmn:outgoing>
+		</bpmn:serviceTask>
+		<bpmn:sequenceFlow id="Flow_MeddelaBSK_GranskaUnderlag" sourceRef="MeddelaBSK" targetRef="GranskaUnderlag" />
+
+		<!-- BSK must check Ritz manually (Ritz is not integrable). The user
+		     task surfaces in Operaton Tasklist; the handläggare completes it
+		     after looking at Ritz themselves, setting sufficient=true|false. -->
+		<bpmn:userTask id="GranskaUnderlag" name="Granska underlag (kontrollera i Ritz)">
+			<bpmn:incoming>Flow_MeddelaBSK_GranskaUnderlag</bpmn:incoming>
+			<bpmn:outgoing>Flow_GranskaUnderlag_Gateway</bpmn:outgoing>
+		</bpmn:userTask>
+		<bpmn:sequenceFlow id="Flow_GranskaUnderlag_Gateway" sourceRef="GranskaUnderlag" targetRef="InfoTillracklig" />
+
+		<bpmn:exclusiveGateway id="InfoTillracklig" name="Tillräckliga uppgifter?" default="Flow_Gateway_Komplettering">
+			<bpmn:incoming>Flow_GranskaUnderlag_Gateway</bpmn:incoming>
+			<bpmn:outgoing>Flow_Gateway_SkapaBeslut</bpmn:outgoing>
+			<bpmn:outgoing>Flow_Gateway_Komplettering</bpmn:outgoing>
+		</bpmn:exclusiveGateway>
+
+		<bpmn:sequenceFlow id="Flow_Gateway_SkapaBeslut" sourceRef="InfoTillracklig" targetRef="SkapaBeslut">
+			<bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${sufficient == true}</bpmn:conditionExpression>
+		</bpmn:sequenceFlow>
+		<bpmn:sequenceFlow id="Flow_Gateway_Komplettering" sourceRef="InfoTillracklig" targetRef="KontaktaBeror" />
+
+		<!-- ============================================================
+		     HAPPY PATH — Approve, email, set status, end
+		     ============================================================ -->
+		<bpmn:serviceTask id="SkapaBeslut" name="Skapa beslut (godkänn)" camunda:type="external" camunda:topic="rtj-add-errand-decision">
+			<bpmn:extensionElements>
+				<camunda:inputOutput>
+					<camunda:inputParameter name="decisionType">APPROVAL</camunda:inputParameter>
+					<camunda:inputParameter name="value">APPROVED</camunda:inputParameter>
+					<camunda:inputParameter name="description">Ansökan om egensotning godkänd</camunda:inputParameter>
+					<camunda:inputParameter name="createdBy">BSK</camunda:inputParameter>
+				</camunda:inputOutput>
+			</bpmn:extensionElements>
+			<bpmn:incoming>Flow_Gateway_SkapaBeslut</bpmn:incoming>
+			<bpmn:incoming>Flow_Komplettering_LoopTillBeslut</bpmn:incoming>
+			<bpmn:incoming>Flow_Kontroll_LoopTillBeslut</bpmn:incoming>
+			<bpmn:outgoing>Flow_SkapaBeslut_MailaBeslut</bpmn:outgoing>
+		</bpmn:serviceTask>
+		<bpmn:sequenceFlow id="Flow_SkapaBeslut_MailaBeslut" sourceRef="SkapaBeslut" targetRef="MailaBeslut" />
+
+		<bpmn:serviceTask id="MailaBeslut" name="Maila beslut till berörd" camunda:type="external" camunda:topic="send-email">
+			<bpmn:extensionElements>
+				<camunda:inputOutput>
+					<camunda:inputParameter name="emailAddress">${applicantEmail}</camunda:inputParameter>
+					<camunda:inputParameter name="subject">Beslut: Ansökan om egensotning godkänd</camunda:inputParameter>
+					<camunda:inputParameter name="message">Hej, din ansökan om egensotning har godkänts. Beslutet är registrerat och kan ses i Mina sidor.</camunda:inputParameter>
+					<camunda:inputParameter name="senderName">Räddningstjänsten Medelpad</camunda:inputParameter>
+					<camunda:inputParameter name="senderAddress">noreply@sundsvall.se</camunda:inputParameter>
+				</camunda:inputOutput>
+			</bpmn:extensionElements>
+			<bpmn:incoming>Flow_SkapaBeslut_MailaBeslut</bpmn:incoming>
+			<bpmn:outgoing>Flow_MailaBeslut_SattStatus</bpmn:outgoing>
+		</bpmn:serviceTask>
+		<bpmn:sequenceFlow id="Flow_MailaBeslut_SattStatus" sourceRef="MailaBeslut" targetRef="SattStatusGodkand" />
+
+		<bpmn:serviceTask id="SattStatusGodkand" name="Sätt status: beslut taget" camunda:type="external" camunda:topic="rtj-update-errand">
+			<bpmn:extensionElements>
+				<camunda:inputOutput>
+					<camunda:inputParameter name="status">DECIDED</camunda:inputParameter>
+				</camunda:inputOutput>
+			</bpmn:extensionElements>
+			<bpmn:incoming>Flow_MailaBeslut_SattStatus</bpmn:incoming>
+			<bpmn:outgoing>Flow_SattStatus_BeslutTaget</bpmn:outgoing>
+		</bpmn:serviceTask>
+		<bpmn:sequenceFlow id="Flow_SattStatus_BeslutTaget" sourceRef="SattStatusGodkand" targetRef="BeslutTaget" />
+
+		<bpmn:endEvent id="BeslutTaget" name="Ansökan godkänns">
+			<bpmn:incoming>Flow_SattStatus_BeslutTaget</bpmn:incoming>
+		</bpmn:endEvent>
+
+		<!-- ============================================================
+		     SAD PATH — Request supplementation, wait, maybe inspect, maybe reject
+		     ============================================================ -->
+		<bpmn:serviceTask id="KontaktaBeror" name="Kontakta berörd, begär komplettering" camunda:type="external" camunda:topic="send-email">
+			<bpmn:extensionElements>
+				<camunda:inputOutput>
+					<camunda:inputParameter name="emailAddress">${applicantEmail}</camunda:inputParameter>
+					<camunda:inputParameter name="subject">Komplettering behövs för din ansökan om egensotning</camunda:inputParameter>
+					<camunda:inputParameter name="message">Hej, vi behöver kompletterande uppgifter för att kunna behandla din ansökan. Vänligen logga in på Mina sidor och komplettera.</camunda:inputParameter>
+					<camunda:inputParameter name="senderName">Räddningstjänsten Medelpad</camunda:inputParameter>
+					<camunda:inputParameter name="senderAddress">noreply@sundsvall.se</camunda:inputParameter>
+				</camunda:inputOutput>
+			</bpmn:extensionElements>
+			<bpmn:incoming>Flow_Gateway_Komplettering</bpmn:incoming>
+			<bpmn:outgoing>Flow_KontaktaBeror_VantaPaSvar</bpmn:outgoing>
+		</bpmn:serviceTask>
+		<bpmn:sequenceFlow id="Flow_KontaktaBeror_VantaPaSvar" sourceRef="KontaktaBeror" targetRef="KompletteringMottagen" />
+
+		<!-- Process pauses here until POST /process-messages correlates a
+		     "komplettering-received" message with kompletteringSufficient=true|false -->
+		<bpmn:intermediateCatchEvent id="KompletteringMottagen" name="Komplettering mottagen">
+			<bpmn:incoming>Flow_KontaktaBeror_VantaPaSvar</bpmn:incoming>
+			<bpmn:outgoing>Flow_KompletteringMottagen_Gateway</bpmn:outgoing>
+			<bpmn:messageEventDefinition messageRef="Message_KompletteringMottagen" />
+		</bpmn:intermediateCatchEvent>
+		<bpmn:sequenceFlow id="Flow_KompletteringMottagen_Gateway" sourceRef="KompletteringMottagen" targetRef="KompletteringGateway" />
+
+		<bpmn:exclusiveGateway id="KompletteringGateway" name="Uppgifter finns?" default="Flow_Komplettering_TillKontroll">
+			<bpmn:incoming>Flow_KompletteringMottagen_Gateway</bpmn:incoming>
+			<bpmn:outgoing>Flow_Komplettering_LoopTillBeslut</bpmn:outgoing>
+			<bpmn:outgoing>Flow_Komplettering_TillKontroll</bpmn:outgoing>
+		</bpmn:exclusiveGateway>
+
+		<!-- Uppgifter finns → loop back to the decision step -->
+		<bpmn:sequenceFlow id="Flow_Komplettering_LoopTillBeslut" sourceRef="KompletteringGateway" targetRef="SkapaBeslut">
+			<bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${kompletteringSufficient == true}</bpmn:conditionExpression>
+		</bpmn:sequenceFlow>
+		<!-- Uppgifter finns inte → on-site inspection -->
+		<bpmn:sequenceFlow id="Flow_Komplettering_TillKontroll" sourceRef="KompletteringGateway" targetRef="KontrollPaPlats" />
+
+		<!-- User task — handläggare physically inspects and completes via
+		     Operaton Tasklist, setting kontrollGodkand=true|false -->
+		<bpmn:userTask id="KontrollPaPlats" name="Kontroll på plats genomförs">
+			<bpmn:incoming>Flow_Komplettering_TillKontroll</bpmn:incoming>
+			<bpmn:outgoing>Flow_Kontroll_Gateway</bpmn:outgoing>
+		</bpmn:userTask>
+		<bpmn:sequenceFlow id="Flow_Kontroll_Gateway" sourceRef="KontrollPaPlats" targetRef="KontrollGateway" />
+
+		<bpmn:exclusiveGateway id="KontrollGateway" name="Godkänns?" default="Flow_Kontroll_TillAvslag">
+			<bpmn:incoming>Flow_Kontroll_Gateway</bpmn:incoming>
+			<bpmn:outgoing>Flow_Kontroll_LoopTillBeslut</bpmn:outgoing>
+			<bpmn:outgoing>Flow_Kontroll_TillAvslag</bpmn:outgoing>
+		</bpmn:exclusiveGateway>
+
+		<bpmn:sequenceFlow id="Flow_Kontroll_LoopTillBeslut" sourceRef="KontrollGateway" targetRef="SkapaBeslut">
+			<bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${kontrollGodkand == true}</bpmn:conditionExpression>
+		</bpmn:sequenceFlow>
+		<bpmn:sequenceFlow id="Flow_Kontroll_TillAvslag" sourceRef="KontrollGateway" targetRef="SkapaAvslag" />
+
+		<bpmn:serviceTask id="SkapaAvslag" name="Skapa beslut (avslag)" camunda:type="external" camunda:topic="rtj-add-errand-decision">
+			<bpmn:extensionElements>
+				<camunda:inputOutput>
+					<camunda:inputParameter name="decisionType">REJECTION</camunda:inputParameter>
+					<camunda:inputParameter name="value">REJECTED</camunda:inputParameter>
+					<camunda:inputParameter name="description">Ansökan om egensotning avslagen efter kontroll på plats</camunda:inputParameter>
+					<camunda:inputParameter name="createdBy">BSK</camunda:inputParameter>
+				</camunda:inputOutput>
+			</bpmn:extensionElements>
+			<bpmn:incoming>Flow_Kontroll_TillAvslag</bpmn:incoming>
+			<bpmn:outgoing>Flow_SkapaAvslag_MailaAvslag</bpmn:outgoing>
+		</bpmn:serviceTask>
+		<bpmn:sequenceFlow id="Flow_SkapaAvslag_MailaAvslag" sourceRef="SkapaAvslag" targetRef="MailaAvslag" />
+
+		<bpmn:serviceTask id="MailaAvslag" name="Maila avslag till berörd" camunda:type="external" camunda:topic="send-email">
+			<bpmn:extensionElements>
+				<camunda:inputOutput>
+					<camunda:inputParameter name="emailAddress">${applicantEmail}</camunda:inputParameter>
+					<camunda:inputParameter name="subject">Beslut: Avslag på ansökan om egensotning</camunda:inputParameter>
+					<camunda:inputParameter name="message">Hej, efter kontroll på plats har din ansökan om egensotning avslagits. Mer information finns i Mina sidor.</camunda:inputParameter>
+					<camunda:inputParameter name="senderName">Räddningstjänsten Medelpad</camunda:inputParameter>
+					<camunda:inputParameter name="senderAddress">noreply@sundsvall.se</camunda:inputParameter>
+				</camunda:inputOutput>
+			</bpmn:extensionElements>
+			<bpmn:incoming>Flow_SkapaAvslag_MailaAvslag</bpmn:incoming>
+			<bpmn:outgoing>Flow_MailaAvslag_SattStatus</bpmn:outgoing>
+		</bpmn:serviceTask>
+		<bpmn:sequenceFlow id="Flow_MailaAvslag_SattStatus" sourceRef="MailaAvslag" targetRef="SattStatusAvslag" />
+
+		<bpmn:serviceTask id="SattStatusAvslag" name="Sätt status: avslag" camunda:type="external" camunda:topic="rtj-update-errand">
+			<bpmn:extensionElements>
+				<camunda:inputOutput>
+					<camunda:inputParameter name="status">REJECTED</camunda:inputParameter>
+				</camunda:inputOutput>
+			</bpmn:extensionElements>
+			<bpmn:incoming>Flow_MailaAvslag_SattStatus</bpmn:incoming>
+			<bpmn:outgoing>Flow_SattStatusAvslag_Avslag</bpmn:outgoing>
+		</bpmn:serviceTask>
+		<bpmn:sequenceFlow id="Flow_SattStatusAvslag_Avslag" sourceRef="SattStatusAvslag" targetRef="Avslag" />
+
+		<bpmn:endEvent id="Avslag" name="Avslag">
+			<bpmn:incoming>Flow_SattStatusAvslag_Avslag</bpmn:incoming>
+		</bpmn:endEvent>
+
+	</bpmn:process>
+
+	<!-- ============================================================
+	     DIAGRAM (DI) — top row: happy path; bottom row: sad path; loops up
+	     ============================================================ -->
+	<bpmndi:BPMNDiagram id="BPMNDiagram_1">
+		<bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="egensotning-process">
+
+			<!-- TOP ROW (y≈180) -->
+			<bpmndi:BPMNShape id="AnsokanMottagen_di" bpmnElement="AnsokanMottagen">
+				<dc:Bounds x="80" y="180" width="36" height="36" />
+			</bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="MeddelaBSK_di" bpmnElement="MeddelaBSK">
+				<dc:Bounds x="170" y="158" width="120" height="80" />
+			</bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="GranskaUnderlag_di" bpmnElement="GranskaUnderlag">
+				<dc:Bounds x="330" y="158" width="120" height="80" />
+			</bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="InfoTillracklig_di" bpmnElement="InfoTillracklig" isMarkerVisible="true">
+				<dc:Bounds x="495" y="173" width="50" height="50" />
+			</bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="SkapaBeslut_di" bpmnElement="SkapaBeslut">
+				<dc:Bounds x="590" y="158" width="120" height="80" />
+			</bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="MailaBeslut_di" bpmnElement="MailaBeslut">
+				<dc:Bounds x="750" y="158" width="120" height="80" />
+			</bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="SattStatusGodkand_di" bpmnElement="SattStatusGodkand">
+				<dc:Bounds x="910" y="158" width="120" height="80" />
+			</bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="BeslutTaget_di" bpmnElement="BeslutTaget">
+				<dc:Bounds x="1070" y="180" width="36" height="36" />
+			</bpmndi:BPMNShape>
+
+			<!-- SAD ROW (y≈360) -->
+			<bpmndi:BPMNShape id="KontaktaBeror_di" bpmnElement="KontaktaBeror">
+				<dc:Bounds x="460" y="320" width="120" height="80" />
+			</bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="KompletteringMottagen_di" bpmnElement="KompletteringMottagen">
+				<dc:Bounds x="622" y="342" width="36" height="36" />
+			</bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="KompletteringGateway_di" bpmnElement="KompletteringGateway" isMarkerVisible="true">
+				<dc:Bounds x="695" y="335" width="50" height="50" />
+			</bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="KontrollPaPlats_di" bpmnElement="KontrollPaPlats">
+				<dc:Bounds x="790" y="320" width="120" height="80" />
+			</bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="KontrollGateway_di" bpmnElement="KontrollGateway" isMarkerVisible="true">
+				<dc:Bounds x="945" y="335" width="50" height="50" />
+			</bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="SkapaAvslag_di" bpmnElement="SkapaAvslag">
+				<dc:Bounds x="1040" y="320" width="120" height="80" />
+			</bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="MailaAvslag_di" bpmnElement="MailaAvslag">
+				<dc:Bounds x="1200" y="320" width="120" height="80" />
+			</bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="SattStatusAvslag_di" bpmnElement="SattStatusAvslag">
+				<dc:Bounds x="1360" y="320" width="120" height="80" />
+			</bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="Avslag_di" bpmnElement="Avslag">
+				<dc:Bounds x="1520" y="342" width="36" height="36" />
+			</bpmndi:BPMNShape>
+
+			<!-- TOP-ROW EDGES -->
+			<bpmndi:BPMNEdge id="Flow_Start_MeddelaBSK_di" bpmnElement="Flow_Start_MeddelaBSK">
+				<di:waypoint x="116" y="198" /><di:waypoint x="170" y="198" />
+			</bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_MeddelaBSK_GranskaUnderlag_di" bpmnElement="Flow_MeddelaBSK_GranskaUnderlag">
+				<di:waypoint x="290" y="198" /><di:waypoint x="330" y="198" />
+			</bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_GranskaUnderlag_Gateway_di" bpmnElement="Flow_GranskaUnderlag_Gateway">
+				<di:waypoint x="450" y="198" /><di:waypoint x="495" y="198" />
+			</bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_Gateway_SkapaBeslut_di" bpmnElement="Flow_Gateway_SkapaBeslut">
+				<di:waypoint x="545" y="198" /><di:waypoint x="590" y="198" />
+			</bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_SkapaBeslut_MailaBeslut_di" bpmnElement="Flow_SkapaBeslut_MailaBeslut">
+				<di:waypoint x="710" y="198" /><di:waypoint x="750" y="198" />
+			</bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_MailaBeslut_SattStatus_di" bpmnElement="Flow_MailaBeslut_SattStatus">
+				<di:waypoint x="870" y="198" /><di:waypoint x="910" y="198" />
+			</bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_SattStatus_BeslutTaget_di" bpmnElement="Flow_SattStatus_BeslutTaget">
+				<di:waypoint x="1030" y="198" /><di:waypoint x="1070" y="198" />
+			</bpmndi:BPMNEdge>
+
+			<!-- SAD-ROW EDGES -->
+			<bpmndi:BPMNEdge id="Flow_Gateway_Komplettering_di" bpmnElement="Flow_Gateway_Komplettering">
+				<di:waypoint x="520" y="223" /><di:waypoint x="520" y="320" />
+			</bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_KontaktaBeror_VantaPaSvar_di" bpmnElement="Flow_KontaktaBeror_VantaPaSvar">
+				<di:waypoint x="580" y="360" /><di:waypoint x="622" y="360" />
+			</bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_KompletteringMottagen_Gateway_di" bpmnElement="Flow_KompletteringMottagen_Gateway">
+				<di:waypoint x="658" y="360" /><di:waypoint x="695" y="360" />
+			</bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_Komplettering_TillKontroll_di" bpmnElement="Flow_Komplettering_TillKontroll">
+				<di:waypoint x="745" y="360" /><di:waypoint x="790" y="360" />
+			</bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_Kontroll_Gateway_di" bpmnElement="Flow_Kontroll_Gateway">
+				<di:waypoint x="910" y="360" /><di:waypoint x="945" y="360" />
+			</bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_Kontroll_TillAvslag_di" bpmnElement="Flow_Kontroll_TillAvslag">
+				<di:waypoint x="995" y="360" /><di:waypoint x="1040" y="360" />
+			</bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_SkapaAvslag_MailaAvslag_di" bpmnElement="Flow_SkapaAvslag_MailaAvslag">
+				<di:waypoint x="1160" y="360" /><di:waypoint x="1200" y="360" />
+			</bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_MailaAvslag_SattStatus_di" bpmnElement="Flow_MailaAvslag_SattStatus">
+				<di:waypoint x="1320" y="360" /><di:waypoint x="1360" y="360" />
+			</bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_SattStatusAvslag_Avslag_di" bpmnElement="Flow_SattStatusAvslag_Avslag">
+				<di:waypoint x="1480" y="360" /><di:waypoint x="1520" y="360" />
+			</bpmndi:BPMNEdge>
+
+			<!-- LOOP-BACK EDGES (sad → happy decision step) -->
+			<bpmndi:BPMNEdge id="Flow_Komplettering_LoopTillBeslut_di" bpmnElement="Flow_Komplettering_LoopTillBeslut">
+				<di:waypoint x="720" y="335" /><di:waypoint x="720" y="280" /><di:waypoint x="650" y="280" /><di:waypoint x="650" y="238" />
+			</bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_Kontroll_LoopTillBeslut_di" bpmnElement="Flow_Kontroll_LoopTillBeslut">
+				<di:waypoint x="970" y="335" /><di:waypoint x="970" y="260" /><di:waypoint x="650" y="260" /><di:waypoint x="650" y="238" />
+			</bpmndi:BPMNEdge>
+
+		</bpmndi:BPMNPlane>
+	</bpmndi:BPMNDiagram>
+</bpmn:definitions>

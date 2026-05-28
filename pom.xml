@@ -21,6 +21,7 @@
 		<module>operaton-webapp</module>
 		<module>operaton-workers</module>
 		<module>operaton-workers-caremanagement</module>
+		<module>operaton-workers-rtjmanagement</module>
 		<module>operaton-workers-financialaid</module>
 		<module>operaton-workers-messaging</module>
 		<module>operaton-workers-supportmanagement</module>
@@ -74,6 +75,11 @@
 			<dependency>
 				<groupId>se.sundsvall</groupId>
 				<artifactId>operaton-workers-caremanagement</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>se.sundsvall</groupId>
+				<artifactId>operaton-workers-rtjmanagement</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 			<dependency>

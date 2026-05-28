@@ -26,6 +26,9 @@ spring:
           care-management:
             authorization-grant-type: client_credentials
             provider: care-management
+          rtj-management:
+            authorization-grant-type: client_credentials
+            provider: rtj-management
           financial-aid:
             authorization-grant-type: client_credentials
             provider: financial-aid
@@ -42,6 +45,9 @@ integration:
     connect-timeout: 5
     read-timeout: 30
   care-management:
+    connect-timeout: 5
+    read-timeout: 30
+  rtj-management:
     connect-timeout: 5
     read-timeout: 30
   financial-aid:
