@@ -30,5 +30,17 @@
 	{
 		"id": "se.sundsvall.operaton.LogMessage",
 		"name": "Log Message"
+	},
+	{
+		"id": "se.sundsvall.operaton.RtjAddErrandDecision",
+		"name": "Rtj Add Errand Decision"
+	},
+	{
+		"id": "se.sundsvall.operaton.RtjNotifyBsk",
+		"name": "Rtj Notify Bsk"
+	},
+	{
+		"id": "se.sundsvall.operaton.RtjUpdateErrand",
+		"name": "Rtj Update Errand"
 	}
 ]

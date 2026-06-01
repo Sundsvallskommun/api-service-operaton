@@ -55,7 +55,8 @@ class RtjUpdateErrandWorkerTest {
 			.putValue("status", "ONGOING")
 			.putValue("priority", "HIGH")
 			.putValue("assignedUserId", "jane02doe")
-			.putValue("contactReason", "PHONE"));
+			.putValue("description", "Updated description")
+			.putValue("reporterUserId", "john01doe"));
 		when(rtjManagementClientMock.updateErrand(any(), any(), any(), any())).thenReturn(ResponseEntity.noContent().build());
 
 		updateErrandWorker.execute();
@@ -69,12 +70,8 @@ class RtjUpdateErrandWorkerTest {
 		assertThat(patch.getStatus()).isEqualTo("ONGOING");
 		assertThat(patch.getPriority()).isEqualTo("HIGH");
 		assertThat(patch.getAssignedUserId()).isEqualTo("jane02doe");
-		assertThat(patch.getContactReason()).isEqualTo("PHONE");
-		assertThat(patch.getCategory()).isNull();
-		assertThat(patch.getType()).isNull();
-		assertThat(patch.getDescription()).isNull();
-		assertThat(patch.getReporterUserId()).isNull();
-		assertThat(patch.getContactReasonDescription()).isNull();
+		assertThat(patch.getDescription()).isEqualTo("Updated description");
+		assertThat(patch.getReporterUserId()).isEqualTo("john01doe");
 	}
 
 	@Test
