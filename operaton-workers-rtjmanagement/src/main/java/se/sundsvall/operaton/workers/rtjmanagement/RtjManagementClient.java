@@ -1,6 +1,7 @@
 package se.sundsvall.operaton.workers.rtjmanagement;
 
 import generated.se.sundsvall.rtjmanagement.Decision;
+import generated.se.sundsvall.rtjmanagement.EgensotningVerificationResult;
 import generated.se.sundsvall.rtjmanagement.PatchErrand;
 import generated.se.sundsvall.rtjmanagement.Stakeholder;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
@@ -48,4 +49,10 @@ public interface RtjManagementClient {
 		@PathVariable final String namespace,
 		@PathVariable final String errandId,
 		@RequestBody final Stakeholder stakeholder);
+
+	@PostMapping(path = "/{municipalityId}/{namespace}/errands/{errandId}/egensotning-details/verify", produces = APPLICATION_JSON_VALUE)
+	EgensotningVerificationResult verifyEgensotning(
+		@PathVariable final String municipalityId,
+		@PathVariable final String namespace,
+		@PathVariable final String errandId);
 }

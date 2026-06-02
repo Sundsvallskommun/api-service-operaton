@@ -42,5 +42,9 @@
 	{
 		"id": "se.sundsvall.operaton.RtjUpdateErrand",
 		"name": "Rtj Update Errand"
+	},
+	{
+		"id": "se.sundsvall.operaton.RtjVerifyEgensotning",
+		"name": "Rtj Verify Egensotning"
 	}
 ]

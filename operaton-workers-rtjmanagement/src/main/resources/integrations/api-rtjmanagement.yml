@@ -36,6 +36,58 @@ tags:
 - name: Errand attachments
   description: Errand attachment operations
 paths:
+  "/{municipalityId}/{namespace}/errands/{errandId}/egensotning-details/verify":
+    post:
+      tags:
+      - Egensotning — verification
+      summary: Verify egensotning application
+      operationId: verifyEgensotning
+      parameters:
+      - name: municipalityId
+        in: path
+        required: true
+        schema:
+          type: string
+        example: 2281
+      - name: namespace
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: "[\\w|\\-]+"
+        example: EGENSOTNING
+      - name: errandId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful Operation
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/EgensotningVerificationResult"
+        '404':
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                "$ref": "#/components/schemas/Problem"
+        '400':
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                - "$ref": "#/components/schemas/Problem"
+                - "$ref": "#/components/schemas/ConstraintViolationProblem"
+        '500':
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                "$ref": "#/components/schemas/Problem"
   "/{municipalityId}/{namespace}/errands/{errandId}/notifications/acknowledged":
     put:
       tags:
@@ -2711,6 +2763,34 @@ components:
           description: User id of the assignee
           examples:
           - jane02doe
+    EgensotningVerificationResult:
+      type: object
+      description: Result of the automated egensotning checks. Drives the BPMN routing
+        gateway.
+      properties:
+        outcome:
+          type: string
+          description: 'Routing outcome: AUTO_APPROVE, NEEDS_SUPPLEMENT or NEEDS_MANUAL_REVIEW'
+          examples:
+          - AUTO_APPROVE
+        bilagaPresent:
+          type: boolean
+          description: True if at least one attachment (bilaga) exists on the errand
+        registeredAtProperty:
+          type: boolean
+          description: True if the applicant is folkbokförd at the property
+        reapplicationOk:
+          type: boolean
+          description: True if the återansökan status allows auto-approval
+        manualReviewReason:
+          type: string
+          description: Reason a human review is needed, when outcome is NEEDS_MANUAL_REVIEW
+          examples:
+          - NOT_REGISTERED
+        decisionDescription:
+          type: string
+          description: Generated formal beslutstext for approval (objekttabell + lagstöd
+            + villkor + överklagande)
     Direction:
       type: string
       enum:
