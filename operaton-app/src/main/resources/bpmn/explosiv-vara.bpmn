@@ -13,6 +13,7 @@
 	<bpmn:message id="Message_KompletteringMottagen" name="komplettering-received" />
 	<bpmn:message id="Message_HandlaggningKlar" name="handlaggning-klar" />
 	<bpmn:message id="Message_InspektionGenomford" name="inspektion-genomford" />
+	<bpmn:message id="Message_AterkallaMottaget" name="aterkalla-received" />
 
 	<!--
 		Tillståndsprocess för explosiv vara enligt LBE. Till skillnad från egensotning auto-godkänns
@@ -221,7 +222,19 @@
 			<bpmn:incoming>Flow_Inspektion_Tillstand</bpmn:incoming>
 			<bpmn:outgoing>Flow_Tillstand_Mail</bpmn:outgoing>
 		</bpmn:serviceTask>
-		<bpmn:sequenceFlow id="Flow_Tillstand_Mail" sourceRef="Tillstandsbeslut" targetRef="MailaBeslut" />
+		<bpmn:sequenceFlow id="Flow_Tillstand_Mail" sourceRef="Tillstandsbeslut" targetRef="UtfardaTillstand" />
+
+		<!-- Utfärda tillståndet (permit) med giltighetstid (högst 3 år → fasta datum) — beräknas server-side. -->
+		<bpmn:serviceTask id="UtfardaTillstand" name="Utfärda tillstånd" camunda:type="external" camunda:topic="rtj-create-permit">
+			<bpmn:extensionElements>
+				<camunda:inputOutput>
+					<camunda:inputParameter name="permitType">EXPLOSIV_VARA</camunda:inputParameter>
+				</camunda:inputOutput>
+			</bpmn:extensionElements>
+			<bpmn:incoming>Flow_Tillstand_Mail</bpmn:incoming>
+			<bpmn:outgoing>Flow_Permit_Mail</bpmn:outgoing>
+		</bpmn:serviceTask>
+		<bpmn:sequenceFlow id="Flow_Permit_Mail" sourceRef="UtfardaTillstand" targetRef="MailaBeslut" />
 
 		<bpmn:serviceTask id="MailaBeslut" name="Maila beslut till sökande" camunda:type="external" camunda:topic="send-email">
 			<bpmn:extensionElements>
@@ -233,7 +246,7 @@
 					<camunda:inputParameter name="senderAddress">noreply@sundsvall.se</camunda:inputParameter>
 				</camunda:inputOutput>
 			</bpmn:extensionElements>
-			<bpmn:incoming>Flow_Tillstand_Mail</bpmn:incoming>
+			<bpmn:incoming>Flow_Permit_Mail</bpmn:incoming>
 			<bpmn:outgoing>Flow_Mail_Status</bpmn:outgoing>
 		</bpmn:serviceTask>
 		<bpmn:sequenceFlow id="Flow_Mail_Status" sourceRef="MailaBeslut" targetRef="SattStatusBeviljat" />
@@ -301,6 +314,39 @@
 			<bpmn:incoming>Flow_AvslagStatus_End</bpmn:incoming>
 		</bpmn:endEvent>
 
+		<!-- ============================================================
+		     ÅTERKALLANDE (20§ LBE) — interrupting event subprocess. Triggered by the
+		     "aterkalla-received" message: revoke all active permits, set status REVOKED, end.
+		     ============================================================ -->
+		<bpmn:subProcess id="AterkallaSubprocess" name="Återkallande av tillstånd (20§ LBE)" triggeredByEvent="true">
+			<bpmn:startEvent id="AterkallaMottaget" name="Återkallande begärt" isInterrupting="true">
+				<bpmn:outgoing>Flow_Aterkalla_Revoke</bpmn:outgoing>
+				<bpmn:messageEventDefinition messageRef="Message_AterkallaMottaget" />
+			</bpmn:startEvent>
+			<bpmn:sequenceFlow id="Flow_Aterkalla_Revoke" sourceRef="AterkallaMottaget" targetRef="AterkallaPermit" />
+
+			<bpmn:serviceTask id="AterkallaPermit" name="Återkalla tillstånd" camunda:type="external" camunda:topic="rtj-revoke-permit">
+				<bpmn:incoming>Flow_Aterkalla_Revoke</bpmn:incoming>
+				<bpmn:outgoing>Flow_Aterkalla_SattStatus</bpmn:outgoing>
+			</bpmn:serviceTask>
+			<bpmn:sequenceFlow id="Flow_Aterkalla_SattStatus" sourceRef="AterkallaPermit" targetRef="SattStatusAterkallat" />
+
+			<bpmn:serviceTask id="SattStatusAterkallat" name="Sätt status: återkallat" camunda:type="external" camunda:topic="rtj-update-errand">
+				<bpmn:extensionElements>
+					<camunda:inputOutput>
+						<camunda:inputParameter name="status">REVOKED</camunda:inputParameter>
+					</camunda:inputOutput>
+				</bpmn:extensionElements>
+				<bpmn:incoming>Flow_Aterkalla_SattStatus</bpmn:incoming>
+				<bpmn:outgoing>Flow_Aterkalla_End</bpmn:outgoing>
+			</bpmn:serviceTask>
+			<bpmn:sequenceFlow id="Flow_Aterkalla_End" sourceRef="SattStatusAterkallat" targetRef="Aterkallat" />
+
+			<bpmn:endEvent id="Aterkallat" name="Tillstånd återkallat">
+				<bpmn:incoming>Flow_Aterkalla_End</bpmn:incoming>
+			</bpmn:endEvent>
+		</bpmn:subProcess>
+
 	</bpmn:process>
 
 	<!-- ============================================================
@@ -322,9 +368,10 @@
 			<bpmndi:BPMNShape id="ManuellHandlaggning_di" bpmnElement="ManuellHandlaggning"><dc:Bounds x="1162" y="102" width="36" height="36" /></bpmndi:BPMNShape>
 			<bpmndi:BPMNShape id="Gateway_Beslut_di" bpmnElement="Gateway_Beslut" isMarkerVisible="true"><dc:Bounds x="1250" y="95" width="50" height="50" /></bpmndi:BPMNShape>
 			<bpmndi:BPMNShape id="Tillstandsbeslut_di" bpmnElement="Tillstandsbeslut"><dc:Bounds x="1360" y="80" width="120" height="80" /></bpmndi:BPMNShape>
-			<bpmndi:BPMNShape id="MailaBeslut_di" bpmnElement="MailaBeslut"><dc:Bounds x="1540" y="80" width="120" height="80" /></bpmndi:BPMNShape>
-			<bpmndi:BPMNShape id="SattStatusBeviljat_di" bpmnElement="SattStatusBeviljat"><dc:Bounds x="1720" y="80" width="120" height="80" /></bpmndi:BPMNShape>
-			<bpmndi:BPMNShape id="BeslutTaget_di" bpmnElement="BeslutTaget"><dc:Bounds x="1900" y="102" width="36" height="36" /></bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="UtfardaTillstand_di" bpmnElement="UtfardaTillstand"><dc:Bounds x="1540" y="80" width="120" height="80" /></bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="MailaBeslut_di" bpmnElement="MailaBeslut"><dc:Bounds x="1720" y="80" width="120" height="80" /></bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="SattStatusBeviljat_di" bpmnElement="SattStatusBeviljat"><dc:Bounds x="1900" y="80" width="120" height="80" /></bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="BeslutTaget_di" bpmnElement="BeslutTaget"><dc:Bounds x="2080" y="102" width="36" height="36" /></bpmndi:BPMNShape>
 
 			<bpmndi:BPMNShape id="SattStatusAwaitingSupplementation_di" bpmnElement="SattStatusAwaitingSupplementation"><dc:Bounds x="835" y="220" width="120" height="80" /></bpmndi:BPMNShape>
 			<bpmndi:BPMNShape id="BegarKomplettering_di" bpmnElement="BegarKomplettering"><dc:Bounds x="1010" y="220" width="120" height="80" /></bpmndi:BPMNShape>
@@ -359,11 +406,22 @@
 			<bpmndi:BPMNEdge id="Flow_Inspektion_Tillstand_di" bpmnElement="Flow_Inspektion_Tillstand"><di:waypoint x="1505" y="375" /><di:waypoint x="1505" y="160" /></bpmndi:BPMNEdge>
 			<bpmndi:BPMNEdge id="Flow_Inspektion_Avslag_di" bpmnElement="Flow_Inspektion_Avslag"><di:waypoint x="1505" y="425" /><di:waypoint x="1505" y="500" /></bpmndi:BPMNEdge>
 			<bpmndi:BPMNEdge id="Flow_Tillstand_Mail_di" bpmnElement="Flow_Tillstand_Mail"><di:waypoint x="1480" y="120" /><di:waypoint x="1540" y="120" /></bpmndi:BPMNEdge>
-			<bpmndi:BPMNEdge id="Flow_Mail_Status_di" bpmnElement="Flow_Mail_Status"><di:waypoint x="1660" y="120" /><di:waypoint x="1720" y="120" /></bpmndi:BPMNEdge>
-			<bpmndi:BPMNEdge id="Flow_Status_End_di" bpmnElement="Flow_Status_End"><di:waypoint x="1840" y="120" /><di:waypoint x="1900" y="120" /></bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_Permit_Mail_di" bpmnElement="Flow_Permit_Mail"><di:waypoint x="1660" y="120" /><di:waypoint x="1720" y="120" /></bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_Mail_Status_di" bpmnElement="Flow_Mail_Status"><di:waypoint x="1840" y="120" /><di:waypoint x="1900" y="120" /></bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_Status_End_di" bpmnElement="Flow_Status_End"><di:waypoint x="2020" y="120" /><di:waypoint x="2080" y="120" /></bpmndi:BPMNEdge>
 			<bpmndi:BPMNEdge id="Flow_Avslag_Mail_di" bpmnElement="Flow_Avslag_Mail"><di:waypoint x="1480" y="540" /><di:waypoint x="1540" y="540" /></bpmndi:BPMNEdge>
 			<bpmndi:BPMNEdge id="Flow_AvslagMail_Status_di" bpmnElement="Flow_AvslagMail_Status"><di:waypoint x="1660" y="540" /><di:waypoint x="1720" y="540" /></bpmndi:BPMNEdge>
 			<bpmndi:BPMNEdge id="Flow_AvslagStatus_End_di" bpmnElement="Flow_AvslagStatus_End"><di:waypoint x="1840" y="540" /><di:waypoint x="1900" y="540" /></bpmndi:BPMNEdge>
+
+			<!-- Återkallande event-subprocess (labelled box below the main flow). -->
+			<bpmndi:BPMNShape id="AterkallaSubprocess_di" bpmnElement="AterkallaSubprocess" isExpanded="true"><dc:Bounds x="240" y="640" width="760" height="160" /></bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="AterkallaMottaget_di" bpmnElement="AterkallaMottaget"><dc:Bounds x="280" y="702" width="36" height="36" /></bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="AterkallaPermit_di" bpmnElement="AterkallaPermit"><dc:Bounds x="360" y="680" width="120" height="80" /></bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="SattStatusAterkallat_di" bpmnElement="SattStatusAterkallat"><dc:Bounds x="560" y="680" width="120" height="80" /></bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="Aterkallat_di" bpmnElement="Aterkallat"><dc:Bounds x="760" y="702" width="36" height="36" /></bpmndi:BPMNShape>
+			<bpmndi:BPMNEdge id="Flow_Aterkalla_Revoke_di" bpmnElement="Flow_Aterkalla_Revoke"><di:waypoint x="316" y="720" /><di:waypoint x="360" y="720" /></bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_Aterkalla_SattStatus_di" bpmnElement="Flow_Aterkalla_SattStatus"><di:waypoint x="480" y="720" /><di:waypoint x="560" y="720" /></bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_Aterkalla_End_di" bpmnElement="Flow_Aterkalla_End"><di:waypoint x="680" y="720" /><di:waypoint x="760" y="720" /></bpmndi:BPMNEdge>
 		</bpmndi:BPMNPlane>
 	</bpmndi:BPMNDiagram>
 </bpmn:definitions>

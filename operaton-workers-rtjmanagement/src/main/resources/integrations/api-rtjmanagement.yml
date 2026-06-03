@@ -2835,6 +2835,86 @@ components:
           format: date-time
           description: Timestamp the decision was recorded (server-assigned)
           readOnly: true
+    Remiss:
+      type: object
+      description: Remiss/samråd skickad på ett ärende — t.ex. yttrande från miljökontor, polis eller
+        länsstyrelse inför ett LBE-tillstånd. responseText fylls i när remissvaret inkommit.
+      properties:
+        id:
+          type: string
+          description: Unikt id
+          readOnly: true
+        instans:
+          type: string
+          description: 'Remissinstans: MILJOKONTOR, POLIS, LANSSTYRELSE, MCF, KOMMUN eller OVRIGT'
+          examples:
+          - MILJOKONTOR
+        recipient:
+          type: string
+          description: Mottagare av remissen (t.ex. e-post eller funktionsbrevlåda)
+        sentAt:
+          type: string
+          format: date
+          description: Datum då remissen skickades
+        dueAt:
+          type: string
+          format: date
+          description: Sista svarsdatum för remissinstansen
+        responseText:
+          type: string
+          description: Remissvaret i fritext, fylls i när svar inkommit
+        status:
+          type: string
+          description: 'Status: AWAITING eller RECEIVED'
+          examples:
+          - AWAITING
+        created:
+          type: string
+          format: date-time
+          readOnly: true
+        modified:
+          type: string
+          format: date-time
+          readOnly: true
+    Permit:
+      type: object
+      description: Utfärdat LBE-tillstånd (tillstånd) på ett ärende — giltighetstid, villkor och
+        status. validUntil beräknas server-side från permitType + validFrom (5 år brandfarlig /
+        högst 3 år explosiv, förlängt till nästa fasta datum) om den utelämnas.
+      properties:
+        id:
+          type: string
+          description: Unikt id
+          readOnly: true
+        permitType:
+          type: string
+          description: 'Typ av tillstånd: BRANDFARLIG_VARA eller EXPLOSIV_VARA'
+          examples:
+          - BRANDFARLIG_VARA
+        validFrom:
+          type: string
+          format: date
+          description: Giltig från (beslutsdatum). Default dagens datum.
+        validUntil:
+          type: string
+          format: date
+          description: Giltig till och med. Beräknas om den utelämnas.
+        conditions:
+          type: string
+          description: Villkor för tillståndet
+        status:
+          type: string
+          description: 'Status: ACTIVE eller REVOKED'
+          examples:
+          - ACTIVE
+        created:
+          type: string
+          format: date-time
+          readOnly: true
+        modified:
+          type: string
+          format: date-time
+          readOnly: true
     PatchErrand:
       type: object
       description: PatchErrand model — patchable envelope fields only

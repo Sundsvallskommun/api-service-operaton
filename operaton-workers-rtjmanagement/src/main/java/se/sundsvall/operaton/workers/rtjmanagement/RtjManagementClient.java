@@ -5,6 +5,8 @@ import generated.se.sundsvall.rtjmanagement.Decision;
 import generated.se.sundsvall.rtjmanagement.EgensotningVerificationResult;
 import generated.se.sundsvall.rtjmanagement.ExplosivVaraVerificationResult;
 import generated.se.sundsvall.rtjmanagement.PatchErrand;
+import generated.se.sundsvall.rtjmanagement.Permit;
+import generated.se.sundsvall.rtjmanagement.Remiss;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.http.ResponseEntity;
@@ -58,6 +60,26 @@ public interface RtjManagementClient {
 
 	@PostMapping(path = "/{municipalityId}/{namespace}/errands/{errandId}/explosiv-vara-details/verify", produces = APPLICATION_JSON_VALUE)
 	ExplosivVaraVerificationResult verifyExplosivVara(
+		@PathVariable final String municipalityId,
+		@PathVariable final String namespace,
+		@PathVariable final String errandId);
+
+	@PostMapping(path = "/{municipalityId}/{namespace}/errands/{errandId}/permits", consumes = APPLICATION_JSON_VALUE)
+	ResponseEntity<Void> createPermit(
+		@PathVariable final String municipalityId,
+		@PathVariable final String namespace,
+		@PathVariable final String errandId,
+		@RequestBody final Permit permit);
+
+	@PostMapping(path = "/{municipalityId}/{namespace}/errands/{errandId}/remisser", consumes = APPLICATION_JSON_VALUE)
+	ResponseEntity<Void> createRemiss(
+		@PathVariable final String municipalityId,
+		@PathVariable final String namespace,
+		@PathVariable final String errandId,
+		@RequestBody final Remiss remiss);
+
+	@PostMapping(path = "/{municipalityId}/{namespace}/errands/{errandId}/permits/revoke")
+	ResponseEntity<Void> revokePermits(
 		@PathVariable final String municipalityId,
 		@PathVariable final String namespace,
 		@PathVariable final String errandId);
