@@ -88,6 +88,110 @@ paths:
             application/problem+json:
               schema:
                 "$ref": "#/components/schemas/Problem"
+  "/{municipalityId}/{namespace}/errands/{errandId}/brandfarlig-vara-details/verify":
+    post:
+      tags:
+      - Brandfarlig vara — verification
+      summary: Verify brandfarlig-vara application (completeness)
+      operationId: verifyBrandfarligVara
+      parameters:
+      - name: municipalityId
+        in: path
+        required: true
+        schema:
+          type: string
+        example: 2281
+      - name: namespace
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: "[\\w|\\-]+"
+        example: BRANDFARLIG_VARA
+      - name: errandId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful Operation
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/BrandfarligVaraVerificationResult"
+        '404':
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                "$ref": "#/components/schemas/Problem"
+        '400':
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                - "$ref": "#/components/schemas/Problem"
+                - "$ref": "#/components/schemas/ConstraintViolationProblem"
+        '500':
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                "$ref": "#/components/schemas/Problem"
+  "/{municipalityId}/{namespace}/errands/{errandId}/explosiv-vara-details/verify":
+    post:
+      tags:
+      - Explosiv vara — verification
+      summary: Verify explosiv-vara application (completeness)
+      operationId: verifyExplosivVara
+      parameters:
+      - name: municipalityId
+        in: path
+        required: true
+        schema:
+          type: string
+        example: 2281
+      - name: namespace
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: "[\\w|\\-]+"
+        example: EXPLOSIV_VARA
+      - name: errandId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful Operation
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ExplosivVaraVerificationResult"
+        '404':
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                "$ref": "#/components/schemas/Problem"
+        '400':
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                - "$ref": "#/components/schemas/Problem"
+                - "$ref": "#/components/schemas/ConstraintViolationProblem"
+        '500':
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                "$ref": "#/components/schemas/Problem"
   "/{municipalityId}/{namespace}/errands/{errandId}/notifications/acknowledged":
     put:
       tags:
@@ -2791,6 +2895,54 @@ components:
           type: string
           description: Generated formal beslutstext for approval (objekttabell + lagstöd
             + villkor + överklagande)
+    BrandfarligVaraVerificationResult:
+      type: object
+      description: Result of the automated brandfarlig-vara completeness check. Drives
+        the BPMN routing gateway.
+      properties:
+        outcome:
+          type: string
+          description: 'Routing outcome (brandfarlig vara is never auto-approved): NEEDS_SUPPLEMENT
+            or NEEDS_MANUAL_REVIEW'
+          examples:
+          - NEEDS_MANUAL_REVIEW
+        bilagaPresent:
+          type: boolean
+          description: True if at least one attachment (bilaga) exists on the errand
+        productsPresent:
+          type: boolean
+          description: True if at least one brandfarlig vara is registered on the errand
+        supplementReason:
+          type: string
+          description: Summary of what is missing when outcome is NEEDS_SUPPLEMENT
+        decisionDescription:
+          type: string
+          description: Generated formal beslutstext for the tillståndsbeslut (omfattning
+            + lagstöd + villkor + tillståndstid + överklagande)
+    ExplosivVaraVerificationResult:
+      type: object
+      description: Result of the automated explosiv-vara completeness check. Drives
+        the BPMN routing gateway.
+      properties:
+        outcome:
+          type: string
+          description: 'Routing outcome (explosiv vara is never auto-approved): NEEDS_SUPPLEMENT
+            or NEEDS_MANUAL_REVIEW'
+          examples:
+          - NEEDS_MANUAL_REVIEW
+        bilagaPresent:
+          type: boolean
+          description: True if at least one attachment (bilaga) exists on the errand
+        productsPresent:
+          type: boolean
+          description: True if at least one explosiv vara is registered on the errand
+        supplementReason:
+          type: string
+          description: Summary of what is missing when outcome is NEEDS_SUPPLEMENT
+        decisionDescription:
+          type: string
+          description: Generated formal beslutstext for the tillståndsbeslut (omfattning
+            + lagstöd + villkor + tillståndstid + överklagande)
     Direction:
       type: string
       enum:

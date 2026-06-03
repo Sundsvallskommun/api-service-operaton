@@ -36,10 +36,6 @@
 		"name": "Rtj Add Errand Decision"
 	},
 	{
-		"id": "se.sundsvall.operaton.RtjNotifyBsk",
-		"name": "Rtj Notify Bsk"
-	},
-	{
 		"id": "se.sundsvall.operaton.RtjUpdateErrand",
 		"name": "Rtj Update Errand"
 	},

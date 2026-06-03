@@ -1,9 +1,10 @@
 package se.sundsvall.operaton.workers.rtjmanagement;
 
+import generated.se.sundsvall.rtjmanagement.BrandfarligVaraVerificationResult;
 import generated.se.sundsvall.rtjmanagement.Decision;
 import generated.se.sundsvall.rtjmanagement.EgensotningVerificationResult;
+import generated.se.sundsvall.rtjmanagement.ExplosivVaraVerificationResult;
 import generated.se.sundsvall.rtjmanagement.PatchErrand;
-import generated.se.sundsvall.rtjmanagement.Stakeholder;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.http.ResponseEntity;
@@ -43,15 +44,20 @@ public interface RtjManagementClient {
 		@PathVariable final String errandId,
 		@RequestBody final Decision decision);
 
-	@PostMapping(path = "/{municipalityId}/{namespace}/errands/{errandId}/stakeholders", consumes = APPLICATION_JSON_VALUE)
-	ResponseEntity<Void> createErrandStakeholder(
-		@PathVariable final String municipalityId,
-		@PathVariable final String namespace,
-		@PathVariable final String errandId,
-		@RequestBody final Stakeholder stakeholder);
-
 	@PostMapping(path = "/{municipalityId}/{namespace}/errands/{errandId}/egensotning-details/verify", produces = APPLICATION_JSON_VALUE)
 	EgensotningVerificationResult verifyEgensotning(
+		@PathVariable final String municipalityId,
+		@PathVariable final String namespace,
+		@PathVariable final String errandId);
+
+	@PostMapping(path = "/{municipalityId}/{namespace}/errands/{errandId}/brandfarlig-vara-details/verify", produces = APPLICATION_JSON_VALUE)
+	BrandfarligVaraVerificationResult verifyBrandfarligVara(
+		@PathVariable final String municipalityId,
+		@PathVariable final String namespace,
+		@PathVariable final String errandId);
+
+	@PostMapping(path = "/{municipalityId}/{namespace}/errands/{errandId}/explosiv-vara-details/verify", produces = APPLICATION_JSON_VALUE)
+	ExplosivVaraVerificationResult verifyExplosivVara(
 		@PathVariable final String municipalityId,
 		@PathVariable final String namespace,
 		@PathVariable final String errandId);

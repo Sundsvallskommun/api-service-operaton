@@ -1,0 +1,369 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+	xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+	xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+	xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+	xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	id="Definitions_ExplosivVara"
+	targetNamespace="http://bpmn.io/schema/bpmn">
+
+	<!-- Message declarations — correlated via POST .../errands/{errandId}/process-messages -->
+	<bpmn:message id="Message_PolisyttrandeMottaget" name="polisyttrande-received" />
+	<bpmn:message id="Message_KompletteringMottagen" name="komplettering-received" />
+	<bpmn:message id="Message_HandlaggningKlar" name="handlaggning-klar" />
+	<bpmn:message id="Message_InspektionGenomford" name="inspektion-genomford" />
+
+	<!--
+		Tillståndsprocess för explosiv vara enligt LBE. Till skillnad från egensotning auto-godkänns
+		ALDRIG ett LBE-tillstånd: ansökan ska först remitteras till polismyndigheten för yttrande
+		(14 § FBE), därefter görs en fullständighetskontroll som routar till komplettering eller
+		manuell handläggning. Handläggaren avgör sedan beslut (bevilja / tillsyn / avslag) via
+		message-correlation.
+
+		v1-omfattning (de statusar som finns i ExplosivVaraModuleConfig): REGISTERED →
+		AWAITING_POLICE_STATEMENT → AWAITING_SUPPLEMENTATION / INSPECTION_SCHEDULED / DECIDED /
+		REJECTED. Återkallande (20§) och föreståndar-/deltagargodkännande i NATEV är v2.
+	-->
+	<bpmn:process id="explosiv-vara-process" name="Hantera ansökan om tillstånd för explosiv vara" isExecutable="true" camunda:historyTimeToLive="P30D">
+
+		<!-- ============================================================
+		     START → polisyttrande (14§ FBE) → automated completeness check
+		     ============================================================ -->
+		<bpmn:startEvent id="AnsokanMottagen" name="Ansökan mottagen">
+			<bpmn:outgoing>Flow_Start_UnderrattaPolis</bpmn:outgoing>
+		</bpmn:startEvent>
+		<bpmn:sequenceFlow id="Flow_Start_UnderrattaPolis" sourceRef="AnsokanMottagen" targetRef="UnderrattaPolis" />
+
+		<!-- Underrätta polismyndigheten och begär yttrande enligt 14 § FBE innan ansökan handläggs. -->
+		<bpmn:serviceTask id="UnderrattaPolis" name="Underrätta polismyndigheten + begär yttrande (14§ FBE)" camunda:type="external" camunda:topic="send-email">
+			<bpmn:extensionElements>
+				<camunda:inputOutput>
+					<camunda:inputParameter name="emailAddress">registrator.nord@polisen.se</camunda:inputParameter>
+					<camunda:inputParameter name="subject">Begäran om yttrande enligt 14 § FBE — tillstånd för explosiv vara</camunda:inputParameter>
+					<camunda:inputParameter name="message">Hej, Medelpads Räddningstjänstförbund har mottagit en ansökan om tillstånd för hantering av explosiv vara. Med stöd av 14 § förordningen (2010:1075) om brandfarliga och explosiva varor (FBE) begärs polismyndighetens yttrande avseende sökanden samt anmälda föreståndare och deltagare. Underlag översänds separat. Vänligen återkom med yttrande till Medelpads Räddningstjänstförbund.</camunda:inputParameter>
+					<camunda:inputParameter name="senderName">Räddningstjänsten Medelpad</camunda:inputParameter>
+					<camunda:inputParameter name="senderAddress">noreply@sundsvall.se</camunda:inputParameter>
+				</camunda:inputOutput>
+			</bpmn:extensionElements>
+			<bpmn:incoming>Flow_Start_UnderrattaPolis</bpmn:incoming>
+			<bpmn:outgoing>Flow_UnderrattaPolis_SattStatusPolis</bpmn:outgoing>
+		</bpmn:serviceTask>
+		<bpmn:sequenceFlow id="Flow_UnderrattaPolis_SattStatusPolis" sourceRef="UnderrattaPolis" targetRef="SattStatusPolisyttrande" />
+
+		<bpmn:serviceTask id="SattStatusPolisyttrande" name="Sätt status: inväntar polisyttrande" camunda:type="external" camunda:topic="rtj-update-errand">
+			<bpmn:extensionElements>
+				<camunda:inputOutput>
+					<camunda:inputParameter name="status">AWAITING_POLICE_STATEMENT</camunda:inputParameter>
+				</camunda:inputOutput>
+			</bpmn:extensionElements>
+			<bpmn:incoming>Flow_UnderrattaPolis_SattStatusPolis</bpmn:incoming>
+			<bpmn:outgoing>Flow_SattStatusPolis_Vanta</bpmn:outgoing>
+		</bpmn:serviceTask>
+		<bpmn:sequenceFlow id="Flow_SattStatusPolis_Vanta" sourceRef="SattStatusPolisyttrande" targetRef="PolisyttrandeMottaget" />
+
+		<!-- Pauses until POST /process-messages correlates "polisyttrande-received"; then verify. -->
+		<bpmn:intermediateCatchEvent id="PolisyttrandeMottaget" name="Polisyttrande mottaget">
+			<bpmn:incoming>Flow_SattStatusPolis_Vanta</bpmn:incoming>
+			<bpmn:outgoing>Flow_Polisyttrande_Verifiera</bpmn:outgoing>
+			<bpmn:messageEventDefinition messageRef="Message_PolisyttrandeMottaget" />
+		</bpmn:intermediateCatchEvent>
+		<bpmn:sequenceFlow id="Flow_Polisyttrande_Verifiera" sourceRef="PolisyttrandeMottaget" targetRef="VerifieraAnsokan" />
+
+		<!-- Runs the explosiv-vara completeness check in rtj-management (hanteringsplats, minst en
+		     explosiv vara, minst en bilaga) and writes outcome + decisionDescription to process
+		     variables. Re-entered after a komplettering. -->
+		<bpmn:serviceTask id="VerifieraAnsokan" name="Verifiera ansökan" camunda:type="external" camunda:topic="rtj-verify-explosiv-vara">
+			<bpmn:incoming>Flow_Polisyttrande_Verifiera</bpmn:incoming>
+			<bpmn:incoming>Flow_Kompl_ReVerifiera</bpmn:incoming>
+			<bpmn:outgoing>Flow_Verifiera_Gateway</bpmn:outgoing>
+		</bpmn:serviceTask>
+		<bpmn:sequenceFlow id="Flow_Verifiera_Gateway" sourceRef="VerifieraAnsokan" targetRef="Gateway_Outcome" />
+
+		<bpmn:exclusiveGateway id="Gateway_Outcome" name="Utfall?" default="Flow_Outcome_Manuell">
+			<bpmn:incoming>Flow_Verifiera_Gateway</bpmn:incoming>
+			<bpmn:outgoing>Flow_Outcome_Komplettering</bpmn:outgoing>
+			<bpmn:outgoing>Flow_Outcome_Manuell</bpmn:outgoing>
+		</bpmn:exclusiveGateway>
+		<bpmn:sequenceFlow id="Flow_Outcome_Komplettering" sourceRef="Gateway_Outcome" targetRef="SattStatusAwaitingSupplementation">
+			<bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${outcome == 'NEEDS_SUPPLEMENT'}</bpmn:conditionExpression>
+		</bpmn:sequenceFlow>
+		<bpmn:sequenceFlow id="Flow_Outcome_Manuell" sourceRef="Gateway_Outcome" targetRef="SkickaMottagningsbevis" />
+
+		<!-- ============================================================
+		     KOMPLETTERING — set status, email, wait for the applicant to
+		     supplement, then RE-RUN the completeness check.
+		     ============================================================ -->
+		<bpmn:serviceTask id="SattStatusAwaitingSupplementation" name="Sätt status: inväntar komplettering" camunda:type="external" camunda:topic="rtj-update-errand">
+			<bpmn:extensionElements>
+				<camunda:inputOutput>
+					<camunda:inputParameter name="status">AWAITING_SUPPLEMENTATION</camunda:inputParameter>
+				</camunda:inputOutput>
+			</bpmn:extensionElements>
+			<bpmn:incoming>Flow_Outcome_Komplettering</bpmn:incoming>
+			<bpmn:outgoing>Flow_AwaitingStatus_BegarKomplettering</bpmn:outgoing>
+		</bpmn:serviceTask>
+		<bpmn:sequenceFlow id="Flow_AwaitingStatus_BegarKomplettering" sourceRef="SattStatusAwaitingSupplementation" targetRef="BegarKomplettering" />
+
+		<bpmn:serviceTask id="BegarKomplettering" name="Begär komplettering" camunda:type="external" camunda:topic="send-email">
+			<bpmn:extensionElements>
+				<camunda:inputOutput>
+					<camunda:inputParameter name="emailAddress">${applicantEmail}</camunda:inputParameter>
+					<camunda:inputParameter name="subject">Komplettering behövs – ansökan om tillstånd för explosiv vara</camunda:inputParameter>
+					<camunda:inputParameter name="message">Hej, din ansökan om tillstånd för explosiv vara behöver kompletteras (t.ex. riskutredning enligt 7 § LBE, situationsplan, uppgifter om hanteringsplats eller om de explosiva varorna). Vänligen logga in på Mina sidor och komplettera ansökan.</camunda:inputParameter>
+					<camunda:inputParameter name="senderName">Räddningstjänsten Medelpad</camunda:inputParameter>
+					<camunda:inputParameter name="senderAddress">noreply@sundsvall.se</camunda:inputParameter>
+				</camunda:inputOutput>
+			</bpmn:extensionElements>
+			<bpmn:incoming>Flow_AwaitingStatus_BegarKomplettering</bpmn:incoming>
+			<bpmn:outgoing>Flow_BegarKomplettering_Vanta</bpmn:outgoing>
+		</bpmn:serviceTask>
+		<bpmn:sequenceFlow id="Flow_BegarKomplettering_Vanta" sourceRef="BegarKomplettering" targetRef="KompletteringMottagen" />
+
+		<!-- Pauses until POST /process-messages correlates "komplettering-received"; loop back to re-verify. -->
+		<bpmn:intermediateCatchEvent id="KompletteringMottagen" name="Komplettering mottagen">
+			<bpmn:incoming>Flow_BegarKomplettering_Vanta</bpmn:incoming>
+			<bpmn:outgoing>Flow_Kompl_ReVerifiera</bpmn:outgoing>
+			<bpmn:messageEventDefinition messageRef="Message_KompletteringMottagen" />
+		</bpmn:intermediateCatchEvent>
+		<bpmn:sequenceFlow id="Flow_Kompl_ReVerifiera" sourceRef="KompletteringMottagen" targetRef="VerifieraAnsokan" />
+
+		<!-- ============================================================
+		     MANUELL HANDLÄGGNING — send mottagningsbevis, wait for the handläggare
+		     to decide (handlaggning-klar med beslut = APPROVE | INSPECTION | REJECT).
+		     ============================================================ -->
+		<bpmn:serviceTask id="SkickaMottagningsbevis" name="Skicka mottagningsbevis" camunda:type="external" camunda:topic="send-email">
+			<bpmn:extensionElements>
+				<camunda:inputOutput>
+					<camunda:inputParameter name="emailAddress">${applicantEmail}</camunda:inputParameter>
+					<camunda:inputParameter name="subject">Mottagningsbevis – ansökan om tillstånd för explosiv vara</camunda:inputParameter>
+					<camunda:inputParameter name="message">Hej, din ansökan om tillstånd för explosiv vara har tagits emot och bedömts fullständig. Beslut fattas normalt inom tre (3) månader från det att en fullständig ansökan inkommit (17 § förordningen [2010:1075] om brandfarliga och explosiva varor). Du kan följa ärendet på Mina sidor.</camunda:inputParameter>
+					<camunda:inputParameter name="senderName">Räddningstjänsten Medelpad</camunda:inputParameter>
+					<camunda:inputParameter name="senderAddress">noreply@sundsvall.se</camunda:inputParameter>
+				</camunda:inputOutput>
+			</bpmn:extensionElements>
+			<bpmn:incoming>Flow_Outcome_Manuell</bpmn:incoming>
+			<bpmn:outgoing>Flow_Mottag_Handlagg</bpmn:outgoing>
+		</bpmn:serviceTask>
+		<bpmn:sequenceFlow id="Flow_Mottag_Handlagg" sourceRef="SkickaMottagningsbevis" targetRef="ManuellHandlaggning" />
+
+		<!-- Pauses until POST /process-messages correlates "handlaggning-klar" with
+		     beslut = APPROVE | INSPECTION | REJECT (the handläggare's decision in the UI). -->
+		<bpmn:intermediateCatchEvent id="ManuellHandlaggning" name="Intern handläggning klar">
+			<bpmn:incoming>Flow_Mottag_Handlagg</bpmn:incoming>
+			<bpmn:outgoing>Flow_Handlagg_Gateway</bpmn:outgoing>
+			<bpmn:messageEventDefinition messageRef="Message_HandlaggningKlar" />
+		</bpmn:intermediateCatchEvent>
+		<bpmn:sequenceFlow id="Flow_Handlagg_Gateway" sourceRef="ManuellHandlaggning" targetRef="Gateway_Beslut" />
+
+		<bpmn:exclusiveGateway id="Gateway_Beslut" name="Beslut?" default="Flow_Beslut_Avslag">
+			<bpmn:incoming>Flow_Handlagg_Gateway</bpmn:incoming>
+			<bpmn:outgoing>Flow_Beslut_Tillstand</bpmn:outgoing>
+			<bpmn:outgoing>Flow_Beslut_Inspektion</bpmn:outgoing>
+			<bpmn:outgoing>Flow_Beslut_Avslag</bpmn:outgoing>
+		</bpmn:exclusiveGateway>
+		<bpmn:sequenceFlow id="Flow_Beslut_Tillstand" sourceRef="Gateway_Beslut" targetRef="Tillstandsbeslut">
+			<bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${beslut == 'APPROVE'}</bpmn:conditionExpression>
+		</bpmn:sequenceFlow>
+		<bpmn:sequenceFlow id="Flow_Beslut_Inspektion" sourceRef="Gateway_Beslut" targetRef="SattStatusInspektion">
+			<bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${beslut == 'INSPECTION'}</bpmn:conditionExpression>
+		</bpmn:sequenceFlow>
+		<bpmn:sequenceFlow id="Flow_Beslut_Avslag" sourceRef="Gateway_Beslut" targetRef="SkapaAvslag" />
+
+		<!-- ============================================================
+		     TILLSYN (platsbesök) — v1 modellerar som ett gemensamt vänteläge: sätt status,
+		     vänta på att besöket genomförts (inspektion-genomford med godkand = true|false),
+		     routa till tillstånd eller avslag.
+		     ============================================================ -->
+		<bpmn:serviceTask id="SattStatusInspektion" name="Sätt status: platsbesök planerat" camunda:type="external" camunda:topic="rtj-update-errand">
+			<bpmn:extensionElements>
+				<camunda:inputOutput>
+					<camunda:inputParameter name="status">INSPECTION_SCHEDULED</camunda:inputParameter>
+				</camunda:inputOutput>
+			</bpmn:extensionElements>
+			<bpmn:incoming>Flow_Beslut_Inspektion</bpmn:incoming>
+			<bpmn:outgoing>Flow_Inspektion_Vanta</bpmn:outgoing>
+		</bpmn:serviceTask>
+		<bpmn:sequenceFlow id="Flow_Inspektion_Vanta" sourceRef="SattStatusInspektion" targetRef="InspektionGenomford" />
+
+		<bpmn:intermediateCatchEvent id="InspektionGenomford" name="Platsbesök genomfört">
+			<bpmn:incoming>Flow_Inspektion_Vanta</bpmn:incoming>
+			<bpmn:outgoing>Flow_Inspektion_Gateway</bpmn:outgoing>
+			<bpmn:messageEventDefinition messageRef="Message_InspektionGenomford" />
+		</bpmn:intermediateCatchEvent>
+		<bpmn:sequenceFlow id="Flow_Inspektion_Gateway" sourceRef="InspektionGenomford" targetRef="Gateway_Inspektion" />
+
+		<bpmn:exclusiveGateway id="Gateway_Inspektion" name="Godkänt?" default="Flow_Inspektion_Avslag">
+			<bpmn:incoming>Flow_Inspektion_Gateway</bpmn:incoming>
+			<bpmn:outgoing>Flow_Inspektion_Tillstand</bpmn:outgoing>
+			<bpmn:outgoing>Flow_Inspektion_Avslag</bpmn:outgoing>
+		</bpmn:exclusiveGateway>
+		<bpmn:sequenceFlow id="Flow_Inspektion_Tillstand" sourceRef="Gateway_Inspektion" targetRef="Tillstandsbeslut">
+			<bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${godkand == true}</bpmn:conditionExpression>
+		</bpmn:sequenceFlow>
+		<bpmn:sequenceFlow id="Flow_Inspektion_Avslag" sourceRef="Gateway_Inspektion" targetRef="SkapaAvslag" />
+
+		<!-- ============================================================
+		     TILLSTÅNDSBESLUT (delat) — skapa beslut, maila, sätt status DECIDED, slut.
+		     ============================================================ -->
+		<bpmn:serviceTask id="Tillstandsbeslut" name="Skapa beslut (tillstånd)" camunda:type="external" camunda:topic="rtj-add-errand-decision">
+			<bpmn:extensionElements>
+				<camunda:inputOutput>
+					<camunda:inputParameter name="decisionType">APPROVAL</camunda:inputParameter>
+					<camunda:inputParameter name="value">APPROVED</camunda:inputParameter>
+					<!-- Formell beslutstext (omfattning + lagstöd + villkor + tillståndstid + överklagande)
+					     genereras av verifieringssteget och bärs som processvariabel. -->
+					<camunda:inputParameter name="description">${decisionDescription}</camunda:inputParameter>
+					<camunda:inputParameter name="createdBy">SYSTEM</camunda:inputParameter>
+				</camunda:inputOutput>
+			</bpmn:extensionElements>
+			<bpmn:incoming>Flow_Beslut_Tillstand</bpmn:incoming>
+			<bpmn:incoming>Flow_Inspektion_Tillstand</bpmn:incoming>
+			<bpmn:outgoing>Flow_Tillstand_Mail</bpmn:outgoing>
+		</bpmn:serviceTask>
+		<bpmn:sequenceFlow id="Flow_Tillstand_Mail" sourceRef="Tillstandsbeslut" targetRef="MailaBeslut" />
+
+		<bpmn:serviceTask id="MailaBeslut" name="Maila beslut till sökande" camunda:type="external" camunda:topic="send-email">
+			<bpmn:extensionElements>
+				<camunda:inputOutput>
+					<camunda:inputParameter name="emailAddress">${applicantEmail}</camunda:inputParameter>
+					<camunda:inputParameter name="subject">Beslut: Tillstånd för explosiv vara beviljat</camunda:inputParameter>
+					<camunda:inputParameter name="message">Hej, din ansökan om tillstånd för hantering av explosiv vara har beviljats med stöd av 16 och 19 §§ lagen (2010:1011) om brandfarliga och explosiva varor (LBE). Tillståndets omfattning, villkor och giltighetstid framgår av beslutet på Mina sidor. Beslutet kan överklagas skriftligt till Länsstyrelsen i Västernorrlands län inom tre (3) veckor från delgivning; överklagandet skickas till Medelpads Räddningstjänstförbund.</camunda:inputParameter>
+					<camunda:inputParameter name="senderName">Räddningstjänsten Medelpad</camunda:inputParameter>
+					<camunda:inputParameter name="senderAddress">noreply@sundsvall.se</camunda:inputParameter>
+				</camunda:inputOutput>
+			</bpmn:extensionElements>
+			<bpmn:incoming>Flow_Tillstand_Mail</bpmn:incoming>
+			<bpmn:outgoing>Flow_Mail_Status</bpmn:outgoing>
+		</bpmn:serviceTask>
+		<bpmn:sequenceFlow id="Flow_Mail_Status" sourceRef="MailaBeslut" targetRef="SattStatusBeviljat" />
+
+		<bpmn:serviceTask id="SattStatusBeviljat" name="Sätt status: beslut taget" camunda:type="external" camunda:topic="rtj-update-errand">
+			<bpmn:extensionElements>
+				<camunda:inputOutput>
+					<camunda:inputParameter name="status">DECIDED</camunda:inputParameter>
+				</camunda:inputOutput>
+			</bpmn:extensionElements>
+			<bpmn:incoming>Flow_Mail_Status</bpmn:incoming>
+			<bpmn:outgoing>Flow_Status_End</bpmn:outgoing>
+		</bpmn:serviceTask>
+		<bpmn:sequenceFlow id="Flow_Status_End" sourceRef="SattStatusBeviljat" targetRef="BeslutTaget" />
+
+		<bpmn:endEvent id="BeslutTaget" name="Tillstånd beviljat">
+			<bpmn:incoming>Flow_Status_End</bpmn:incoming>
+		</bpmn:endEvent>
+
+		<!-- ============================================================
+		     AVSLAG/FÖRBUD (delat) — skapa beslut, maila, sätt status REJECTED, slut.
+		     ============================================================ -->
+		<bpmn:serviceTask id="SkapaAvslag" name="Skapa beslut (avslag)" camunda:type="external" camunda:topic="rtj-add-errand-decision">
+			<bpmn:extensionElements>
+				<camunda:inputOutput>
+					<camunda:inputParameter name="decisionType">REJECTION</camunda:inputParameter>
+					<camunda:inputParameter name="value">REJECTED</camunda:inputParameter>
+					<camunda:inputParameter name="description">Ansökan om tillstånd för explosiv vara avslås. Beslut enligt 16 och 19 §§ lagen (2010:1011) om brandfarliga och explosiva varor (LBE). Beslutet kan överklagas skriftligt till Länsstyrelsen i Västernorrlands län inom tre (3) veckor från delgivning; överklagandet skickas till Medelpads Räddningstjänstförbund.</camunda:inputParameter>
+					<camunda:inputParameter name="createdBy">SYSTEM</camunda:inputParameter>
+				</camunda:inputOutput>
+			</bpmn:extensionElements>
+			<bpmn:incoming>Flow_Beslut_Avslag</bpmn:incoming>
+			<bpmn:incoming>Flow_Inspektion_Avslag</bpmn:incoming>
+			<bpmn:outgoing>Flow_Avslag_Mail</bpmn:outgoing>
+		</bpmn:serviceTask>
+		<bpmn:sequenceFlow id="Flow_Avslag_Mail" sourceRef="SkapaAvslag" targetRef="MailaAvslag" />
+
+		<bpmn:serviceTask id="MailaAvslag" name="Maila avslag till sökande" camunda:type="external" camunda:topic="send-email">
+			<bpmn:extensionElements>
+				<camunda:inputOutput>
+					<camunda:inputParameter name="emailAddress">${applicantEmail}</camunda:inputParameter>
+					<camunda:inputParameter name="subject">Beslut: Avslag på ansökan om tillstånd för explosiv vara</camunda:inputParameter>
+					<camunda:inputParameter name="message">Hej, efter prövning har din ansökan om tillstånd för hantering av explosiv vara avslagits. Beslutet är fattat med stöd av 16 och 19 §§ lagen (2010:1011) om brandfarliga och explosiva varor (LBE). Skäl och fullständigt beslut finns på Mina sidor. Beslutet kan överklagas skriftligt till Länsstyrelsen i Västernorrlands län inom tre (3) veckor från delgivning; överklagandet skickas till Medelpads Räddningstjänstförbund.</camunda:inputParameter>
+					<camunda:inputParameter name="senderName">Räddningstjänsten Medelpad</camunda:inputParameter>
+					<camunda:inputParameter name="senderAddress">noreply@sundsvall.se</camunda:inputParameter>
+				</camunda:inputOutput>
+			</bpmn:extensionElements>
+			<bpmn:incoming>Flow_Avslag_Mail</bpmn:incoming>
+			<bpmn:outgoing>Flow_AvslagMail_Status</bpmn:outgoing>
+		</bpmn:serviceTask>
+		<bpmn:sequenceFlow id="Flow_AvslagMail_Status" sourceRef="MailaAvslag" targetRef="SattStatusAvslag" />
+
+		<bpmn:serviceTask id="SattStatusAvslag" name="Sätt status: avslag" camunda:type="external" camunda:topic="rtj-update-errand">
+			<bpmn:extensionElements>
+				<camunda:inputOutput>
+					<camunda:inputParameter name="status">REJECTED</camunda:inputParameter>
+				</camunda:inputOutput>
+			</bpmn:extensionElements>
+			<bpmn:incoming>Flow_AvslagMail_Status</bpmn:incoming>
+			<bpmn:outgoing>Flow_AvslagStatus_End</bpmn:outgoing>
+		</bpmn:serviceTask>
+		<bpmn:sequenceFlow id="Flow_AvslagStatus_End" sourceRef="SattStatusAvslag" targetRef="Avslag" />
+
+		<bpmn:endEvent id="Avslag" name="Avslag">
+			<bpmn:incoming>Flow_AvslagStatus_End</bpmn:incoming>
+		</bpmn:endEvent>
+
+	</bpmn:process>
+
+	<!-- ============================================================
+	     DIAGRAM (DI) — row 1: polisyttrande → verify → manuell handläggning → tillståndsbeslut;
+	     row 2: komplettering loop; row 3: platsbesök; row 4: avslag.
+	     The original brandfarlig layout is shifted right by 450px to make room for the
+	     prepended polisyttrande segment. Layout is illustrative; re-layout in the modeler if needed.
+	     ============================================================ -->
+	<bpmndi:BPMNDiagram id="BPMNDiagram_1">
+		<bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="explosiv-vara-process">
+			<bpmndi:BPMNShape id="AnsokanMottagen_di" bpmnElement="AnsokanMottagen"><dc:Bounds x="152" y="102" width="36" height="36" /></bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="UnderrattaPolis_di" bpmnElement="UnderrattaPolis"><dc:Bounds x="240" y="80" width="120" height="80" /></bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="SattStatusPolisyttrande_di" bpmnElement="SattStatusPolisyttrande"><dc:Bounds x="410" y="80" width="120" height="80" /></bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="PolisyttrandeMottaget_di" bpmnElement="PolisyttrandeMottaget"><dc:Bounds x="582" y="102" width="36" height="36" /></bpmndi:BPMNShape>
+
+			<bpmndi:BPMNShape id="VerifieraAnsokan_di" bpmnElement="VerifieraAnsokan"><dc:Bounds x="690" y="80" width="120" height="80" /></bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="Gateway_Outcome_di" bpmnElement="Gateway_Outcome" isMarkerVisible="true"><dc:Bounds x="870" y="95" width="50" height="50" /></bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="SkickaMottagningsbevis_di" bpmnElement="SkickaMottagningsbevis"><dc:Bounds x="980" y="80" width="120" height="80" /></bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="ManuellHandlaggning_di" bpmnElement="ManuellHandlaggning"><dc:Bounds x="1162" y="102" width="36" height="36" /></bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="Gateway_Beslut_di" bpmnElement="Gateway_Beslut" isMarkerVisible="true"><dc:Bounds x="1250" y="95" width="50" height="50" /></bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="Tillstandsbeslut_di" bpmnElement="Tillstandsbeslut"><dc:Bounds x="1360" y="80" width="120" height="80" /></bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="MailaBeslut_di" bpmnElement="MailaBeslut"><dc:Bounds x="1540" y="80" width="120" height="80" /></bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="SattStatusBeviljat_di" bpmnElement="SattStatusBeviljat"><dc:Bounds x="1720" y="80" width="120" height="80" /></bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="BeslutTaget_di" bpmnElement="BeslutTaget"><dc:Bounds x="1900" y="102" width="36" height="36" /></bpmndi:BPMNShape>
+
+			<bpmndi:BPMNShape id="SattStatusAwaitingSupplementation_di" bpmnElement="SattStatusAwaitingSupplementation"><dc:Bounds x="835" y="220" width="120" height="80" /></bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="BegarKomplettering_di" bpmnElement="BegarKomplettering"><dc:Bounds x="1010" y="220" width="120" height="80" /></bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="KompletteringMottagen_di" bpmnElement="KompletteringMottagen"><dc:Bounds x="1182" y="242" width="36" height="36" /></bpmndi:BPMNShape>
+
+			<bpmndi:BPMNShape id="SattStatusInspektion_di" bpmnElement="SattStatusInspektion"><dc:Bounds x="1215" y="360" width="120" height="80" /></bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="InspektionGenomford_di" bpmnElement="InspektionGenomford"><dc:Bounds x="1390" y="382" width="36" height="36" /></bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="Gateway_Inspektion_di" bpmnElement="Gateway_Inspektion" isMarkerVisible="true"><dc:Bounds x="1480" y="375" width="50" height="50" /></bpmndi:BPMNShape>
+
+			<bpmndi:BPMNShape id="SkapaAvslag_di" bpmnElement="SkapaAvslag"><dc:Bounds x="1360" y="500" width="120" height="80" /></bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="MailaAvslag_di" bpmnElement="MailaAvslag"><dc:Bounds x="1540" y="500" width="120" height="80" /></bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="SattStatusAvslag_di" bpmnElement="SattStatusAvslag"><dc:Bounds x="1720" y="500" width="120" height="80" /></bpmndi:BPMNShape>
+			<bpmndi:BPMNShape id="Avslag_di" bpmnElement="Avslag"><dc:Bounds x="1900" y="522" width="36" height="36" /></bpmndi:BPMNShape>
+
+			<bpmndi:BPMNEdge id="Flow_Start_UnderrattaPolis_di" bpmnElement="Flow_Start_UnderrattaPolis"><di:waypoint x="188" y="120" /><di:waypoint x="240" y="120" /></bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_UnderrattaPolis_SattStatusPolis_di" bpmnElement="Flow_UnderrattaPolis_SattStatusPolis"><di:waypoint x="360" y="120" /><di:waypoint x="410" y="120" /></bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_SattStatusPolis_Vanta_di" bpmnElement="Flow_SattStatusPolis_Vanta"><di:waypoint x="530" y="120" /><di:waypoint x="582" y="120" /></bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_Polisyttrande_Verifiera_di" bpmnElement="Flow_Polisyttrande_Verifiera"><di:waypoint x="618" y="120" /><di:waypoint x="690" y="120" /></bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_Verifiera_Gateway_di" bpmnElement="Flow_Verifiera_Gateway"><di:waypoint x="810" y="120" /><di:waypoint x="870" y="120" /></bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_Outcome_Manuell_di" bpmnElement="Flow_Outcome_Manuell"><di:waypoint x="920" y="120" /><di:waypoint x="980" y="120" /></bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_Outcome_Komplettering_di" bpmnElement="Flow_Outcome_Komplettering"><di:waypoint x="895" y="145" /><di:waypoint x="895" y="220" /></bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_AwaitingStatus_BegarKomplettering_di" bpmnElement="Flow_AwaitingStatus_BegarKomplettering"><di:waypoint x="955" y="260" /><di:waypoint x="1010" y="260" /></bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_BegarKomplettering_Vanta_di" bpmnElement="Flow_BegarKomplettering_Vanta"><di:waypoint x="1130" y="260" /><di:waypoint x="1182" y="260" /></bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_Kompl_ReVerifiera_di" bpmnElement="Flow_Kompl_ReVerifiera"><di:waypoint x="1200" y="242" /><di:waypoint x="1200" y="190" /><di:waypoint x="750" y="190" /><di:waypoint x="750" y="160" /></bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_Mottag_Handlagg_di" bpmnElement="Flow_Mottag_Handlagg"><di:waypoint x="1100" y="120" /><di:waypoint x="1162" y="120" /></bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_Handlagg_Gateway_di" bpmnElement="Flow_Handlagg_Gateway"><di:waypoint x="1198" y="120" /><di:waypoint x="1250" y="120" /></bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_Beslut_Tillstand_di" bpmnElement="Flow_Beslut_Tillstand"><di:waypoint x="1300" y="120" /><di:waypoint x="1360" y="120" /></bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_Beslut_Inspektion_di" bpmnElement="Flow_Beslut_Inspektion"><di:waypoint x="1275" y="145" /><di:waypoint x="1275" y="360" /></bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_Beslut_Avslag_di" bpmnElement="Flow_Beslut_Avslag"><di:waypoint x="1275" y="145" /><di:waypoint x="1275" y="320" /><di:waypoint x="1090" y="320" /><di:waypoint x="1090" y="540" /><di:waypoint x="1360" y="540" /></bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_Inspektion_Vanta_di" bpmnElement="Flow_Inspektion_Vanta"><di:waypoint x="1335" y="400" /><di:waypoint x="1390" y="400" /></bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_Inspektion_Gateway_di" bpmnElement="Flow_Inspektion_Gateway"><di:waypoint x="1426" y="400" /><di:waypoint x="1480" y="400" /></bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_Inspektion_Tillstand_di" bpmnElement="Flow_Inspektion_Tillstand"><di:waypoint x="1505" y="375" /><di:waypoint x="1505" y="160" /></bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_Inspektion_Avslag_di" bpmnElement="Flow_Inspektion_Avslag"><di:waypoint x="1505" y="425" /><di:waypoint x="1505" y="500" /></bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_Tillstand_Mail_di" bpmnElement="Flow_Tillstand_Mail"><di:waypoint x="1480" y="120" /><di:waypoint x="1540" y="120" /></bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_Mail_Status_di" bpmnElement="Flow_Mail_Status"><di:waypoint x="1660" y="120" /><di:waypoint x="1720" y="120" /></bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_Status_End_di" bpmnElement="Flow_Status_End"><di:waypoint x="1840" y="120" /><di:waypoint x="1900" y="120" /></bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_Avslag_Mail_di" bpmnElement="Flow_Avslag_Mail"><di:waypoint x="1480" y="540" /><di:waypoint x="1540" y="540" /></bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_AvslagMail_Status_di" bpmnElement="Flow_AvslagMail_Status"><di:waypoint x="1660" y="540" /><di:waypoint x="1720" y="540" /></bpmndi:BPMNEdge>
+			<bpmndi:BPMNEdge id="Flow_AvslagStatus_End_di" bpmnElement="Flow_AvslagStatus_End"><di:waypoint x="1840" y="540" /><di:waypoint x="1900" y="540" /></bpmndi:BPMNEdge>
+		</bpmndi:BPMNPlane>
+	</bpmndi:BPMNDiagram>
+</bpmn:definitions>
