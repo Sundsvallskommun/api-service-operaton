@@ -58,3 +58,5 @@ scheduler:
     cron: "*/5 * * * * *"
   fetch-financial-aid-basis:
     cron: "*/5 * * * * *"
+  process-cleanup:
+    cron: "0 0 3 * * *"
