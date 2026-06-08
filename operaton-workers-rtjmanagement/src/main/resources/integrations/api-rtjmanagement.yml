@@ -88,6 +88,58 @@ paths:
             application/problem+json:
               schema:
                 "$ref": "#/components/schemas/Problem"
+  "/{municipalityId}/{namespace}/errands/{errandId}/egensotning-details/validate-documents":
+    post:
+      tags:
+      - Egensotning — document validation
+      summary: Validate egensotning attachments with Eneo (LLM)
+      operationId: validateDocuments
+      parameters:
+      - name: municipalityId
+        in: path
+        required: true
+        schema:
+          type: string
+        example: 2281
+      - name: namespace
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: "[\\w|\\-]+"
+        example: EGENSOTNING
+      - name: errandId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful Operation
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/DocumentValidationResult"
+        '404':
+          description: Not Found
+          content:
+            application/problem+json:
+              schema:
+                "$ref": "#/components/schemas/Problem"
+        '400':
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                oneOf:
+                - "$ref": "#/components/schemas/Problem"
+                - "$ref": "#/components/schemas/ConstraintViolationProblem"
+        '500':
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                "$ref": "#/components/schemas/Problem"
   "/{municipalityId}/{namespace}/errands/{errandId}/brandfarlig-vara-details/verify":
     post:
       tags:
@@ -2975,6 +3027,25 @@ components:
           type: string
           description: Generated formal beslutstext for approval (objekttabell + lagstöd
             + villkor + överklagande)
+    DocumentValidationResult:
+      type: object
+      description: Result of the Eneo (LLM) validation of the egensotning attachments.
+        Gates auto-approval; a non-valid result diverts the BPMN to manual review.
+      properties:
+        valid:
+          type: boolean
+          description: True only when the documents are the correct types, valid, and
+            match the applicant. A non-valid result routes the errand to manual review.
+        documentTypeOk:
+          type: boolean
+          description: True if both attachments are of the expected document types
+        identityMatch:
+          type: boolean
+          description: True if the name / personnummer / fastighet in the documents match
+            the applicant
+        reason:
+          type: string
+          description: Short human-readable motivation from the LLM
     BrandfarligVaraVerificationResult:
       type: object
       description: Result of the automated brandfarlig-vara completeness check. Drives

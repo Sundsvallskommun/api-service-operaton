@@ -42,5 +42,29 @@
 	{
 		"id": "se.sundsvall.operaton.RtjVerifyEgensotning",
 		"name": "Rtj Verify Egensotning"
+	},
+	{
+		"id": "se.sundsvall.operaton.RtjValidateEgensotningDocuments",
+		"name": "Rtj Validate Egensotning Documents"
+	},
+	{
+		"id": "se.sundsvall.operaton.RtjCreatePermit",
+		"name": "Rtj Create Permit"
+	},
+	{
+		"id": "se.sundsvall.operaton.RtjCreateRemiss",
+		"name": "Rtj Create Remiss"
+	},
+	{
+		"id": "se.sundsvall.operaton.RtjRevokePermit",
+		"name": "Rtj Revoke Permit"
+	},
+	{
+		"id": "se.sundsvall.operaton.RtjVerifyBrandfarligVara",
+		"name": "Rtj Verify Brandfarlig Vara"
+	},
+	{
+		"id": "se.sundsvall.operaton.RtjVerifyExplosivVara",
+		"name": "Rtj Verify Explosiv Vara"
 	}
 ]

@@ -2,6 +2,7 @@ package se.sundsvall.operaton.workers.rtjmanagement;
 
 import generated.se.sundsvall.rtjmanagement.BrandfarligVaraVerificationResult;
 import generated.se.sundsvall.rtjmanagement.Decision;
+import generated.se.sundsvall.rtjmanagement.DocumentValidationResult;
 import generated.se.sundsvall.rtjmanagement.EgensotningVerificationResult;
 import generated.se.sundsvall.rtjmanagement.ExplosivVaraVerificationResult;
 import generated.se.sundsvall.rtjmanagement.PatchErrand;
@@ -48,6 +49,12 @@ public interface RtjManagementClient {
 
 	@PostMapping(path = "/{municipalityId}/{namespace}/errands/{errandId}/egensotning-details/verify", produces = APPLICATION_JSON_VALUE)
 	EgensotningVerificationResult verifyEgensotning(
+		@PathVariable final String municipalityId,
+		@PathVariable final String namespace,
+		@PathVariable final String errandId);
+
+	@PostMapping(path = "/{municipalityId}/{namespace}/errands/{errandId}/egensotning-details/validate-documents", produces = APPLICATION_JSON_VALUE)
+	DocumentValidationResult validateDocuments(
 		@PathVariable final String municipalityId,
 		@PathVariable final String namespace,
 		@PathVariable final String errandId);

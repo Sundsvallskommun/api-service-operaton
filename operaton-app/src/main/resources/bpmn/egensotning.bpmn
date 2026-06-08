@@ -39,13 +39,37 @@
 			<bpmn:outgoing>Flow_Outcome_Manuell</bpmn:outgoing>
 		</bpmn:exclusiveGateway>
 
-		<bpmn:sequenceFlow id="Flow_Outcome_AutoGodkann" sourceRef="Gateway_Outcome" targetRef="SkapaBeslut">
+		<bpmn:sequenceFlow id="Flow_Outcome_AutoGodkann" sourceRef="Gateway_Outcome" targetRef="ValideraDokument">
 			<bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${outcome == 'AUTO_APPROVE'}</bpmn:conditionExpression>
 		</bpmn:sequenceFlow>
 		<bpmn:sequenceFlow id="Flow_Outcome_Komplettering" sourceRef="Gateway_Outcome" targetRef="SattStatusAwaitingSupplementation">
 			<bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${outcome == 'NEEDS_SUPPLEMENT'}</bpmn:conditionExpression>
 		</bpmn:sequenceFlow>
 		<bpmn:sequenceFlow id="Flow_Outcome_Manuell" sourceRef="Gateway_Outcome" targetRef="SattStatusManuell" />
+
+		<!-- ============================================================
+		     DOCUMENT VALIDATION (Eneo/LLM) — only on the auto-approve branch, where both
+		     bilagor are guaranteed present. Validates that the attachments are the right
+		     document types, valid, and match the applicant. documentsValid==true continues
+		     to the auto-approve decision; otherwise the errand is diverted to manual review
+		     (the LLM never auto-rejects).
+		     ============================================================ -->
+		<bpmn:serviceTask id="ValideraDokument" name="Validera dokument (Eneo)" camunda:type="external" camunda:topic="rtj-validate-egensotning-documents">
+			<bpmn:incoming>Flow_Outcome_AutoGodkann</bpmn:incoming>
+			<bpmn:outgoing>Flow_Validera_Gateway</bpmn:outgoing>
+		</bpmn:serviceTask>
+		<bpmn:sequenceFlow id="Flow_Validera_Gateway" sourceRef="ValideraDokument" targetRef="Gateway_DocumentValidation" />
+
+		<bpmn:exclusiveGateway id="Gateway_DocumentValidation" name="Dokument giltiga?" default="Flow_DocInvalid_Manuell">
+			<bpmn:incoming>Flow_Validera_Gateway</bpmn:incoming>
+			<bpmn:outgoing>Flow_DocValid_SkapaBeslut</bpmn:outgoing>
+			<bpmn:outgoing>Flow_DocInvalid_Manuell</bpmn:outgoing>
+		</bpmn:exclusiveGateway>
+
+		<bpmn:sequenceFlow id="Flow_DocValid_SkapaBeslut" sourceRef="Gateway_DocumentValidation" targetRef="SkapaBeslut">
+			<bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${documentsValid == true}</bpmn:conditionExpression>
+		</bpmn:sequenceFlow>
+		<bpmn:sequenceFlow id="Flow_DocInvalid_Manuell" sourceRef="Gateway_DocumentValidation" targetRef="SattStatusManuell" />
 
 		<!-- ============================================================
 		     APPROVE PATH — create decision, set status (DECIDED), THEN email, end.
@@ -231,10 +255,12 @@
       <bpmndi:BPMNShape id="AnsokanMottagen_di" bpmnElement="AnsokanMottagen"><dc:Bounds x="152" y="102" width="36" height="36" /></bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="VerifieraAnsokan_di" bpmnElement="VerifieraAnsokan"><dc:Bounds x="240" y="80" width="120" height="80" /></bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Gateway_Outcome_di" bpmnElement="Gateway_Outcome" isMarkerVisible="true"><dc:Bounds x="420" y="95" width="50" height="50" /></bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="SkapaBeslut_di" bpmnElement="SkapaBeslut"><dc:Bounds x="530" y="80" width="120" height="80" /></bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="SattStatusGodkand_di" bpmnElement="SattStatusGodkand"><dc:Bounds x="710" y="80" width="120" height="80" /></bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="MailaBeslut_di" bpmnElement="MailaBeslut"><dc:Bounds x="890" y="80" width="120" height="80" /></bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="BeslutTaget_di" bpmnElement="BeslutTaget"><dc:Bounds x="1070" y="102" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ValideraDokument_di" bpmnElement="ValideraDokument"><dc:Bounds x="530" y="80" width="120" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_DocumentValidation_di" bpmnElement="Gateway_DocumentValidation" isMarkerVisible="true"><dc:Bounds x="710" y="95" width="50" height="50" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="SkapaBeslut_di" bpmnElement="SkapaBeslut"><dc:Bounds x="830" y="80" width="120" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="SattStatusGodkand_di" bpmnElement="SattStatusGodkand"><dc:Bounds x="1010" y="80" width="120" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="MailaBeslut_di" bpmnElement="MailaBeslut"><dc:Bounds x="1190" y="80" width="120" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="BeslutTaget_di" bpmnElement="BeslutTaget"><dc:Bounds x="1370" y="102" width="36" height="36" /></bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="SattStatusAwaitingSupplementation_di" bpmnElement="SattStatusAwaitingSupplementation"><dc:Bounds x="380" y="220" width="120" height="80" /></bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="BegarKomplettering_di" bpmnElement="BegarKomplettering"><dc:Bounds x="560" y="220" width="120" height="80" /></bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="KompletteringMottagen_di" bpmnElement="KompletteringMottagen"><dc:Bounds x="712" y="242" width="36" height="36" /></bpmndi:BPMNShape>
@@ -248,9 +274,12 @@
       <bpmndi:BPMNEdge id="Flow_Start_Verifiera_di" bpmnElement="Flow_Start_Verifiera"><di:waypoint x="188" y="120" /><di:waypoint x="240" y="120" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_Verifiera_Gateway_di" bpmnElement="Flow_Verifiera_Gateway"><di:waypoint x="360" y="120" /><di:waypoint x="420" y="120" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_Outcome_AutoGodkann_di" bpmnElement="Flow_Outcome_AutoGodkann"><di:waypoint x="470" y="120" /><di:waypoint x="530" y="120" /></bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_SkapaBeslut_SattStatus_di" bpmnElement="Flow_SkapaBeslut_SattStatus"><di:waypoint x="650" y="120" /><di:waypoint x="710" y="120" /></bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_SattStatus_MailaBeslut_di" bpmnElement="Flow_SattStatus_MailaBeslut"><di:waypoint x="830" y="120" /><di:waypoint x="890" y="120" /></bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_MailaBeslut_BeslutTaget_di" bpmnElement="Flow_MailaBeslut_BeslutTaget"><di:waypoint x="1010" y="120" /><di:waypoint x="1070" y="120" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Validera_Gateway_di" bpmnElement="Flow_Validera_Gateway"><di:waypoint x="650" y="120" /><di:waypoint x="710" y="120" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_DocValid_SkapaBeslut_di" bpmnElement="Flow_DocValid_SkapaBeslut"><di:waypoint x="760" y="120" /><di:waypoint x="830" y="120" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_DocInvalid_Manuell_di" bpmnElement="Flow_DocInvalid_Manuell"><di:waypoint x="735" y="145" /><di:waypoint x="735" y="330" /><di:waypoint x="440" y="330" /><di:waypoint x="440" y="360" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_SkapaBeslut_SattStatus_di" bpmnElement="Flow_SkapaBeslut_SattStatus"><di:waypoint x="950" y="120" /><di:waypoint x="1010" y="120" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_SattStatus_MailaBeslut_di" bpmnElement="Flow_SattStatus_MailaBeslut"><di:waypoint x="1130" y="120" /><di:waypoint x="1190" y="120" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_MailaBeslut_BeslutTaget_di" bpmnElement="Flow_MailaBeslut_BeslutTaget"><di:waypoint x="1310" y="120" /><di:waypoint x="1370" y="120" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_Outcome_Komplettering_di" bpmnElement="Flow_Outcome_Komplettering"><di:waypoint x="445" y="145" /><di:waypoint x="445" y="220" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_AwaitingStatus_BegarKomplettering_di" bpmnElement="Flow_AwaitingStatus_BegarKomplettering"><di:waypoint x="500" y="260" /><di:waypoint x="560" y="260" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_BegarKomplettering_Vanta_di" bpmnElement="Flow_BegarKomplettering_Vanta"><di:waypoint x="680" y="260" /><di:waypoint x="712" y="260" /></bpmndi:BPMNEdge>
@@ -258,7 +287,7 @@
       <bpmndi:BPMNEdge id="Flow_Outcome_Manuell_di" bpmnElement="Flow_Outcome_Manuell"><di:waypoint x="445" y="145" /><di:waypoint x="445" y="175" /><di:waypoint x="340" y="175" /><di:waypoint x="340" y="400" /><di:waypoint x="380" y="400" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_SattStatusManuell_Vanta_di" bpmnElement="Flow_SattStatusManuell_Vanta"><di:waypoint x="500" y="400" /><di:waypoint x="712" y="400" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_ManuellGranskning_Gateway_di" bpmnElement="Flow_ManuellGranskning_Gateway"><di:waypoint x="748" y="400" /><di:waypoint x="800" y="400" /></bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_Manuell_Godkann_di" bpmnElement="Flow_Manuell_Godkann"><di:waypoint x="825" y="375" /><di:waypoint x="825" y="210" /><di:waypoint x="590" y="210" /><di:waypoint x="590" y="160" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Manuell_Godkann_di" bpmnElement="Flow_Manuell_Godkann"><di:waypoint x="825" y="375" /><di:waypoint x="825" y="210" /><di:waypoint x="890" y="210" /><di:waypoint x="890" y="160" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_Manuell_Avslag_di" bpmnElement="Flow_Manuell_Avslag"><di:waypoint x="850" y="400" /><di:waypoint x="900" y="400" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_SkapaAvslag_SattStatus_di" bpmnElement="Flow_SkapaAvslag_SattStatus"><di:waypoint x="1020" y="400" /><di:waypoint x="1080" y="400" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_SattStatus_MailaAvslag_di" bpmnElement="Flow_SattStatus_MailaAvslag"><di:waypoint x="1200" y="400" /><di:waypoint x="1260" y="400" /></bpmndi:BPMNEdge>
