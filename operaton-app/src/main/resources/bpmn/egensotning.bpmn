@@ -195,10 +195,12 @@
 		</bpmn:exclusiveGateway>
 
 		<!-- Handläggaren begär komplettering ("kräver komplettering") i stället för att besluta:
-		     manual-review-completed korreleras med manuellAtgard='KOMPLETTERING' (+ kompletteringMessage
-		     som mejlas till sökanden). Sätter status AWAITING_SUPPLEMENTATION, mejlar handläggarens
-		     fritext och inväntar "komplettering-received", varefter ärendet omverifieras (samma
-		     re-verifierings-loop som den automatiska kompletteringsgrenen). -->
+		     manual-review-completed korreleras med manuellAtgard='KOMPLETTERING'. Sätter status
+		     AWAITING_SUPPLEMENTATION och inväntar "komplettering-received", varefter ärendet
+		     omverifieras (samma re-verifierings-loop som den automatiska kompletteringsgrenen).
+		     OBS: själva kompletteringsmeddelandet postas IN-APP via POST /messages (R1); en
+		     innehållslös e-postnotis skickas därifrån (EgensotningMessageNotificationListener).
+		     BPMN-flödet mejlar INTE längre handläggarens fritext. -->
 		<bpmn:sequenceFlow id="Flow_Manuell_Komplettering" sourceRef="Gateway_Manuell" targetRef="SattStatusKompletteringManuell">
 			<bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${execution.getVariable('manuellAtgard') == 'KOMPLETTERING'}</bpmn:conditionExpression>
 		</bpmn:sequenceFlow>
@@ -214,24 +216,9 @@
 				</camunda:inputOutput>
 			</bpmn:extensionElements>
 			<bpmn:incoming>Flow_Manuell_Komplettering</bpmn:incoming>
-			<bpmn:outgoing>Flow_KomplManuell_Mail</bpmn:outgoing>
-		</bpmn:serviceTask>
-		<bpmn:sequenceFlow id="Flow_KomplManuell_Mail" sourceRef="SattStatusKompletteringManuell" targetRef="MailaKompletteringManuell" />
-
-		<bpmn:serviceTask id="MailaKompletteringManuell" name="Maila handläggarens kompletteringsbegäran" camunda:type="external" camunda:topic="send-email">
-			<bpmn:extensionElements>
-				<camunda:inputOutput>
-					<camunda:inputParameter name="emailAddress">${applicantEmail}</camunda:inputParameter>
-					<camunda:inputParameter name="subject">Komplettering behövs för din ansökan om egensotning</camunda:inputParameter>
-					<camunda:inputParameter name="message">${kompletteringMessage}</camunda:inputParameter>
-					<camunda:inputParameter name="senderName">Räddningstjänsten Medelpad</camunda:inputParameter>
-					<camunda:inputParameter name="senderAddress">noreply@sundsvall.se</camunda:inputParameter>
-				</camunda:inputOutput>
-			</bpmn:extensionElements>
-			<bpmn:incoming>Flow_KomplManuell_Mail</bpmn:incoming>
 			<bpmn:outgoing>Flow_KomplManuell_Vanta</bpmn:outgoing>
 		</bpmn:serviceTask>
-		<bpmn:sequenceFlow id="Flow_KomplManuell_Vanta" sourceRef="MailaKompletteringManuell" targetRef="KompletteringMottagenManuell" />
+		<bpmn:sequenceFlow id="Flow_KomplManuell_Vanta" sourceRef="SattStatusKompletteringManuell" targetRef="KompletteringMottagenManuell" />
 
 		<bpmn:intermediateCatchEvent id="KompletteringMottagenManuell" name="Komplettering mottagen">
 			<bpmn:incoming>Flow_KomplManuell_Vanta</bpmn:incoming>
@@ -336,11 +323,9 @@
       <bpmndi:BPMNEdge id="Flow_SattStatus_MailaAvslag_di" bpmnElement="Flow_SattStatus_MailaAvslag"><di:waypoint x="1200" y="400" /><di:waypoint x="1260" y="400" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_MailaAvslag_Avslag_di" bpmnElement="Flow_MailaAvslag_Avslag"><di:waypoint x="1380" y="400" /><di:waypoint x="1440" y="400" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNShape id="SattStatusKompletteringManuell_di" bpmnElement="SattStatusKompletteringManuell"><dc:Bounds x="900" y="500" width="120" height="80" /></bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="MailaKompletteringManuell_di" bpmnElement="MailaKompletteringManuell"><dc:Bounds x="1080" y="500" width="120" height="80" /></bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="KompletteringMottagenManuell_di" bpmnElement="KompletteringMottagenManuell"><dc:Bounds x="1262" y="522" width="36" height="36" /></bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Flow_Manuell_Komplettering_di" bpmnElement="Flow_Manuell_Komplettering"><di:waypoint x="825" y="425" /><di:waypoint x="825" y="540" /><di:waypoint x="900" y="540" /></bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_KomplManuell_Mail_di" bpmnElement="Flow_KomplManuell_Mail"><di:waypoint x="1020" y="540" /><di:waypoint x="1080" y="540" /></bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_KomplManuell_Vanta_di" bpmnElement="Flow_KomplManuell_Vanta"><di:waypoint x="1200" y="540" /><di:waypoint x="1262" y="540" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_KomplManuell_Vanta_di" bpmnElement="Flow_KomplManuell_Vanta"><di:waypoint x="1020" y="540" /><di:waypoint x="1262" y="540" /></bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="Flow_KomplManuell_ReVerifiera_di" bpmnElement="Flow_KomplManuell_ReVerifiera"><di:waypoint x="1280" y="558" /><di:waypoint x="1280" y="660" /><di:waypoint x="300" y="660" /><di:waypoint x="300" y="160" /></bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>
