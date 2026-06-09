@@ -200,10 +200,10 @@
 		     fritext och inväntar "komplettering-received", varefter ärendet omverifieras (samma
 		     re-verifierings-loop som den automatiska kompletteringsgrenen). -->
 		<bpmn:sequenceFlow id="Flow_Manuell_Komplettering" sourceRef="Gateway_Manuell" targetRef="SattStatusKompletteringManuell">
-			<bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${manuellAtgard == 'KOMPLETTERING'}</bpmn:conditionExpression>
+			<bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${execution.getVariable('manuellAtgard') == 'KOMPLETTERING'}</bpmn:conditionExpression>
 		</bpmn:sequenceFlow>
 		<bpmn:sequenceFlow id="Flow_Manuell_Godkann" sourceRef="Gateway_Manuell" targetRef="SkapaBeslut">
-			<bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${manuelltGodkand == true}</bpmn:conditionExpression>
+			<bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${execution.getVariable('manuelltGodkand') == true}</bpmn:conditionExpression>
 		</bpmn:sequenceFlow>
 		<bpmn:sequenceFlow id="Flow_Manuell_Avslag" sourceRef="Gateway_Manuell" targetRef="SkapaAvslag" />
 
