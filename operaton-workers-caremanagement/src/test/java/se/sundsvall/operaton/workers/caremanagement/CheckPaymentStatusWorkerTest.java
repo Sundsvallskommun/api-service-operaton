@@ -22,13 +22,13 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class ExecutePaymentWorkerTest {
+class CheckPaymentStatusWorkerTest {
 
 	@Mock
 	private ExternalTaskService externalTaskServiceMock;
 
 	@InjectMocks
-	private ExecutePaymentWorker worker;
+	private CheckPaymentStatusWorker worker;
 
 	@Test
 	void executeWithTask() {
@@ -43,12 +43,11 @@ class ExecutePaymentWorkerTest {
 		when(task.getVariables()).thenReturn(Variables.createVariables()
 			.putValue("municipalityId", "2281")
 			.putValue("namespace", "my-namespace")
-			.putValue("errandId", "cb20c51f-fcf3-42c0-b613-de563634a8ec")
-			.putValue("calculationId", 4711));
+			.putValue("errandId", "cb20c51f-fcf3-42c0-b613-de563634a8ec"));
 
 		worker.execute();
 
-		verify(externalTaskServiceMock).complete("task-1", "execute-payment-worker", Map.of("paymentEffectuated", true));
+		verify(externalTaskServiceMock).complete("task-1", "check-payment-status-worker", Map.of("paymentEffectuated", true));
 	}
 
 	@Test
@@ -62,7 +61,7 @@ class ExecutePaymentWorkerTest {
 
 		worker.execute();
 
-		verify(externalTaskServiceMock).fetchAndLock(10, "execute-payment-worker");
+		verify(externalTaskServiceMock).fetchAndLock(10, "check-payment-status-worker");
 		verifyNoMoreInteractions(externalTaskServiceMock);
 	}
 
@@ -80,7 +79,7 @@ class ExecutePaymentWorkerTest {
 
 		worker.execute();
 
-		verify(externalTaskServiceMock).handleFailure("task-2", "execute-payment-worker",
+		verify(externalTaskServiceMock).handleFailure("task-2", "check-payment-status-worker",
 			"Required process variable 'errandId' is missing on task task-2", 0, 0L);
 	}
 
@@ -98,6 +97,6 @@ class ExecutePaymentWorkerTest {
 
 		worker.execute();
 
-		verify(externalTaskServiceMock).handleFailure("task-3", "execute-payment-worker", "test error", 0, 0L);
+		verify(externalTaskServiceMock).handleFailure("task-3", "check-payment-status-worker", "test error", 0, 0L);
 	}
 }
