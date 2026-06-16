@@ -2351,6 +2351,48 @@ components:
       required:
         - decisionType
         - value
+    NormberakningRequest:
+      type: object
+      description: Request to build and post the SSBTEK-driven normberäkning for an application month
+      properties:
+        applicant:
+          type: string
+          description: The applicant's personal number (12 digits)
+          examples:
+            - "198001012389"
+        coApplicant:
+          type: string
+          description: The co-applicant's (medsökande) personal number (12 digits), when applying together with a partner
+          examples:
+            - "198202022397"
+        applicationMonth:
+          type: string
+          description: The application month (ISO year-month, yyyy-MM)
+          examples:
+            - "2026-06"
+      required:
+        - applicant
+        - applicationMonth
+    NormberakningResponse:
+      type: object
+      description: The created Lifecare normberäkning id plus the income warnings to review
+      properties:
+        calculationId:
+          type: integer
+          format: int32
+          description: The id of the normberäkning created in Lifecare FC
+          examples:
+            - 4711
+        unhandledIncomes:
+          type: array
+          description: SSBTEK incomes that could not be auto-transferred and must be reviewed
+          items:
+            type: string
+        changeWarnings:
+          type: array
+          description: Förmåner whose net income changed beyond the threshold between the periods
+          items:
+            type: string
     Stakeholder:
       type: object
       description: Stakeholder model

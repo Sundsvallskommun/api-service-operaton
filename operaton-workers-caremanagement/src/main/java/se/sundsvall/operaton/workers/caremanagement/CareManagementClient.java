@@ -2,6 +2,8 @@ package se.sundsvall.operaton.workers.caremanagement;
 
 import generated.se.sundsvall.caremanagement.Decision;
 import generated.se.sundsvall.caremanagement.Errand;
+import generated.se.sundsvall.caremanagement.NormberakningRequest;
+import generated.se.sundsvall.caremanagement.NormberakningResponse;
 import generated.se.sundsvall.caremanagement.Parameter;
 import generated.se.sundsvall.caremanagement.PatchErrand;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
@@ -49,4 +51,10 @@ public interface CareManagementClient {
 		@PathVariable final String namespace,
 		@PathVariable final String errandId,
 		@RequestBody final Decision decision);
+
+	@PostMapping(path = "/{municipalityId}/{namespace}/errands/financial-assistance/normberakning", consumes = APPLICATION_JSON_VALUE)
+	ResponseEntity<NormberakningResponse> createNormberakning(
+		@PathVariable final String municipalityId,
+		@PathVariable final String namespace,
+		@RequestBody final NormberakningRequest request);
 }
