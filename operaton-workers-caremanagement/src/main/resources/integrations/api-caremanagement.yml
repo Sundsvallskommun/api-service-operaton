@@ -2430,6 +2430,37 @@ components:
           description: The id of the aktualisering created in Lifecare FC
           examples:
             - 8842
+    PaymentStatusRequest:
+      type: object
+      description: Request to read whether the Lifecare utbetalning for an application month has been effectuated
+      properties:
+        applicant:
+          type: string
+          description: The applicant's partyId (personId GUID)
+          examples:
+            - "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        applicationMonth:
+          type: string
+          description: The application month (ISO year-month, yyyy-MM) the payment concerns
+          examples:
+            - "2026-06"
+      required:
+        - applicant
+        - applicationMonth
+    PaymentStatusResponse:
+      type: object
+      description: Whether the Lifecare utbetalning for the application month has been effectuated
+      properties:
+        effectuated:
+          type: boolean
+          description: True when a Lifecare utbetalning concerning the application month has been registered
+          examples:
+            - true
+        paymentDate:
+          type: string
+          description: The date the utbetalning was made (Lifecare PayDate), when effectuated
+          examples:
+            - "2026-05-27"
     Stakeholder:
       type: object
       description: Stakeholder model

@@ -8,6 +8,8 @@ import generated.se.sundsvall.caremanagement.NormberakningRequest;
 import generated.se.sundsvall.caremanagement.NormberakningResponse;
 import generated.se.sundsvall.caremanagement.Parameter;
 import generated.se.sundsvall.caremanagement.PatchErrand;
+import generated.se.sundsvall.caremanagement.PaymentStatusRequest;
+import generated.se.sundsvall.caremanagement.PaymentStatusResponse;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.http.ResponseEntity;
@@ -65,4 +67,10 @@ public interface CareManagementClient {
 		@PathVariable final String municipalityId,
 		@PathVariable final String namespace,
 		@RequestBody final ActualisationRequest request);
+
+	@PostMapping(path = "/{municipalityId}/{namespace}/errands/financial-assistance/payment-status", consumes = APPLICATION_JSON_VALUE)
+	ResponseEntity<PaymentStatusResponse> checkPaymentStatus(
+		@PathVariable final String municipalityId,
+		@PathVariable final String namespace,
+		@RequestBody final PaymentStatusRequest request);
 }

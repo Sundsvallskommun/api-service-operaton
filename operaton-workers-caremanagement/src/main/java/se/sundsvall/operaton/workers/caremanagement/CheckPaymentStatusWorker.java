@@ -1,5 +1,7 @@
 package se.sundsvall.operaton.workers.caremanagement;
 
+import generated.se.sundsvall.caremanagement.PaymentStatusRequest;
+import generated.se.sundsvall.caremanagement.PaymentStatusResponse;
 import java.util.Map;
 import org.operaton.bpm.engine.ExternalTaskService;
 import org.operaton.bpm.engine.externaltask.LockedExternalTask;
@@ -10,29 +12,29 @@ import se.sundsvall.dept44.scheduling.Dept44Scheduled;
 import se.sundsvall.operaton.workers.framework.AbstractTopicWorker;
 import se.sundsvall.operaton.workers.framework.annotation.TopicWorker;
 
-import static se.sundsvall.dept44.util.LogUtils.sanitizeForLogging;
+import static java.lang.Boolean.TRUE;
+import static java.util.Optional.ofNullable;
 
 /**
- * Reads whether the payment (utbetalning) for an approved ekonomiskt-bistånd errand has been effectuated and reports it
- * via the {@code paymentEffectuated} output variable that the rakel-ekonomiskt-bistand process gates on.
+ * Reads whether the manual Lifecare utbetalning for an approved ekonomiskt-bistånd errand has been effectuated and
+ * reports it via the {@code paymentEffectuated} output variable that the rakel-ekonomiskt-bistand process gates on.
  *
  * <p>
- * The payment itself is a MANUAL step the handläggare performs in LifeCare — this worker makes no payment, it only
- * reads
- * the status. STUB: there is no LifeCare payment-status read yet, so the worker reports the payment as effectuated so
- * the
- * process can proceed to UTBETALD. When the read exists, return the real status (false while the manual payment is
- * still
- * pending, so the process loops on the timer until it is registered).
+ * The payment itself is a MANUAL step the handläggare performs in Lifecare — this worker makes no payment. It calls
+ * CareManagement's {@code financial-assistance/payment-status} endpoint, which reads the Lifecare FC Payments for the
+ * applicant and application month. While the payment is still pending the gateway loops on the process timer until it
+ * is
+ * registered.
  */
 @Component
 @TopicWorker(
 	topic = "check-payment-status",
-	description = "Reads whether the manual payment (utbetalning) for an approved ekonomiskt-bistånd errand has been effectuated in LifeCare and reports it via paymentEffectuated. Makes NO payment — that is a manual handläggare step. STUB: no LifeCare payment-status read exists yet, so it reports the payment as effectuated; wire it to the real read once available.",
+	description = "Reads whether the manual Lifecare utbetalning for an approved ekonomiskt-bistånd errand has been effectuated (via CareManagement's payment-status read of Lifecare FC Payments) and reports it via paymentEffectuated. Makes NO payment — that is a manual handläggare step in Lifecare.",
 	inputVariables = {
 		AbstractTopicWorker.VAR_MUNICIPALITY_ID,
 		CheckPaymentStatusWorker.VAR_NAMESPACE,
-		CheckPaymentStatusWorker.VAR_ERRAND_ID
+		CheckPaymentStatusWorker.VAR_APPLICANT,
+		CheckPaymentStatusWorker.VAR_APPLICATION_MONTH
 	},
 	outputVariables = {
 		CheckPaymentStatusWorker.VAR_OUT_PAYMENT_EFFECTUATED
@@ -40,14 +42,18 @@ import static se.sundsvall.dept44.util.LogUtils.sanitizeForLogging;
 public class CheckPaymentStatusWorker extends AbstractTopicWorker {
 
 	static final String VAR_NAMESPACE = "namespace";
-	static final String VAR_ERRAND_ID = "errandId";
+	static final String VAR_APPLICANT = "applicant";
+	static final String VAR_APPLICATION_MONTH = "applicationMonth";
 
 	static final String VAR_OUT_PAYMENT_EFFECTUATED = "paymentEffectuated";
 
 	private static final Logger LOG = LoggerFactory.getLogger(CheckPaymentStatusWorker.class);
 
-	public CheckPaymentStatusWorker(final ExternalTaskService externalTaskService) {
+	private final CareManagementClient careManagementClient;
+
+	public CheckPaymentStatusWorker(final ExternalTaskService externalTaskService, final CareManagementClient careManagementClient) {
 		super(externalTaskService);
+		this.careManagementClient = careManagementClient;
 	}
 
 	@Dept44Scheduled(cron = "${scheduler.check-payment-status.cron:*/5 * * * * *}", name = "check-payment-status-worker", lockAtMostFor = "PT30S")
@@ -57,12 +63,18 @@ public class CheckPaymentStatusWorker extends AbstractTopicWorker {
 
 	@Override
 	protected Map<String, Object> handle(final LockedExternalTask task) {
-		final var errandId = requireVariable(task, VAR_ERRAND_ID, String.class);
+		final var request = new PaymentStatusRequest()
+			.applicant(requireVariable(task, VAR_APPLICANT, String.class))
+			.applicationMonth(requireVariable(task, VAR_APPLICATION_MONTH, String.class));
 
-		// STUB: when a LifeCare payment-status read exists, return the real status here
-		// (false while the manual payment is still pending so the process loops on the timer).
+		final var response = careManagementClient.checkPaymentStatus(
+			requireVariable(task, VAR_MUNICIPALITY_ID, String.class),
+			requireVariable(task, VAR_NAMESPACE, String.class),
+			request).getBody();
 
-		LOG.info("Payment status read for errand {}", sanitizeForLogging(errandId));
-		return Map.of(VAR_OUT_PAYMENT_EFFECTUATED, true);
+		final var effectuated = ofNullable(response).map(PaymentStatusResponse::getEffectuated).map(TRUE::equals).orElse(false);
+
+		LOG.info("Payment status read (effectuated: {})", effectuated);
+		return Map.of(VAR_OUT_PAYMENT_EFFECTUATED, effectuated);
 	}
 }
