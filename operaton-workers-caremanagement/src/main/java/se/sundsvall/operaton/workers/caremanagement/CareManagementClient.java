@@ -1,5 +1,7 @@
 package se.sundsvall.operaton.workers.caremanagement;
 
+import generated.se.sundsvall.caremanagement.ActualisationRequest;
+import generated.se.sundsvall.caremanagement.ActualisationResponse;
 import generated.se.sundsvall.caremanagement.Decision;
 import generated.se.sundsvall.caremanagement.Errand;
 import generated.se.sundsvall.caremanagement.NormberakningRequest;
@@ -57,4 +59,10 @@ public interface CareManagementClient {
 		@PathVariable final String municipalityId,
 		@PathVariable final String namespace,
 		@RequestBody final NormberakningRequest request);
+
+	@PostMapping(path = "/{municipalityId}/{namespace}/errands/financial-assistance/actualisation", consumes = APPLICATION_JSON_VALUE)
+	ResponseEntity<ActualisationResponse> createActualisation(
+		@PathVariable final String municipalityId,
+		@PathVariable final String namespace,
+		@RequestBody final ActualisationRequest request);
 }

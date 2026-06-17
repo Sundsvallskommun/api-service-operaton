@@ -2398,6 +2398,38 @@ components:
           description: Förmåner whose net income changed beyond the threshold between the periods
           items:
             type: string
+    ActualisationRequest:
+      type: object
+      description: Request to create the Lifecare aktualisering (case intake) for one applicant and one application month
+      properties:
+        applicant:
+          type: string
+          description: The applicant's partyId (personId GUID)
+          examples:
+            - "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        applicationMonth:
+          type: string
+          description: The application month (ISO year-month, yyyy-MM); the aktualisering's intake date is the first day of this month
+          examples:
+            - "2026-06"
+        errandId:
+          type: string
+          description: The caremanagement errand the aktualisering concerns. When present, a Decision(ACTUALISATION) is recorded on the errand.
+          examples:
+            - "cb20c51f-fcf3-42c0-b613-de563634a8ec"
+      required:
+        - applicant
+        - applicationMonth
+    ActualisationResponse:
+      type: object
+      description: The created Lifecare aktualisering id
+      properties:
+        actualisationId:
+          type: integer
+          format: int32
+          description: The id of the aktualisering created in Lifecare FC
+          examples:
+            - 8842
     Stakeholder:
       type: object
       description: Stakeholder model
