@@ -2375,6 +2375,19 @@ components:
           description: The caremanagement errand the normberäkning concerns. When present, a Decision(RECOMMENDATION) summarising the income warnings is recorded on the errand for the handläggare.
           examples:
             - "cb20c51f-fcf3-42c0-b613-de563634a8ec"
+        classifiedIncomes:
+          type: string
+          description: The incomes classified by the operaton regelverk (the evaluate-income-regelverk worker output), as JSON. When present, caremanagement maps these to FC income rows instead of fetching SSBTEK and evaluating the rålista itself.
+        unhandledIncomes:
+          type: array
+          description: The unhandled-income warnings from the operaton regelverk, recorded on the errand recommendation
+          items:
+            type: string
+        changeWarnings:
+          type: array
+          description: The period-over-period change warnings from the operaton regelverk, recorded on the errand recommendation
+          items:
+            type: string
       required:
         - applicant
         - applicationMonth

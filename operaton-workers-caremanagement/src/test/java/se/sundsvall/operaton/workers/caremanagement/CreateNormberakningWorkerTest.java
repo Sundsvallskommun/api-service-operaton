@@ -79,6 +79,37 @@ class CreateNormberakningWorkerTest {
 	}
 
 	@Test
+	void executePassesClassifiedIncomesAndSplitsWarnings() {
+		final var queryBuilder = mock(ExternalTaskQueryBuilder.class);
+		final var topicBuilder = mock(ExternalTaskQueryTopicBuilder.class);
+		final var task = mock(LockedExternalTask.class);
+
+		when(externalTaskServiceMock.fetchAndLock(anyInt(), any())).thenReturn(queryBuilder);
+		when(queryBuilder.topic(any(), anyLong())).thenReturn(topicBuilder);
+		when(topicBuilder.execute()).thenReturn(List.of(task));
+		when(task.getId()).thenReturn("task-c");
+		when(task.getVariables()).thenReturn(Variables.createVariables()
+			.putValue("municipalityId", "2281")
+			.putValue("namespace", "my-namespace")
+			.putValue("applicant", "199001011234")
+			.putValue("applicationMonth", "2026-06")
+			.putValue("classifiedIncomes", "[{\"normberakning\":\"Bostadsbidrag\"}]")
+			.putValue("unhandledIncomes", "Något (EJ_PA_LISTAN); Annat (EJ_PA_LISTAN)")
+			.putValue("changeWarnings", "Bostadsbidrag: -23%"));
+		when(careManagementClientMock.createNormberakning(any(), any(), any())).thenReturn(
+			ResponseEntity.ok(new NormberakningResponse().calculationId(4713)));
+
+		worker.execute();
+
+		final var requestCaptor = ArgumentCaptor.forClass(NormberakningRequest.class);
+		verify(careManagementClientMock).createNormberakning(eq("2281"), eq("my-namespace"), requestCaptor.capture());
+		final var request = requestCaptor.getValue();
+		assertThat(request.getClassifiedIncomes()).isEqualTo("[{\"normberakning\":\"Bostadsbidrag\"}]");
+		assertThat(request.getUnhandledIncomes()).containsExactly("Något (EJ_PA_LISTAN)", "Annat (EJ_PA_LISTAN)");
+		assertThat(request.getChangeWarnings()).containsExactly("Bostadsbidrag: -23%");
+	}
+
+	@Test
 	void executeWithoutWarningsOrCoApplicant() {
 		final var queryBuilder = mock(ExternalTaskQueryBuilder.class);
 		final var topicBuilder = mock(ExternalTaskQueryTopicBuilder.class);

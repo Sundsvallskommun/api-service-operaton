@@ -20,14 +20,17 @@ import static se.sundsvall.dept44.util.LogUtils.sanitizeForLogging;
 @Component
 @TopicWorker(
 	topic = "create-normberakning",
-	description = "Builds the SSBTEK-driven normberäkning for an EB application month and posts it to Lifecare via CareManagement: reads the household's SSBTEK income basis, maps it onto the applicant's Lifecare calculation proposal, and creates the normberäkning. Outputs the created calculation id and whether any income warnings need handläggare review.",
+	description = "Posts the normberäkning to Lifecare via CareManagement from incomes already classified by the operaton regelverk (the classifiedIncomes from evaluate-income-regelverk): CareManagement resolves each income's category to an FC type id, assembles and creates the normberäkning, and records the recommendation. Outputs the created calculation id and whether any income warnings need handläggare review.",
 	inputVariables = {
 		AbstractTopicWorker.VAR_MUNICIPALITY_ID,
 		CreateNormberakningWorker.VAR_NAMESPACE,
 		CreateNormberakningWorker.VAR_APPLICANT,
 		CreateNormberakningWorker.VAR_CO_APPLICANT,
 		CreateNormberakningWorker.VAR_APPLICATION_MONTH,
-		CreateNormberakningWorker.VAR_ERRAND_ID
+		CreateNormberakningWorker.VAR_ERRAND_ID,
+		CreateNormberakningWorker.VAR_CLASSIFIED_INCOMES,
+		CreateNormberakningWorker.VAR_UNHANDLED_INCOMES,
+		CreateNormberakningWorker.VAR_CHANGE_WARNINGS
 	})
 public class CreateNormberakningWorker extends AbstractTopicWorker {
 
@@ -36,6 +39,9 @@ public class CreateNormberakningWorker extends AbstractTopicWorker {
 	static final String VAR_CO_APPLICANT = "coApplicant";
 	static final String VAR_APPLICATION_MONTH = "applicationMonth";
 	static final String VAR_ERRAND_ID = "errandId";
+	static final String VAR_CLASSIFIED_INCOMES = "classifiedIncomes";
+	static final String VAR_UNHANDLED_INCOMES = "unhandledIncomes";
+	static final String VAR_CHANGE_WARNINGS = "changeWarnings";
 
 	static final String VAR_OUT_CALCULATION_ID = "normberakningCalculationId";
 	static final String VAR_OUT_HAS_WARNINGS = "normberakningHasWarnings";
@@ -63,6 +69,9 @@ public class CreateNormberakningWorker extends AbstractTopicWorker {
 			.applicationMonth(requireVariable(task, VAR_APPLICATION_MONTH, String.class));
 		optionalVariable(task, VAR_CO_APPLICANT, String.class).ifPresent(request::coApplicant);
 		optionalVariable(task, VAR_ERRAND_ID, String.class).ifPresent(request::errandId);
+		optionalVariable(task, VAR_CLASSIFIED_INCOMES, String.class).ifPresent(request::classifiedIncomes);
+		optionalVariable(task, VAR_UNHANDLED_INCOMES, String.class).map(CreateNormberakningWorker::split).ifPresent(request::unhandledIncomes);
+		optionalVariable(task, VAR_CHANGE_WARNINGS, String.class).map(CreateNormberakningWorker::split).ifPresent(request::changeWarnings);
 
 		final var response = careManagementClient.createNormberakning(
 			requireVariable(task, VAR_MUNICIPALITY_ID, String.class),
@@ -82,5 +91,10 @@ public class CreateNormberakningWorker extends AbstractTopicWorker {
 
 		LOG.info("Normberäkning {} created via CareManagement (warnings: {})", sanitizeForLogging(String.valueOf(calculationId)), hasWarnings);
 		return output;
+	}
+
+	/** Split a "; "-joined warning string (as produced by evaluate-income-regelverk) back into a list. */
+	private static List<String> split(final String joined) {
+		return joined.isBlank() ? List.of() : List.of(joined.split("; "));
 	}
 }
