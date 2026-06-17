@@ -125,6 +125,62 @@ class FetchFinancialAidBasisWorkerTest {
 	}
 
 	@Test
+	void executeWithCustomOutputVariable() throws Exception {
+		final var queryBuilder = mock(ExternalTaskQueryBuilder.class);
+		final var topicBuilder = mock(ExternalTaskQueryTopicBuilder.class);
+		final var task = mock(LockedExternalTask.class);
+		final Map<String, Map<String, Object>> response = Map.of("fk", Map.of("bostadsbidrag", 1850));
+
+		when(externalTaskServiceMock.fetchAndLock(anyInt(), any())).thenReturn(queryBuilder);
+		when(queryBuilder.topic(any(), anyLong())).thenReturn(topicBuilder);
+		when(topicBuilder.execute()).thenReturn(List.of(task));
+		when(task.getId()).thenReturn("task-co");
+		when(task.getVariables()).thenReturn(Variables.createVariables()
+			.putValue("municipalityId", "2281")
+			.putValue("personalNumber", "198202022345")
+			.putValue("fromDate", "2026-01-01")
+			.putValue("toDate", "2026-05-20")
+			.putValue("outputVariable", "coApplicantFinancialAidBasis"));
+		when(financialAidClientMock.getFinancialAidBasis(any(), any(), any(), any())).thenReturn(response);
+
+		worker.execute();
+
+		verify(financialAidClientMock).getFinancialAidBasis("2281", "198202022345", "2026-01-01", "2026-05-20");
+
+		final var outputCaptor = ArgumentCaptor.forClass(Map.class);
+		verify(externalTaskServiceMock).complete(eq("task-co"), eq(WORKER_ID), outputCaptor.capture());
+		final var output = outputCaptor.getValue();
+		assertThat(output).containsOnlyKeys("coApplicantFinancialAidBasis");
+		final var roundTrip = objectMapper.readValue(
+			(String) output.get("coApplicantFinancialAidBasis"),
+			new TypeReference<LinkedHashMap<String, LinkedHashMap<String, Object>>>() {});
+		assertThat(roundTrip).isEqualTo(response);
+	}
+
+	@Test
+	void executeWithBlankPersonalNumberSkipsFetch() {
+		final var queryBuilder = mock(ExternalTaskQueryBuilder.class);
+		final var topicBuilder = mock(ExternalTaskQueryTopicBuilder.class);
+		final var task = mock(LockedExternalTask.class);
+
+		when(externalTaskServiceMock.fetchAndLock(anyInt(), any())).thenReturn(queryBuilder);
+		when(queryBuilder.topic(any(), anyLong())).thenReturn(topicBuilder);
+		when(topicBuilder.execute()).thenReturn(List.of(task));
+		when(task.getId()).thenReturn("task-empty");
+		when(task.getVariables()).thenReturn(Variables.createVariables()
+			.putValue("municipalityId", "2281")
+			.putValue("personalNumber", "")
+			.putValue("fromDate", "2026-01-01")
+			.putValue("toDate", "2026-05-20")
+			.putValue("outputVariable", "coApplicantFinancialAidBasis"));
+
+		worker.execute();
+
+		verifyNoInteractions(financialAidClientMock);
+		verify(externalTaskServiceMock).complete("task-empty", WORKER_ID, Map.of("coApplicantFinancialAidBasis", "{}"));
+	}
+
+	@Test
 	void executeWithNoTasks() {
 		final var queryBuilder = mock(ExternalTaskQueryBuilder.class);
 		final var topicBuilder = mock(ExternalTaskQueryTopicBuilder.class);
