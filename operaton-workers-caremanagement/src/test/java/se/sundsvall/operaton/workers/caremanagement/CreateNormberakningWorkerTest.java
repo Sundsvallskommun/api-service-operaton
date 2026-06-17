@@ -59,7 +59,9 @@ class CreateNormberakningWorkerTest {
 			ResponseEntity.ok(new NormberakningResponse()
 				.calculationId(4711)
 				.unhandledIncomes(List.of("Bostadstillägg (NOT_ON_WHITELIST)"))
-				.changeWarnings(List.of("Bostadsbidrag: -23%"))));
+				.changeWarnings(List.of("Bostadsbidrag: -23%"))
+				.informationComplete(false)
+				.missingIncomeTypes(List.of("Dagersättning"))));
 
 		worker.execute();
 
@@ -75,7 +77,9 @@ class CreateNormberakningWorkerTest {
 			"normberakningCalculationId", 4711,
 			"normberakningHasWarnings", true,
 			"normberakningUnhandledIncomes", "Bostadstillägg (NOT_ON_WHITELIST)",
-			"normberakningChangeWarnings", "Bostadsbidrag: -23%"));
+			"normberakningChangeWarnings", "Bostadsbidrag: -23%",
+			"informationComplete", false,
+			"missingIncomeTypes", "Dagersättning"));
 	}
 
 	@Test
@@ -137,7 +141,9 @@ class CreateNormberakningWorkerTest {
 			"normberakningCalculationId", 4712,
 			"normberakningHasWarnings", false,
 			"normberakningUnhandledIncomes", "",
-			"normberakningChangeWarnings", ""));
+			"normberakningChangeWarnings", "",
+			"informationComplete", true,
+			"missingIncomeTypes", ""));
 	}
 
 	@Test
@@ -159,11 +165,13 @@ class CreateNormberakningWorkerTest {
 
 		worker.execute();
 
-		// No calculation id when the body is absent; no warnings.
+		// No calculation id when the body is absent; no warnings; completeness defaults to true (not wedged).
 		verify(externalTaskServiceMock).complete("task-3", "create-normberakning-worker", Map.of(
 			"normberakningHasWarnings", false,
 			"normberakningUnhandledIncomes", "",
-			"normberakningChangeWarnings", ""));
+			"normberakningChangeWarnings", "",
+			"informationComplete", true,
+			"missingIncomeTypes", ""));
 	}
 
 	@Test

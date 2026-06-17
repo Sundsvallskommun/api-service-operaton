@@ -2411,6 +2411,14 @@ components:
           description: Förmåner whose net income changed beyond the threshold between the periods
           items:
             type: string
+        informationComplete:
+          type: boolean
+          description: Whether this month's normberäkning covers every income type the previous month's did — false means SSBTEK data is still missing and the process should poll again
+        missingIncomeTypes:
+          type: array
+          description: Previous-month income types not yet present this month (the SSBTEK data still being awaited)
+          items:
+            type: string
     ActualisationRequest:
       type: object
       description: Request to create the Lifecare aktualisering (case intake) for one applicant and one application month

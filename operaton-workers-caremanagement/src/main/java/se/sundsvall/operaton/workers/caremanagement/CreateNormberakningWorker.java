@@ -14,6 +14,7 @@ import se.sundsvall.dept44.scheduling.Dept44Scheduled;
 import se.sundsvall.operaton.workers.framework.AbstractTopicWorker;
 import se.sundsvall.operaton.workers.framework.annotation.TopicWorker;
 
+import static java.lang.Boolean.TRUE;
 import static java.util.Optional.ofNullable;
 import static se.sundsvall.dept44.util.LogUtils.sanitizeForLogging;
 
@@ -47,6 +48,9 @@ public class CreateNormberakningWorker extends AbstractTopicWorker {
 	static final String VAR_OUT_HAS_WARNINGS = "normberakningHasWarnings";
 	static final String VAR_OUT_UNHANDLED_INCOMES = "normberakningUnhandledIncomes";
 	static final String VAR_OUT_CHANGE_WARNINGS = "normberakningChangeWarnings";
+	// Completeness of this month's normberäkning vs the previous month's — drives the process's daily SSBTEK poll loop.
+	static final String VAR_OUT_INFORMATION_COMPLETE = "informationComplete";
+	static final String VAR_OUT_MISSING_INCOME_TYPES = "missingIncomeTypes";
 
 	private static final Logger LOG = LoggerFactory.getLogger(CreateNormberakningWorker.class);
 
@@ -82,14 +86,20 @@ public class CreateNormberakningWorker extends AbstractTopicWorker {
 		final var changeWarnings = ofNullable(response).map(NormberakningResponse::getChangeWarnings).orElseGet(List::of);
 		final var hasWarnings = !unhandledIncomes.isEmpty() || !changeWarnings.isEmpty();
 		final var calculationId = ofNullable(response).map(NormberakningResponse::getCalculationId).orElse(null);
+		// Absent/unknown completeness ⇒ treat as complete so the process is never wedged polling forever.
+		final var informationComplete = ofNullable(response).map(NormberakningResponse::getInformationComplete).orElse(TRUE);
+		final var missingIncomeTypes = ofNullable(response).map(NormberakningResponse::getMissingIncomeTypes).orElseGet(List::of);
 
 		final Map<String, Object> output = new HashMap<>();
 		ofNullable(calculationId).ifPresent(id -> output.put(VAR_OUT_CALCULATION_ID, id));
 		output.put(VAR_OUT_HAS_WARNINGS, hasWarnings);
 		output.put(VAR_OUT_UNHANDLED_INCOMES, String.join("; ", unhandledIncomes));
 		output.put(VAR_OUT_CHANGE_WARNINGS, String.join("; ", changeWarnings));
+		output.put(VAR_OUT_INFORMATION_COMPLETE, informationComplete);
+		output.put(VAR_OUT_MISSING_INCOME_TYPES, String.join("; ", missingIncomeTypes));
 
-		LOG.info("Normberäkning {} created via CareManagement (warnings: {})", sanitizeForLogging(String.valueOf(calculationId)), hasWarnings);
+		LOG.info("Normberäkning {} created via CareManagement (warnings: {}, information complete: {})",
+			sanitizeForLogging(String.valueOf(calculationId)), hasWarnings, informationComplete);
 		return output;
 	}
 
