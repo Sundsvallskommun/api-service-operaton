@@ -96,6 +96,22 @@
 				<artifactId>operaton-bpm-spring-boot-starter-rest</artifactId>
 				<version>${operaton.spring-boot.version}</version>
 			</dependency>
+			<!--
+				Spin enables the engine to (de)serialize typed JSON object variables
+				(serializationDataFormat=application/json), which external-task clients
+				rely on when completing tasks with typed Java objects. Operaton releases
+				Spin in lockstep with the platform, so reuse the platform version.
+			-->
+			<dependency>
+				<groupId>org.operaton.bpm</groupId>
+				<artifactId>operaton-engine-plugin-spin</artifactId>
+				<version>${operaton.spring-boot.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.operaton.spin</groupId>
+				<artifactId>operaton-spin-dataformat-json-jackson</artifactId>
+				<version>${operaton.spring-boot.version}</version>
+			</dependency>
 			<dependency>
 				<groupId>com.sun.xml.bind</groupId>
 				<artifactId>jaxb-impl</artifactId>
