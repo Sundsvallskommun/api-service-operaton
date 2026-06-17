@@ -16,24 +16,35 @@ import se.sundsvall.operaton.workers.framework.annotation.TopicWorker;
 
 import static java.lang.Boolean.TRUE;
 import static java.util.Optional.ofNullable;
-import static se.sundsvall.dept44.util.LogUtils.sanitizeForLogging;
 
+/**
+ * Prepares the EB normberäkning each daily loop <strong>without</strong> writing to Lifecare. CareManagement reports
+ * whether this month's classified incomes cover every income type the previous normberäkning had ({@code
+ * informationComplete} + {@code missingIncomeTypes}), records the income warnings as a single Decision(RECOMMENDATION),
+ * and reflects completeness in the errand status (KOMPLETTERING ⇄ VANTAR_PA_BESLUT). The Lifecare normberäkning itself
+ * is created only after a beslut — see {@code commit-normberakning}.
+ */
 @Component
 @TopicWorker(
-	topic = "create-normberakning",
-	description = "Posts the normberäkning to Lifecare via CareManagement from incomes already classified by the operaton regelverk (the classifiedIncomes from evaluate-income-regelverk): CareManagement resolves each income's category to an FC type id, assembles and creates the normberäkning, and records the recommendation. Outputs the created calculation id and whether any income warnings need handläggare review.",
+	topic = "prepare-normberakning",
+	description = "Prepares the EB normberäkning each daily loop without writing to Lifecare: CareManagement reports completeness (does this month cover every income type the previous normberäkning had?), records the income warnings as a Decision(RECOMMENDATION), and sets the errand status (KOMPLETTERING while incomplete, VANTAR_PA_BESLUT when complete). Outputs informationComplete + missingIncomeTypes. The Lifecare normberäkning itself is created only after a beslut (commit-normberakning).",
 	inputVariables = {
 		AbstractTopicWorker.VAR_MUNICIPALITY_ID,
-		CreateNormberakningWorker.VAR_NAMESPACE,
-		CreateNormberakningWorker.VAR_APPLICANT,
-		CreateNormberakningWorker.VAR_CO_APPLICANT,
-		CreateNormberakningWorker.VAR_APPLICATION_MONTH,
-		CreateNormberakningWorker.VAR_ERRAND_ID,
-		CreateNormberakningWorker.VAR_CLASSIFIED_INCOMES,
-		CreateNormberakningWorker.VAR_UNHANDLED_INCOMES,
-		CreateNormberakningWorker.VAR_CHANGE_WARNINGS
+		PrepareNormberakningWorker.VAR_NAMESPACE,
+		PrepareNormberakningWorker.VAR_APPLICANT,
+		PrepareNormberakningWorker.VAR_CO_APPLICANT,
+		PrepareNormberakningWorker.VAR_APPLICATION_MONTH,
+		PrepareNormberakningWorker.VAR_ERRAND_ID,
+		PrepareNormberakningWorker.VAR_CLASSIFIED_INCOMES,
+		PrepareNormberakningWorker.VAR_UNHANDLED_INCOMES,
+		PrepareNormberakningWorker.VAR_CHANGE_WARNINGS
+	},
+	outputVariables = {
+		PrepareNormberakningWorker.VAR_OUT_INFORMATION_COMPLETE,
+		PrepareNormberakningWorker.VAR_OUT_MISSING_INCOME_TYPES,
+		PrepareNormberakningWorker.VAR_OUT_HAS_WARNINGS
 	})
-public class CreateNormberakningWorker extends AbstractTopicWorker {
+public class PrepareNormberakningWorker extends AbstractTopicWorker {
 
 	static final String VAR_NAMESPACE = "namespace";
 	static final String VAR_APPLICANT = "applicant";
@@ -44,24 +55,21 @@ public class CreateNormberakningWorker extends AbstractTopicWorker {
 	static final String VAR_UNHANDLED_INCOMES = "unhandledIncomes";
 	static final String VAR_CHANGE_WARNINGS = "changeWarnings";
 
-	static final String VAR_OUT_CALCULATION_ID = "normberakningCalculationId";
-	static final String VAR_OUT_HAS_WARNINGS = "normberakningHasWarnings";
-	static final String VAR_OUT_UNHANDLED_INCOMES = "normberakningUnhandledIncomes";
-	static final String VAR_OUT_CHANGE_WARNINGS = "normberakningChangeWarnings";
 	// Completeness of this month's normberäkning vs the previous month's — drives the process's daily SSBTEK poll loop.
 	static final String VAR_OUT_INFORMATION_COMPLETE = "informationComplete";
 	static final String VAR_OUT_MISSING_INCOME_TYPES = "missingIncomeTypes";
+	static final String VAR_OUT_HAS_WARNINGS = "normberakningHasWarnings";
 
-	private static final Logger LOG = LoggerFactory.getLogger(CreateNormberakningWorker.class);
+	private static final Logger LOG = LoggerFactory.getLogger(PrepareNormberakningWorker.class);
 
 	private final CareManagementClient careManagementClient;
 
-	public CreateNormberakningWorker(final ExternalTaskService externalTaskService, final CareManagementClient careManagementClient) {
+	public PrepareNormberakningWorker(final ExternalTaskService externalTaskService, final CareManagementClient careManagementClient) {
 		super(externalTaskService);
 		this.careManagementClient = careManagementClient;
 	}
 
-	@Dept44Scheduled(cron = "${scheduler.create-normberakning.cron:*/5 * * * * *}", name = "create-normberakning-worker", lockAtMostFor = "PT30S")
+	@Dept44Scheduled(cron = "${scheduler.prepare-normberakning.cron:*/5 * * * * *}", name = "prepare-normberakning-worker", lockAtMostFor = "PT30S")
 	public void execute() {
 		processTasks();
 	}
@@ -74,32 +82,27 @@ public class CreateNormberakningWorker extends AbstractTopicWorker {
 		optionalVariable(task, VAR_CO_APPLICANT, String.class).ifPresent(request::coApplicant);
 		optionalVariable(task, VAR_ERRAND_ID, String.class).ifPresent(request::errandId);
 		optionalVariable(task, VAR_CLASSIFIED_INCOMES, String.class).ifPresent(request::classifiedIncomes);
-		optionalVariable(task, VAR_UNHANDLED_INCOMES, String.class).map(CreateNormberakningWorker::split).ifPresent(request::unhandledIncomes);
-		optionalVariable(task, VAR_CHANGE_WARNINGS, String.class).map(CreateNormberakningWorker::split).ifPresent(request::changeWarnings);
+		optionalVariable(task, VAR_UNHANDLED_INCOMES, String.class).map(PrepareNormberakningWorker::split).ifPresent(request::unhandledIncomes);
+		optionalVariable(task, VAR_CHANGE_WARNINGS, String.class).map(PrepareNormberakningWorker::split).ifPresent(request::changeWarnings);
 
-		final var response = careManagementClient.createNormberakning(
+		final var response = careManagementClient.prepareNormberakning(
 			requireVariable(task, VAR_MUNICIPALITY_ID, String.class),
 			requireVariable(task, VAR_NAMESPACE, String.class),
 			request).getBody();
 
-		final var unhandledIncomes = ofNullable(response).map(NormberakningResponse::getUnhandledIncomes).orElseGet(List::of);
-		final var changeWarnings = ofNullable(response).map(NormberakningResponse::getChangeWarnings).orElseGet(List::of);
-		final var hasWarnings = !unhandledIncomes.isEmpty() || !changeWarnings.isEmpty();
-		final var calculationId = ofNullable(response).map(NormberakningResponse::getCalculationId).orElse(null);
 		// Absent/unknown completeness ⇒ treat as complete so the process is never wedged polling forever.
 		final var informationComplete = ofNullable(response).map(NormberakningResponse::getInformationComplete).orElse(TRUE);
 		final var missingIncomeTypes = ofNullable(response).map(NormberakningResponse::getMissingIncomeTypes).orElseGet(List::of);
+		final var unhandledIncomes = ofNullable(response).map(NormberakningResponse::getUnhandledIncomes).orElseGet(List::of);
+		final var changeWarnings = ofNullable(response).map(NormberakningResponse::getChangeWarnings).orElseGet(List::of);
+		final var hasWarnings = !unhandledIncomes.isEmpty() || !changeWarnings.isEmpty() || !missingIncomeTypes.isEmpty();
 
 		final Map<String, Object> output = new HashMap<>();
-		ofNullable(calculationId).ifPresent(id -> output.put(VAR_OUT_CALCULATION_ID, id));
-		output.put(VAR_OUT_HAS_WARNINGS, hasWarnings);
-		output.put(VAR_OUT_UNHANDLED_INCOMES, String.join("; ", unhandledIncomes));
-		output.put(VAR_OUT_CHANGE_WARNINGS, String.join("; ", changeWarnings));
 		output.put(VAR_OUT_INFORMATION_COMPLETE, informationComplete);
 		output.put(VAR_OUT_MISSING_INCOME_TYPES, String.join("; ", missingIncomeTypes));
+		output.put(VAR_OUT_HAS_WARNINGS, hasWarnings);
 
-		LOG.info("Normberäkning {} created via CareManagement (warnings: {}, information complete: {})",
-			sanitizeForLogging(String.valueOf(calculationId)), hasWarnings, informationComplete);
+		LOG.info("Normberäkning prepared via CareManagement (information complete: {}, warnings: {})", informationComplete, hasWarnings);
 		return output;
 	}
 
