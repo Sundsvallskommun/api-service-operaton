@@ -2370,6 +2370,11 @@ components:
           description: The application month (ISO year-month, yyyy-MM)
           examples:
             - "2026-06"
+        errandId:
+          type: string
+          description: The caremanagement errand the normberäkning concerns. When present, a Decision(RECOMMENDATION) summarising the income warnings is recorded on the errand for the handläggare.
+          examples:
+            - "cb20c51f-fcf3-42c0-b613-de563634a8ec"
       required:
         - applicant
         - applicationMonth

@@ -26,7 +26,8 @@ import static se.sundsvall.dept44.util.LogUtils.sanitizeForLogging;
 		CreateNormberakningWorker.VAR_NAMESPACE,
 		CreateNormberakningWorker.VAR_APPLICANT,
 		CreateNormberakningWorker.VAR_CO_APPLICANT,
-		CreateNormberakningWorker.VAR_APPLICATION_MONTH
+		CreateNormberakningWorker.VAR_APPLICATION_MONTH,
+		CreateNormberakningWorker.VAR_ERRAND_ID
 	})
 public class CreateNormberakningWorker extends AbstractTopicWorker {
 
@@ -34,6 +35,7 @@ public class CreateNormberakningWorker extends AbstractTopicWorker {
 	static final String VAR_APPLICANT = "applicant";
 	static final String VAR_CO_APPLICANT = "coApplicant";
 	static final String VAR_APPLICATION_MONTH = "applicationMonth";
+	static final String VAR_ERRAND_ID = "errandId";
 
 	static final String VAR_OUT_CALCULATION_ID = "normberakningCalculationId";
 	static final String VAR_OUT_HAS_WARNINGS = "normberakningHasWarnings";
@@ -60,6 +62,7 @@ public class CreateNormberakningWorker extends AbstractTopicWorker {
 			.applicant(requireVariable(task, VAR_APPLICANT, String.class))
 			.applicationMonth(requireVariable(task, VAR_APPLICATION_MONTH, String.class));
 		optionalVariable(task, VAR_CO_APPLICANT, String.class).ifPresent(request::coApplicant);
+		optionalVariable(task, VAR_ERRAND_ID, String.class).ifPresent(request::errandId);
 
 		final var response = careManagementClient.createNormberakning(
 			requireVariable(task, VAR_MUNICIPALITY_ID, String.class),

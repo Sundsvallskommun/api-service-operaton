@@ -53,6 +53,7 @@ class CreateNormberakningWorkerTest {
 			.putValue("namespace", "my-namespace")
 			.putValue("applicant", "199001011234")
 			.putValue("coApplicant", "199202022345")
+			.putValue("errandId", "cb20c51f-fcf3-42c0-b613-de563634a8ec")
 			.putValue("applicationMonth", "2026-06"));
 		when(careManagementClientMock.createNormberakning(any(), any(), any())).thenReturn(
 			ResponseEntity.ok(new NormberakningResponse()
@@ -68,6 +69,7 @@ class CreateNormberakningWorkerTest {
 		assertThat(request.getApplicant()).isEqualTo("199001011234");
 		assertThat(request.getCoApplicant()).isEqualTo("199202022345");
 		assertThat(request.getApplicationMonth()).isEqualTo("2026-06");
+		assertThat(request.getErrandId()).isEqualTo("cb20c51f-fcf3-42c0-b613-de563634a8ec");
 
 		verify(externalTaskServiceMock).complete("task-1", "create-normberakning-worker", Map.of(
 			"normberakningCalculationId", 4711,
