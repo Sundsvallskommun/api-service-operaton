@@ -57,13 +57,13 @@ public interface CareManagementClient {
 		@PathVariable final String errandId,
 		@RequestBody final Decision decision);
 
-	@PostMapping(path = "/{municipalityId}/{namespace}/errands/financial-assistance/normberakning/prepare", consumes = APPLICATION_JSON_VALUE)
+	@PostMapping(path = "/{municipalityId}/{namespace}/errands/financial-assistance/calculation/prepare", consumes = APPLICATION_JSON_VALUE)
 	ResponseEntity<NormberakningResponse> prepareNormberakning(
 		@PathVariable final String municipalityId,
 		@PathVariable final String namespace,
 		@RequestBody final NormberakningRequest request);
 
-	@PostMapping(path = "/{municipalityId}/{namespace}/errands/financial-assistance/normberakning/commit", consumes = APPLICATION_JSON_VALUE)
+	@PostMapping(path = "/{municipalityId}/{namespace}/errands/financial-assistance/calculation/commit", consumes = APPLICATION_JSON_VALUE)
 	ResponseEntity<NormberakningResponse> commitNormberakning(
 		@PathVariable final String municipalityId,
 		@PathVariable final String namespace,
