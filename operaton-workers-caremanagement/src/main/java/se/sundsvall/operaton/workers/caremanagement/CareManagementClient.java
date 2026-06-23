@@ -11,6 +11,7 @@ import generated.se.sundsvall.caremanagement.PatchErrand;
 import generated.se.sundsvall.caremanagement.PaymentStatusRequest;
 import generated.se.sundsvall.caremanagement.PaymentStatusResponse;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import java.util.Map;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -79,4 +80,15 @@ public interface CareManagementClient {
 		@PathVariable final String municipalityId,
 		@PathVariable final String namespace,
 		@RequestBody final PaymentStatusRequest request);
+
+	/**
+	 * Enqueue a UiPath RPA task on an errand (CareManagement drops a queue item; a robot does the Lifecare GUI work out of
+	 * band). Body is {@code {"action": "...", "parameters": {...}}}; sent as a Map so no generated DTO is needed.
+	 */
+	@PostMapping(path = "/{municipalityId}/{namespace}/errands/{errandId}/rpa-tasks", consumes = APPLICATION_JSON_VALUE)
+	ResponseEntity<Void> enqueueRpaTask(
+		@PathVariable final String municipalityId,
+		@PathVariable final String namespace,
+		@PathVariable final String errandId,
+		@RequestBody final Map<String, Object> request);
 }
