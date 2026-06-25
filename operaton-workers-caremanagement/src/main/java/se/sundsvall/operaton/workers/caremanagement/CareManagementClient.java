@@ -6,7 +6,6 @@ import generated.se.sundsvall.caremanagement.Decision;
 import generated.se.sundsvall.caremanagement.Errand;
 import generated.se.sundsvall.caremanagement.NormberakningRequest;
 import generated.se.sundsvall.caremanagement.NormberakningResponse;
-import generated.se.sundsvall.caremanagement.Parameter;
 import generated.se.sundsvall.caremanagement.PatchErrand;
 import generated.se.sundsvall.caremanagement.PaymentStatusRequest;
 import generated.se.sundsvall.caremanagement.PaymentStatusResponse;
@@ -42,13 +41,6 @@ public interface CareManagementClient {
 		@PathVariable final String namespace,
 		@PathVariable final String errandId,
 		@RequestBody final PatchErrand patchErrand);
-
-	@PostMapping(path = "/{municipalityId}/{namespace}/errands/{errandId}/parameters", consumes = APPLICATION_JSON_VALUE)
-	ResponseEntity<Void> createErrandParameter(
-		@PathVariable final String municipalityId,
-		@PathVariable final String namespace,
-		@PathVariable final String errandId,
-		@RequestBody final Parameter parameter);
 
 	@PostMapping(path = "/{municipalityId}/{namespace}/errands/{errandId}/decisions", consumes = APPLICATION_JSON_VALUE)
 	ResponseEntity<Void> createErrandDecision(
