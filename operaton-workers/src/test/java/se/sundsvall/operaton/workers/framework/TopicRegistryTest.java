@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import se.sundsvall.operaton.workers.framework.annotation.TopicWorker;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class TopicRegistryTest {
 
@@ -52,6 +53,16 @@ class TopicRegistryTest {
 		assertThat(topicRegistry.getByTopic("test-topic")).isPresent();
 	}
 
+	@Test
+	void testDuplicateTopicFailsFast() {
+		topicRegistry.postProcessAfterInitialization(new TestWorker(), "testWorker");
+
+		assertThatThrownBy(() -> topicRegistry.postProcessAfterInitialization(new DuplicateTopicWorker(), "duplicateTopicWorker"))
+			.isInstanceOf(IllegalStateException.class)
+			.hasMessageContaining("test-topic")
+			.hasMessageContaining(DuplicateTopicWorker.class.getName());
+	}
+
 	@TopicWorker(
 		topic = "test-topic",
 		description = "A test worker",
@@ -65,5 +76,13 @@ class TopicRegistryTest {
 	}
 
 	private static class SubclassedWorker extends TestWorker {
+	}
+
+	@TopicWorker(
+		topic = "test-topic",
+		description = "Another worker declaring the same topic",
+		inputVariables = {},
+		outputVariables = {})
+	private static class DuplicateTopicWorker {
 	}
 }
