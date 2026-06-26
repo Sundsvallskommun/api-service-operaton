@@ -19,23 +19,23 @@ import static java.util.Optional.ofNullable;
 
 @Component
 @TopicWorker(
-	topic = "create-errand",
+	topic = "create-support-errand",
 	description = "Creates an errand in SupportManagement",
 	inputVariables = {
 		AbstractTopicWorker.VAR_MUNICIPALITY_ID,
-		CreateErrandWorker.VAR_NAMESPACE,
-		CreateErrandWorker.VAR_TITLE,
-		CreateErrandWorker.VAR_PRIORITY,
-		CreateErrandWorker.VAR_STATUS,
-		CreateErrandWorker.VAR_REPORTER_USER_ID,
-		CreateErrandWorker.VAR_CATEGORY,
-		CreateErrandWorker.VAR_TYPE,
-		CreateErrandWorker.VAR_DESCRIPTION
+		CreateSupportErrandWorker.VAR_NAMESPACE,
+		CreateSupportErrandWorker.VAR_TITLE,
+		CreateSupportErrandWorker.VAR_PRIORITY,
+		CreateSupportErrandWorker.VAR_STATUS,
+		CreateSupportErrandWorker.VAR_REPORTER_USER_ID,
+		CreateSupportErrandWorker.VAR_CATEGORY,
+		CreateSupportErrandWorker.VAR_TYPE,
+		CreateSupportErrandWorker.VAR_DESCRIPTION
 	},
 	outputVariables = {
-		CreateErrandWorker.VAR_ERRAND_ID
+		CreateSupportErrandWorker.VAR_ERRAND_ID
 	})
-public class CreateErrandWorker extends AbstractTopicWorker {
+public class CreateSupportErrandWorker extends AbstractTopicWorker {
 
 	static final String VAR_NAMESPACE = "namespace";
 	static final String VAR_TITLE = "title";
@@ -47,19 +47,19 @@ public class CreateErrandWorker extends AbstractTopicWorker {
 	static final String VAR_DESCRIPTION = "description";
 	static final String VAR_ERRAND_ID = "errandId";
 
-	private static final Logger LOG = LoggerFactory.getLogger(CreateErrandWorker.class);
+	private static final Logger LOG = LoggerFactory.getLogger(CreateSupportErrandWorker.class);
 	private static final String DEFAULT_PRIORITY = "MEDIUM";
 	private static final String DEFAULT_STATUS = "NEW";
 	private static final String UNKNOWN_ERRAND_ID = "unknown";
 
 	private final SupportManagementClient supportManagementClient;
 
-	public CreateErrandWorker(final ExternalTaskService externalTaskService, final SupportManagementClient supportManagementClient) {
+	public CreateSupportErrandWorker(final ExternalTaskService externalTaskService, final SupportManagementClient supportManagementClient) {
 		super(externalTaskService);
 		this.supportManagementClient = supportManagementClient;
 	}
 
-	@Dept44Scheduled(cron = "${scheduler.create-errand.cron:*/5 * * * * *}", name = "create-errand-worker", lockAtMostFor = "PT30S")
+	@Dept44Scheduled(cron = "${scheduler.create-support-errand.cron:*/5 * * * * *}", name = "create-support-errand-worker", lockAtMostFor = "PT30S")
 	public void execute() {
 		processTasks();
 	}
