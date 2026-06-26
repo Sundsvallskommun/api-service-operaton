@@ -23,7 +23,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class CreateErrandWorkerTest {
+class CreateSupportErrandWorkerTest {
 
 	@Mock
 	private ExternalTaskService externalTaskServiceMock;
@@ -32,7 +32,7 @@ class CreateErrandWorkerTest {
 	private SupportManagementClient supportManagementClientMock;
 
 	@InjectMocks
-	private CreateErrandWorker createErrandWorker;
+	private CreateSupportErrandWorker createSupportErrandWorker;
 
 	@Test
 	void executeWithTasks() {
@@ -55,10 +55,10 @@ class CreateErrandWorkerTest {
 			.putValue("description", "Test description"));
 		when(supportManagementClientMock.createErrand(any(), any(), any())).thenReturn(responseEntity);
 
-		createErrandWorker.execute();
+		createSupportErrandWorker.execute();
 
 		verify(supportManagementClientMock).createErrand(eq("2281"), eq("my-namespace"), any());
-		verify(externalTaskServiceMock).complete(eq("task-1"), eq("create-errand-worker"), any());
+		verify(externalTaskServiceMock).complete(eq("task-1"), eq("create-support-errand-worker"), any());
 	}
 
 	@Test
@@ -70,7 +70,7 @@ class CreateErrandWorkerTest {
 		when(queryBuilder.topic(any(), anyLong())).thenReturn(topicBuilder);
 		when(topicBuilder.execute()).thenReturn(List.of());
 
-		createErrandWorker.execute();
+		createSupportErrandWorker.execute();
 	}
 
 	@Test
@@ -85,8 +85,8 @@ class CreateErrandWorkerTest {
 		when(task.getId()).thenReturn("task-1");
 		when(task.getVariables()).thenThrow(new RuntimeException("test error"));
 
-		createErrandWorker.execute();
+		createSupportErrandWorker.execute();
 
-		verify(externalTaskServiceMock).handleFailure("task-1", "create-errand-worker", "test error", 0, 0L);
+		verify(externalTaskServiceMock).handleFailure("task-1", "create-support-errand-worker", "test error", 0, 0L);
 	}
 }

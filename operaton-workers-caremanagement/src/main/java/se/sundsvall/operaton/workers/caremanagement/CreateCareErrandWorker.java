@@ -18,23 +18,23 @@ import static java.util.Optional.ofNullable;
 
 @Component
 @TopicWorker(
-	topic = "create-errand",
+	topic = "create-care-errand",
 	description = "Creates an errand in CareManagement",
 	inputVariables = {
 		AbstractTopicWorker.VAR_MUNICIPALITY_ID,
-		CreateErrandWorker.VAR_NAMESPACE,
-		CreateErrandWorker.VAR_TITLE,
-		CreateErrandWorker.VAR_PRIORITY,
-		CreateErrandWorker.VAR_STATUS,
-		CreateErrandWorker.VAR_REPORTER_USER_ID,
-		CreateErrandWorker.VAR_CATEGORY,
-		CreateErrandWorker.VAR_TYPE,
-		CreateErrandWorker.VAR_DESCRIPTION
+		CreateCareErrandWorker.VAR_NAMESPACE,
+		CreateCareErrandWorker.VAR_TITLE,
+		CreateCareErrandWorker.VAR_PRIORITY,
+		CreateCareErrandWorker.VAR_STATUS,
+		CreateCareErrandWorker.VAR_REPORTER_USER_ID,
+		CreateCareErrandWorker.VAR_CATEGORY,
+		CreateCareErrandWorker.VAR_TYPE,
+		CreateCareErrandWorker.VAR_DESCRIPTION
 	},
 	outputVariables = {
-		CreateErrandWorker.VAR_ERRAND_ID
+		CreateCareErrandWorker.VAR_ERRAND_ID
 	})
-public class CreateErrandWorker extends AbstractTopicWorker {
+public class CreateCareErrandWorker extends AbstractTopicWorker {
 
 	static final String VAR_NAMESPACE = "namespace";
 	static final String VAR_TITLE = "title";
@@ -46,14 +46,14 @@ public class CreateErrandWorker extends AbstractTopicWorker {
 	static final String VAR_DESCRIPTION = "description";
 	static final String VAR_ERRAND_ID = "errandId";
 
-	private static final Logger LOG = LoggerFactory.getLogger(CreateErrandWorker.class);
+	private static final Logger LOG = LoggerFactory.getLogger(CreateCareErrandWorker.class);
 	private static final String DEFAULT_PRIORITY = "MEDIUM";
 	private static final String DEFAULT_STATUS = "NEW";
 	private static final String UNKNOWN_ERRAND_ID = "unknown";
 
 	private final CareManagementClient careManagementClient;
 
-	public CreateErrandWorker(final ExternalTaskService externalTaskService, final CareManagementClient careManagementClient) {
+	public CreateCareErrandWorker(final ExternalTaskService externalTaskService, final CareManagementClient careManagementClient) {
 		super(externalTaskService);
 		this.careManagementClient = careManagementClient;
 	}
@@ -67,7 +67,7 @@ public class CreateErrandWorker extends AbstractTopicWorker {
 			.orElse(UNKNOWN_ERRAND_ID);
 	}
 
-	@Dept44Scheduled(cron = "${scheduler.create-errand.cron:*/5 * * * * *}", name = "create-errand-worker", lockAtMostFor = "PT30S")
+	@Dept44Scheduled(cron = "${scheduler.create-care-errand.cron:*/5 * * * * *}", name = "create-care-errand-worker", lockAtMostFor = "PT30S")
 	public void execute() {
 		processTasks();
 	}

@@ -1,6 +1,6 @@
 # Operaton
 
-_Provides an Operaton BPMN process engine with APIs for managing deployments, process instances and a self-documenting catalog of external task workers (send-email, send-sms, create-errand) that can be used as building blocks in BPMN process models._
+_Provides an Operaton BPMN process engine with APIs for managing deployments, process instances and a self-documenting catalog of external task workers (send-email, send-sms, create-support-errand) that can be used as building blocks in BPMN process models._
 
 ## Getting Started
 
@@ -46,7 +46,7 @@ This microservice depends on the following services:
   - **Repository:** [api-service-messaging](https://github.com/Sundsvallskommun/api-service-messaging)
   - **Setup Instructions:** Refer to its documentation for installation and configuration steps.
 - **SupportManagement**
-  - **Purpose:** Creates errands from BPMN processes via the `create-errand` external task worker.
+  - **Purpose:** Creates errands from BPMN processes via the `create-support-errand` external task worker.
   - **Repository:** [api-service-support-management](https://github.com/Sundsvallskommun/api-service-support-management)
   - **Setup Instructions:** Refer to its documentation for installation and configuration steps.
 
@@ -78,12 +78,12 @@ curl -X GET http://localhost:8080/2281/topics
 
 External task workers are registered automatically at startup via the `@TopicWorker` annotation and become available as reusable building blocks in BPMN process models. The live catalog is always reachable at `GET /{municipalityId}/topics`.
 
-|      Topic      |               Purpose               |                                                  Input variables                                                  | Output variables |
-|-----------------|-------------------------------------|-------------------------------------------------------------------------------------------------------------------|------------------|
-| `send-email`    | Send email via the Messaging API    | `municipalityId`, `emailAddress`, `subject`, `message`, `senderName`, `senderAddress`                             | `messageId`      |
-| `send-sms`      | Send SMS via the Messaging API      | `municipalityId`, `mobileNumber`, `message`, `sender`                                                             | `messageId`      |
-| `create-errand` | Create errand in SupportManagement  | `municipalityId`, `namespace`, `title`, `priority`, `status`, `reporterUserId`, `category`, `type`, `description` | `errandId`       |
-| `log-message`   | Example worker that logs a variable | `message`                                                                                                         | —                |
+|          Topic          |               Purpose               |                                                  Input variables                                                  | Output variables |
+|-------------------------|-------------------------------------|-------------------------------------------------------------------------------------------------------------------|------------------|
+| `send-email`            | Send email via the Messaging API    | `municipalityId`, `emailAddress`, `subject`, `message`, `senderName`, `senderAddress`                             | `messageId`      |
+| `send-sms`              | Send SMS via the Messaging API      | `municipalityId`, `mobileNumber`, `message`, `sender`                                                             | `messageId`      |
+| `create-support-errand` | Create errand in SupportManagement  | `municipalityId`, `namespace`, `title`, `priority`, `status`, `reporterUserId`, `category`, `type`, `description` | `errandId`       |
+| `log-message`           | Example worker that logs a variable | `message`                                                                                                         | —                |
 
 ## Configuration
 
