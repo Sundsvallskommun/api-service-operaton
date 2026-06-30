@@ -2351,6 +2351,137 @@ components:
       required:
         - decisionType
         - value
+    NormberakningRequest:
+      type: object
+      description: Request to build and post the SSBTEK-driven normberäkning for an application month
+      properties:
+        applicant:
+          type: string
+          description: The applicant's personal number (12 digits)
+          examples:
+            - "198001012389"
+        coApplicant:
+          type: string
+          description: The co-applicant's (medsökande) personal number (12 digits), when applying together with a partner
+          examples:
+            - "198202022397"
+        applicationMonth:
+          type: string
+          description: The application month (ISO year-month, yyyy-MM)
+          examples:
+            - "2026-06"
+        errandId:
+          type: string
+          description: The caremanagement errand the normberäkning concerns. When present, a Decision(RECOMMENDATION) summarising the income warnings is recorded on the errand for the handläggare.
+          examples:
+            - "cb20c51f-fcf3-42c0-b613-de563634a8ec"
+        classifiedIncomes:
+          type: string
+          description: The incomes classified by the operaton regelverk (the evaluate-income-regelverk worker output), as JSON. When present, caremanagement maps these to FC income rows instead of fetching SSBTEK and evaluating the rålista itself.
+        unhandledIncomes:
+          type: array
+          description: The unhandled-income warnings from the operaton regelverk, recorded on the errand recommendation
+          items:
+            type: string
+        changeWarnings:
+          type: array
+          description: The period-over-period change warnings from the operaton regelverk, recorded on the errand recommendation
+          items:
+            type: string
+      required:
+        - applicant
+        - applicationMonth
+    NormberakningResponse:
+      type: object
+      description: The created Lifecare normberäkning id plus the income warnings to review
+      properties:
+        calculationId:
+          type: integer
+          format: int32
+          description: The id of the normberäkning created in Lifecare FC
+          examples:
+            - 4711
+        unhandledIncomes:
+          type: array
+          description: SSBTEK incomes that could not be auto-transferred and must be reviewed
+          items:
+            type: string
+        changeWarnings:
+          type: array
+          description: Förmåner whose net income changed beyond the threshold between the periods
+          items:
+            type: string
+        informationComplete:
+          type: boolean
+          description: Whether this month's normberäkning covers every income type the previous month's did — false means SSBTEK data is still missing and the process should poll again
+        missingIncomeTypes:
+          type: array
+          description: Previous-month income types not yet present this month (the SSBTEK data still being awaited)
+          items:
+            type: string
+    ActualisationRequest:
+      type: object
+      description: Request to create the Lifecare aktualisering (case intake) for one applicant and one application month
+      properties:
+        applicant:
+          type: string
+          description: The applicant's partyId (personId GUID)
+          examples:
+            - "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        applicationMonth:
+          type: string
+          description: The application month (ISO year-month, yyyy-MM); the aktualisering's intake date is the first day of this month
+          examples:
+            - "2026-06"
+        errandId:
+          type: string
+          description: The caremanagement errand the aktualisering concerns. When present, a Decision(ACTUALISATION) is recorded on the errand.
+          examples:
+            - "cb20c51f-fcf3-42c0-b613-de563634a8ec"
+      required:
+        - applicant
+        - applicationMonth
+    ActualisationResponse:
+      type: object
+      description: The created Lifecare aktualisering id
+      properties:
+        actualisationId:
+          type: integer
+          format: int32
+          description: The id of the aktualisering created in Lifecare FC
+          examples:
+            - 8842
+    PaymentStatusRequest:
+      type: object
+      description: Request to read whether the Lifecare utbetalning for an application month has been effectuated
+      properties:
+        applicant:
+          type: string
+          description: The applicant's partyId (personId GUID)
+          examples:
+            - "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        applicationMonth:
+          type: string
+          description: The application month (ISO year-month, yyyy-MM) the payment concerns
+          examples:
+            - "2026-06"
+      required:
+        - applicant
+        - applicationMonth
+    PaymentStatusResponse:
+      type: object
+      description: Whether the Lifecare utbetalning for the application month has been effectuated
+      properties:
+        effectuated:
+          type: boolean
+          description: True when a Lifecare utbetalning concerning the application month has been registered
+          examples:
+            - true
+        paymentDate:
+          type: string
+          description: The date the utbetalning was made (Lifecare PayDate), when effectuated
+          examples:
+            - "2026-05-27"
     Stakeholder:
       type: object
       description: Stakeholder model

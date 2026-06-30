@@ -4,19 +4,24 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.operaton.bpm.dmn.engine.DmnDecisionResult;
+import org.operaton.bpm.engine.DecisionService;
 import org.operaton.bpm.engine.ProcessEngineException;
 import org.operaton.bpm.engine.RepositoryService;
+import org.operaton.bpm.engine.dmn.DecisionsEvaluationBuilder;
 import org.operaton.bpm.engine.repository.DecisionDefinition;
 import org.operaton.bpm.engine.repository.DecisionDefinitionQuery;
 import se.sundsvall.dept44.problem.ThrowableProblem;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -28,6 +33,9 @@ class DmnServiceTest {
 
 	@Mock
 	private RepositoryService repositoryServiceMock;
+
+	@Mock
+	private DecisionService decisionServiceMock;
 
 	@InjectMocks
 	private DmnService dmnService;
@@ -122,5 +130,41 @@ class DmnServiceTest {
 
 		assertThat(exception.getStatus()).isEqualTo(INTERNAL_SERVER_ERROR);
 		assertThat(exception.getMessage()).contains("boom");
+	}
+
+	@Test
+	void evaluate() {
+		final var query = mock(DecisionDefinitionQuery.class);
+		when(repositoryServiceMock.createDecisionDefinitionQuery()).thenReturn(query);
+		when(query.decisionDefinitionKey("Decision_inkomstRalista")).thenReturn(query);
+		when(query.latestVersion()).thenReturn(query);
+		when(query.count()).thenReturn(1L);
+
+		final var builder = mock(DecisionsEvaluationBuilder.class);
+		final var dmnResult = mock(DmnDecisionResult.class);
+		when(decisionServiceMock.evaluateDecisionByKey("Decision_inkomstRalista")).thenReturn(builder);
+		when(builder.variables(anyMap())).thenReturn(builder);
+		when(builder.evaluate()).thenReturn(dmnResult);
+		when(dmnResult.getResultList()).thenReturn(List.of(Map.<String, Object>of("atgard", "TA_MED")));
+
+		final var result = dmnService.evaluate("Decision_inkomstRalista", Map.of("forman", "Bostadsbidrag"));
+
+		assertThat(result).hasSize(1);
+		assertThat(result.getFirst()).containsEntry("atgard", "TA_MED");
+		verify(decisionServiceMock).evaluateDecisionByKey("Decision_inkomstRalista");
+	}
+
+	@Test
+	void evaluateDecisionNotFound() {
+		final var query = mock(DecisionDefinitionQuery.class);
+		when(repositoryServiceMock.createDecisionDefinitionQuery()).thenReturn(query);
+		when(query.decisionDefinitionKey("nope")).thenReturn(query);
+		when(query.latestVersion()).thenReturn(query);
+		when(query.count()).thenReturn(0L);
+
+		final var exception = assertThrows(ThrowableProblem.class,
+			() -> dmnService.evaluate("nope", Map.of()));
+
+		assertThat(exception.getStatus()).isEqualTo(NOT_FOUND);
 	}
 }

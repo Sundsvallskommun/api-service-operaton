@@ -1,6 +1,7 @@
 package se.sundsvall.operaton.workers.caremanagement;
 
-import generated.se.sundsvall.caremanagement.Parameter;
+import generated.se.sundsvall.caremanagement.ActualisationRequest;
+import generated.se.sundsvall.caremanagement.ActualisationResponse;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -16,6 +17,7 @@ import org.operaton.bpm.engine.externaltask.LockedExternalTask;
 import org.operaton.bpm.engine.variable.Variables;
 import org.springframework.http.ResponseEntity;
 
+import static java.util.Collections.emptyMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -26,7 +28,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class UpdateErrandParameterWorkerTest {
+class CreateActualisationWorkerTest {
 
 	@Mock
 	private ExternalTaskService externalTaskServiceMock;
@@ -35,10 +37,10 @@ class UpdateErrandParameterWorkerTest {
 	private CareManagementClient careManagementClientMock;
 
 	@InjectMocks
-	private UpdateErrandParameterWorker updateErrandParameterWorker;
+	private CreateActualisationWorker worker;
 
 	@Test
-	void executeWithTasks() {
+	void executeWithTask() {
 		final var queryBuilder = mock(ExternalTaskQueryBuilder.class);
 		final var topicBuilder = mock(ExternalTaskQueryTopicBuilder.class);
 		final var task = mock(LockedExternalTask.class);
@@ -50,28 +52,26 @@ class UpdateErrandParameterWorkerTest {
 		when(task.getVariables()).thenReturn(Variables.createVariables()
 			.putValue("municipalityId", "2281")
 			.putValue("namespace", "my-namespace")
-			.putValue("errandId", "errand-123")
-			.putValue("parameterKey", "recommendation")
-			.putValue("parameterValue", "Beslutsförslag: 7900 kr — Ingen varning")
-			.putValue("parameterDisplayName", "Beslutsförslag från regelverk")
-			.putValue("parameterGroup", "decision"));
-		when(careManagementClientMock.createErrandParameter(any(), any(), any(), any())).thenReturn(ResponseEntity.created(null).build());
+			.putValue("applicant", "f47ac10b-58cc-4372-a567-0e02b2c3d479")
+			.putValue("applicationMonth", "2026-06")
+			.putValue("errandId", "cb20c51f-fcf3-42c0-b613-de563634a8ec"));
+		when(careManagementClientMock.createActualisation(any(), any(), any())).thenReturn(
+			ResponseEntity.ok(new ActualisationResponse().actualisationId(8842)));
 
-		updateErrandParameterWorker.execute();
+		worker.execute();
 
-		final var parameterCaptor = ArgumentCaptor.forClass(Parameter.class);
-		verify(careManagementClientMock).createErrandParameter(eq("2281"), eq("my-namespace"), eq("errand-123"), parameterCaptor.capture());
-		verify(externalTaskServiceMock).complete("task-1", "update-errand-parameter-worker", Map.of());
+		final var requestCaptor = ArgumentCaptor.forClass(ActualisationRequest.class);
+		verify(careManagementClientMock).createActualisation(eq("2281"), eq("my-namespace"), requestCaptor.capture());
+		final var request = requestCaptor.getValue();
+		assertThat(request.getApplicant()).isEqualTo("f47ac10b-58cc-4372-a567-0e02b2c3d479");
+		assertThat(request.getApplicationMonth()).isEqualTo("2026-06");
+		assertThat(request.getErrandId()).isEqualTo("cb20c51f-fcf3-42c0-b613-de563634a8ec");
 
-		final var parameter = parameterCaptor.getValue();
-		assertThat(parameter.getKey()).isEqualTo("recommendation");
-		assertThat(parameter.getValues()).containsExactly("Beslutsförslag: 7900 kr — Ingen varning");
-		assertThat(parameter.getDisplayName()).isEqualTo("Beslutsförslag från regelverk");
-		assertThat(parameter.getParameterGroup()).isEqualTo("decision");
+		verify(externalTaskServiceMock).complete("task-1", "create-actualisation-worker", Map.of("actualisationId", 8842));
 	}
 
 	@Test
-	void executeWithOnlyRequiredVariables() {
+	void executeWithNullResponseBody() {
 		final var queryBuilder = mock(ExternalTaskQueryBuilder.class);
 		final var topicBuilder = mock(ExternalTaskQueryTopicBuilder.class);
 		final var task = mock(LockedExternalTask.class);
@@ -83,21 +83,13 @@ class UpdateErrandParameterWorkerTest {
 		when(task.getVariables()).thenReturn(Variables.createVariables()
 			.putValue("municipalityId", "2281")
 			.putValue("namespace", "my-namespace")
-			.putValue("errandId", "errand-999")
-			.putValue("parameterKey", "decisionWarning")
-			.putValue("parameterValue", "Ingen varning"));
-		when(careManagementClientMock.createErrandParameter(any(), any(), any(), any())).thenReturn(ResponseEntity.created(null).build());
+			.putValue("applicant", "f47ac10b-58cc-4372-a567-0e02b2c3d479")
+			.putValue("applicationMonth", "2026-06"));
+		when(careManagementClientMock.createActualisation(any(), any(), any())).thenReturn(ResponseEntity.ok().build());
 
-		updateErrandParameterWorker.execute();
+		worker.execute();
 
-		final var parameterCaptor = ArgumentCaptor.forClass(Parameter.class);
-		verify(careManagementClientMock).createErrandParameter(eq("2281"), eq("my-namespace"), eq("errand-999"), parameterCaptor.capture());
-
-		final var parameter = parameterCaptor.getValue();
-		assertThat(parameter.getKey()).isEqualTo("decisionWarning");
-		assertThat(parameter.getValues()).containsExactly("Ingen varning");
-		assertThat(parameter.getDisplayName()).isNull();
-		assertThat(parameter.getParameterGroup()).isNull();
+		verify(externalTaskServiceMock).complete("task-2", "create-actualisation-worker", emptyMap());
 	}
 
 	@Test
@@ -109,11 +101,11 @@ class UpdateErrandParameterWorkerTest {
 		when(queryBuilder.topic(any(), anyLong())).thenReturn(topicBuilder);
 		when(topicBuilder.execute()).thenReturn(List.of());
 
-		updateErrandParameterWorker.execute();
+		worker.execute();
 	}
 
 	@Test
-	void executeWithException() {
+	void executeWithMissingApplicant() {
 		final var queryBuilder = mock(ExternalTaskQueryBuilder.class);
 		final var topicBuilder = mock(ExternalTaskQueryTopicBuilder.class);
 		final var task = mock(LockedExternalTask.class);
@@ -121,12 +113,13 @@ class UpdateErrandParameterWorkerTest {
 		when(externalTaskServiceMock.fetchAndLock(anyInt(), any())).thenReturn(queryBuilder);
 		when(queryBuilder.topic(any(), anyLong())).thenReturn(topicBuilder);
 		when(topicBuilder.execute()).thenReturn(List.of(task));
-		when(task.getId()).thenReturn("task-1");
-		when(task.getVariables()).thenThrow(new RuntimeException("test error"));
+		when(task.getId()).thenReturn("task-3");
+		when(task.getVariables()).thenReturn(Variables.createVariables());
 
-		updateErrandParameterWorker.execute();
+		worker.execute();
 
-		verify(externalTaskServiceMock).handleFailure("task-1", "update-errand-parameter-worker", "test error", 0, 0L);
+		verify(externalTaskServiceMock).handleFailure("task-3", "create-actualisation-worker",
+			"Required process variable 'applicant' is missing on task task-3", 0, 0L);
 	}
 
 	@Test
@@ -138,18 +131,16 @@ class UpdateErrandParameterWorkerTest {
 		when(externalTaskServiceMock.fetchAndLock(anyInt(), any())).thenReturn(queryBuilder);
 		when(queryBuilder.topic(any(), anyLong())).thenReturn(topicBuilder);
 		when(topicBuilder.execute()).thenReturn(List.of(task));
-		when(task.getId()).thenReturn("task-3");
+		when(task.getId()).thenReturn("task-4");
 		when(task.getVariables()).thenReturn(Variables.createVariables()
 			.putValue("municipalityId", "2281")
 			.putValue("namespace", "my-namespace")
-			.putValue("errandId", "errand-3")
-			.putValue("parameterKey", "k")
-			.putValue("parameterValue", "v"));
-		when(careManagementClientMock.createErrandParameter(any(), any(), any(), any()))
-			.thenThrow(new RuntimeException("careM 500"));
+			.putValue("applicant", "f47ac10b-58cc-4372-a567-0e02b2c3d479")
+			.putValue("applicationMonth", "2026-06"));
+		when(careManagementClientMock.createActualisation(any(), any(), any())).thenThrow(new RuntimeException("careM 500"));
 
-		updateErrandParameterWorker.execute();
+		worker.execute();
 
-		verify(externalTaskServiceMock).handleFailure("task-3", "update-errand-parameter-worker", "careM 500", 0, 0L);
+		verify(externalTaskServiceMock).handleFailure("task-4", "create-actualisation-worker", "careM 500", 0, 0L);
 	}
 }

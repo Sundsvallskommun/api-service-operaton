@@ -10,6 +10,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import se.sundsvall.dept44.common.validators.annotation.ValidMunicipalityId;
@@ -17,6 +19,8 @@ import se.sundsvall.dept44.problem.Problem;
 import se.sundsvall.dept44.problem.violations.ConstraintViolationProblem;
 import se.sundsvall.operaton.decision.api.model.DecisionDefinitionResponse;
 import se.sundsvall.operaton.decision.api.model.DecisionDefinitionsResponse;
+import se.sundsvall.operaton.decision.api.model.EvaluateDecisionRequest;
+import se.sundsvall.operaton.decision.api.model.EvaluateDecisionResponse;
 import se.sundsvall.operaton.decision.service.DmnService;
 
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
@@ -80,5 +84,18 @@ class DecisionResource {
 		@Parameter(name = "id", description = "Decision definition id", example = "approve-loan:1:5") @PathVariable final String id) {
 
 		return ok(decisionService.getDecisionModel(id));
+	}
+
+	@Operation(summary = "Evaluate a decision definition (by key) against input variables", responses = {
+		@ApiResponse(responseCode = "200", description = "Successful Operation", useReturnTypeSchema = true),
+		@ApiResponse(responseCode = "404", description = "Not Found", content = @Content(mediaType = APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = Problem.class)))
+	})
+	@PostMapping(value = "/decision-definitions/{key}/evaluate", consumes = APPLICATION_JSON_VALUE, produces = APPLICATION_JSON_VALUE)
+	ResponseEntity<EvaluateDecisionResponse> evaluateDecision(
+		@Parameter(name = "municipalityId", description = "Municipality id", example = "2281") @ValidMunicipalityId @PathVariable final String municipalityId,
+		@Parameter(name = "key", description = "Decision definition key", example = "Decision_inkomstRalista") @PathVariable final String key,
+		@RequestBody final EvaluateDecisionRequest request) {
+
+		return ok(EvaluateDecisionResponse.create().withResults(decisionService.evaluate(key, request.getVariables())));
 	}
 }

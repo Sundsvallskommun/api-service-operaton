@@ -16,16 +16,40 @@
 		"name": "Update Errand"
 	},
 	{
-		"id": "se.sundsvall.operaton.UpdateErrandParameter",
-		"name": "Update Errand Parameter"
-	},
-	{
 		"id": "se.sundsvall.operaton.AddErrandDecision",
 		"name": "Add Errand Decision"
 	},
 	{
+		"id": "se.sundsvall.operaton.FetchLifecareSupplements",
+		"name": "Fetch Lifecare Supplements"
+	},
+	{
+		"id": "se.sundsvall.operaton.CreateActualisation",
+		"name": "Create Actualisation"
+	},
+	{
+		"id": "se.sundsvall.operaton.CreateApplicationNormberakning",
+		"name": "Create Application Normberakning"
+	},
+	{
+		"id": "se.sundsvall.operaton.PrepareNormberakning",
+		"name": "Prepare Normberakning"
+	},
+	{
+		"id": "se.sundsvall.operaton.CommitNormberakning",
+		"name": "Commit Normberakning"
+	},
+	{
+		"id": "se.sundsvall.operaton.CheckPaymentStatus",
+		"name": "Check Payment Status"
+	},
+	{
 		"id": "se.sundsvall.operaton.FetchFinancialAidBasis",
 		"name": "Fetch Financial Aid Basis"
+	},
+	{
+		"id": "se.sundsvall.operaton.EvaluateIncomeRegelverk",
+		"name": "Evaluate Income Regelverk"
 	},
 	{
 		"id": "se.sundsvall.operaton.LogMessage",
