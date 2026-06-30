@@ -90,4 +90,33 @@ class CommitNormberakningWorkerTest {
 
 		verify(externalTaskServiceMock).complete("task-2", WORKER_ID, Map.of());
 	}
+
+	@Test
+	void executeIncludesSplitWarningLists() {
+		final var queryBuilder = mock(ExternalTaskQueryBuilder.class);
+		final var topicBuilder = mock(ExternalTaskQueryTopicBuilder.class);
+		final var task = mock(LockedExternalTask.class);
+
+		when(externalTaskServiceMock.fetchAndLock(anyInt(), any())).thenReturn(queryBuilder);
+		when(queryBuilder.topic(any(), anyLong())).thenReturn(topicBuilder);
+		when(topicBuilder.execute()).thenReturn(List.of(task));
+		when(task.getId()).thenReturn("task-3");
+		when(task.getVariables()).thenReturn(Variables.createVariables()
+			.putValue("municipalityId", "2281")
+			.putValue("namespace", "my-namespace")
+			.putValue("applicant", "199001011234")
+			.putValue("applicationMonth", "2026-06")
+			.putValue("unhandledIncomes", "Barnbidrag; Bostadsbidrag")
+			.putValue("changeWarnings", ""));
+		when(careManagementClientMock.commitNormberakning(any(), any(), any())).thenReturn(
+			ResponseEntity.ok(new NormberakningResponse().calculationId(4712)));
+
+		worker.execute();
+
+		final var requestCaptor = ArgumentCaptor.forClass(NormberakningRequest.class);
+		verify(careManagementClientMock).commitNormberakning(eq("2281"), eq("my-namespace"), requestCaptor.capture());
+		assertThat(requestCaptor.getValue().getUnhandledIncomes()).containsExactly("Barnbidrag", "Bostadsbidrag");
+		assertThat(requestCaptor.getValue().getChangeWarnings()).isEmpty();
+		verify(externalTaskServiceMock).complete("task-3", WORKER_ID, Map.of("normberakningCalculationId", 4712));
+	}
 }

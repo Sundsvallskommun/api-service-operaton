@@ -3,6 +3,7 @@ package se.sundsvall.operaton.workers.financialaid;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.Month;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
@@ -66,7 +67,7 @@ class EvaluateIncomeRegelverkWorkerTest {
 		final var vars = Variables.createVariables();
 		variables.forEach(vars::putValue);
 		when(task.getVariables()).thenReturn(vars);
-		when(evaluatorMock.evaluate(anyList(), eq(YearMonth.of(2026, 6)))).thenReturn(result);
+		when(evaluatorMock.evaluate(anyList(), eq(YearMonth.of(2026, Month.JUNE)))).thenReturn(result);
 
 		worker.execute();
 
@@ -78,7 +79,7 @@ class EvaluateIncomeRegelverkWorkerTest {
 	@Test
 	void evaluatesAndOutputsClassifiedPlusWarnings() {
 		final var classified = new ClassifiedIncome(
-			new SsbtekIncome("Bostadsbidrag", null, null, new BigDecimal("1850"), LocalDate.of(2026, 5, 15), APPLICANT),
+			new SsbtekIncome("Bostadsbidrag", null, null, new BigDecimal("1850"), LocalDate.of(2026, Month.MAY, 15), APPLICANT),
 			"TA_MED_KVITTNING", "Bostadsbidrag", false, "Ta med kvittning");
 		final var change = new ChangeWarning("Bostadsbidrag", new BigDecimal("-23"), new BigDecimal("2400"), new BigDecimal("1850"));
 
@@ -95,7 +96,7 @@ class EvaluateIncomeRegelverkWorkerTest {
 	@Test
 	void flagsOffListAndNoChangeWarnings() {
 		final var offList = new ClassifiedIncome(
-			new SsbtekIncome("Något okänt", null, null, new BigDecimal("500"), LocalDate.of(2026, 5, 10), APPLICANT),
+			new SsbtekIncome("Något okänt", null, null, new BigDecimal("500"), LocalDate.of(2026, Month.MAY, 10), APPLICANT),
 			"EJ_PA_LISTAN", "-", true, "Ej på rålistan");
 
 		final var output = runWith(

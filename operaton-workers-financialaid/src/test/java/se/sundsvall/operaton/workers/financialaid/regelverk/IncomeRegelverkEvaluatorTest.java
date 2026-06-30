@@ -2,6 +2,7 @@ package se.sundsvall.operaton.workers.financialaid.regelverk;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.Month;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
@@ -52,7 +53,7 @@ class IncomeRegelverkEvaluatorTest {
 		final var result = evaluator.evaluate(List.of(
 			income("Bostadsbidrag", "2026-05-15", "1850"),
 			income("Bostadsbidrag", "2026-04-15", "2400")),
-			YearMonth.of(2026, 6));
+			YearMonth.of(2026, Month.JUNE));
 
 		assertThat(result.classified()).hasSize(1);
 		assertThat(result.classified().getFirst().atgard()).isEqualTo("TA_MED_KVITTNING");
@@ -71,7 +72,7 @@ class IncomeRegelverkEvaluatorTest {
 			income("Dagersättning", "2026-05-10", "5000"),
 			income("Dagersättning", "2026-04-10", "4800"),
 			income("Barnbidrag", "2026-04-12", "1250")),
-			YearMonth.of(2026, 6));
+			YearMonth.of(2026, Month.JUNE));
 
 		assertThat(result.classified()).hasSize(2);
 		assertThat(result.changeWarnings()).extracting(ChangeWarning::forman).containsExactly("Barnbidrag");
@@ -79,7 +80,7 @@ class IncomeRegelverkEvaluatorTest {
 
 	@Test
 	void nullIncomesYieldEmptyResult() {
-		final var result = evaluator.evaluate(null, YearMonth.of(2026, 6));
+		final var result = evaluator.evaluate(null, YearMonth.of(2026, Month.JUNE));
 
 		assertThat(result.classified()).isEmpty();
 		assertThat(result.changeWarnings()).isEmpty();

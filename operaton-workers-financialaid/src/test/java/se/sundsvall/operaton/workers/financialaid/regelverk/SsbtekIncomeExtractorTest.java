@@ -1,6 +1,7 @@
 package se.sundsvall.operaton.workers.financialaid.regelverk;
 
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,11 +30,11 @@ class SsbtekIncomeExtractorTest {
 		final var bostadsbidrag = incomes.stream().filter(i -> "Bostadsbidrag".equals(i.forman())).findFirst().orElseThrow();
 		assertThat(bostadsbidrag.netAmount()).isEqualByComparingTo("1850");
 		assertThat(bostadsbidrag.beloppstyp()).isEqualTo("Månad");
-		assertThat(bostadsbidrag.period()).isEqualTo(LocalDate.of(2026, 5, 15));
+		assertThat(bostadsbidrag.period()).isEqualTo(LocalDate.of(2026, Month.MAY, 15));
 		assertThat(bostadsbidrag.role()).isEqualTo(APPLICANT);
 		final var akassa = incomes.stream().filter(i -> "Arbetslöshetsersättning".equals(i.forman())).findFirst().orElseThrow();
 		assertThat(akassa.netAmount()).isEqualByComparingTo("3200");
-		assertThat(akassa.period()).isEqualTo(LocalDate.of(2026, 5, 20));
+		assertThat(akassa.period()).isEqualTo(LocalDate.of(2026, Month.MAY, 20));
 	}
 
 	@Test
