@@ -2,25 +2,21 @@ package se.sundsvall.operaton.workers.caremanagement;
 
 import generated.se.sundsvall.caremanagement.NormberakningRequest;
 import generated.se.sundsvall.caremanagement.NormberakningResponse;
-import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Answers;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.operaton.bpm.engine.ExternalTaskService;
-import org.operaton.bpm.engine.externaltask.ExternalTaskQueryBuilder;
-import org.operaton.bpm.engine.externaltask.ExternalTaskQueryTopicBuilder;
 import org.operaton.bpm.engine.externaltask.LockedExternalTask;
 import org.operaton.bpm.engine.variable.Variables;
 import org.springframework.http.ResponseEntity;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -31,7 +27,7 @@ class CreateApplicationNormberakningWorkerTest {
 
 	private static final String WORKER_ID = "create-application-normberakning-worker";
 
-	@Mock
+	@Mock(answer = Answers.RETURNS_DEEP_STUBS)
 	private ExternalTaskService externalTaskServiceMock;
 
 	@Mock
@@ -41,15 +37,15 @@ class CreateApplicationNormberakningWorkerTest {
 	private CreateApplicationNormberakningWorker worker;
 
 	@Test
-	void executeCreatesFromApplicationAndOutputsCalculationId() {
-		final var queryBuilder = mock(ExternalTaskQueryBuilder.class);
-		final var topicBuilder = mock(ExternalTaskQueryTopicBuilder.class);
-		final var task = mock(LockedExternalTask.class);
+	void executePollsForTasks() {
+		worker.execute();
 
-		when(externalTaskServiceMock.fetchAndLock(anyInt(), any())).thenReturn(queryBuilder);
-		when(queryBuilder.topic(any(), anyLong())).thenReturn(topicBuilder);
-		when(topicBuilder.execute()).thenReturn(List.of(task));
-		when(task.getId()).thenReturn("task-1");
+		verify(externalTaskServiceMock).fetchAndLock(10, WORKER_ID);
+	}
+
+	@Test
+	void handleCreatesFromApplicationAndOutputsCalculationId() {
+		final var task = mock(LockedExternalTask.class);
 		when(task.getVariables()).thenReturn(Variables.createVariables()
 			.putValue("municipalityId", "2281")
 			.putValue("namespace", "my-namespace")
@@ -60,7 +56,7 @@ class CreateApplicationNormberakningWorkerTest {
 		when(careManagementClientMock.createApplicationNormberakning(any(), any(), any())).thenReturn(
 			ResponseEntity.ok(new NormberakningResponse().calculationId(5001)));
 
-		worker.execute();
+		final var result = worker.handle(task);
 
 		final var requestCaptor = ArgumentCaptor.forClass(NormberakningRequest.class);
 		verify(careManagementClientMock).createApplicationNormberakning(eq("2281"), eq("my-namespace"), requestCaptor.capture());
@@ -68,20 +64,12 @@ class CreateApplicationNormberakningWorkerTest {
 		assertThat(requestCaptor.getValue().getCoApplicant()).isEqualTo("a1b2c3d4-e5f6-7890-abcd-ef1234567890");
 		assertThat(requestCaptor.getValue().getErrandId()).isEqualTo("errand-1");
 		assertThat(requestCaptor.getValue().getApplicationMonth()).isEqualTo("2026-06");
-
-		verify(externalTaskServiceMock).complete("task-1", WORKER_ID, Map.of("normberakningCalculationId", 5001));
+		assertThat(result).isEqualTo(Map.of("normberakningCalculationId", 5001));
 	}
 
 	@Test
-	void executeWithNullBodyOutputsNothing() {
-		final var queryBuilder = mock(ExternalTaskQueryBuilder.class);
-		final var topicBuilder = mock(ExternalTaskQueryTopicBuilder.class);
+	void handleWithNullBodyOutputsNothing() {
 		final var task = mock(LockedExternalTask.class);
-
-		when(externalTaskServiceMock.fetchAndLock(anyInt(), any())).thenReturn(queryBuilder);
-		when(queryBuilder.topic(any(), anyLong())).thenReturn(topicBuilder);
-		when(topicBuilder.execute()).thenReturn(List.of(task));
-		when(task.getId()).thenReturn("task-2");
 		when(task.getVariables()).thenReturn(Variables.createVariables()
 			.putValue("municipalityId", "2281")
 			.putValue("namespace", "my-namespace")
@@ -89,8 +77,6 @@ class CreateApplicationNormberakningWorkerTest {
 			.putValue("applicationMonth", "2026-06"));
 		when(careManagementClientMock.createApplicationNormberakning(any(), any(), any())).thenReturn(ResponseEntity.ok().build());
 
-		worker.execute();
-
-		verify(externalTaskServiceMock).complete("task-2", WORKER_ID, Map.of());
+		assertThat(worker.handle(task)).isEqualTo(Map.of());
 	}
 }

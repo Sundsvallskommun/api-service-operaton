@@ -6,16 +6,13 @@ import java.time.LocalDate;
 import java.time.Month;
 import java.time.YearMonth;
 import java.util.List;
-import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
+import org.mockito.Answers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.operaton.bpm.engine.ExternalTaskService;
-import org.operaton.bpm.engine.externaltask.ExternalTaskQueryBuilder;
-import org.operaton.bpm.engine.externaltask.ExternalTaskQueryTopicBuilder;
 import org.operaton.bpm.engine.externaltask.LockedExternalTask;
 import org.operaton.bpm.engine.variable.Variables;
 import se.sundsvall.operaton.workers.financialaid.regelverk.ChangeWarning;
@@ -25,10 +22,8 @@ import se.sundsvall.operaton.workers.financialaid.regelverk.IncomeRegelverkResul
 import se.sundsvall.operaton.workers.financialaid.regelverk.SsbtekIncome;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -40,7 +35,7 @@ class EvaluateIncomeRegelverkWorkerTest {
 
 	private static final String BASIS_JSON = "{\"fk\":{\"utbetalningar\":[{\"nettobelopp\":{\"summa\":\"1850\"},\"datum\":\"2026-05-15\",\"formansfamilj\":{\"beskrivning\":\"Bostadsbidrag\"}}]}}";
 
-	@Mock
+	@Mock(answer = Answers.RETURNS_DEEP_STUBS)
 	private ExternalTaskService externalTaskServiceMock;
 
 	@Mock
@@ -55,37 +50,28 @@ class EvaluateIncomeRegelverkWorkerTest {
 		worker = new EvaluateIncomeRegelverkWorker(externalTaskServiceMock, evaluatorMock, objectMapper);
 	}
 
-	@SuppressWarnings("unchecked")
-	private Map<String, Object> runWith(final Map<String, Object> variables, final IncomeRegelverkResult result) {
-		final var queryBuilder = mock(ExternalTaskQueryBuilder.class);
-		final var topicBuilder = mock(ExternalTaskQueryTopicBuilder.class);
-		final var task = mock(LockedExternalTask.class);
-		when(externalTaskServiceMock.fetchAndLock(anyInt(), any())).thenReturn(queryBuilder);
-		when(queryBuilder.topic(any(), anyLong())).thenReturn(topicBuilder);
-		when(topicBuilder.execute()).thenReturn(List.of(task));
-		when(task.getId()).thenReturn("task-1");
-		final var vars = Variables.createVariables();
-		variables.forEach(vars::putValue);
-		when(task.getVariables()).thenReturn(vars);
-		when(evaluatorMock.evaluate(anyList(), eq(YearMonth.of(2026, Month.JUNE)))).thenReturn(result);
-
+	@Test
+	void executePollsForTasks() {
 		worker.execute();
 
-		final var captor = ArgumentCaptor.forClass(Map.class);
-		verify(externalTaskServiceMock).complete(eq("task-1"), eq("evaluate-income-regelverk-worker"), captor.capture());
-		return captor.getValue();
+		verify(externalTaskServiceMock).fetchAndLock(10, "evaluate-income-regelverk-worker");
 	}
 
 	@Test
-	void evaluatesAndOutputsClassifiedPlusWarnings() {
+	void handleEvaluatesAndOutputsClassifiedPlusWarnings() {
 		final var classified = new ClassifiedIncome(
 			new SsbtekIncome("Bostadsbidrag", null, null, new BigDecimal("1850"), LocalDate.of(2026, Month.MAY, 15), APPLICANT),
 			"TA_MED_KVITTNING", "Bostadsbidrag", false, "Ta med kvittning");
 		final var change = new ChangeWarning("Bostadsbidrag", new BigDecimal("-23"), new BigDecimal("2400"), new BigDecimal("1850"));
 
-		final var output = runWith(
-			Map.of("applicationMonth", "2026-06", "financialAidBasis", BASIS_JSON),
-			new IncomeRegelverkResult(List.of(classified), List.of(change)));
+		final var task = mock(LockedExternalTask.class);
+		when(task.getVariables()).thenReturn(Variables.createVariables()
+			.putValue("applicationMonth", "2026-06")
+			.putValue("financialAidBasis", BASIS_JSON));
+		when(evaluatorMock.evaluate(anyList(), eq(YearMonth.of(2026, Month.JUNE))))
+			.thenReturn(new IncomeRegelverkResult(List.of(classified), List.of(change)));
+
+		final var output = worker.handle(task);
 
 		assertThat(output.get("incomeHasWarnings")).isEqualTo(true);
 		assertThat((String) output.get("incomeUnhandled")).isEmpty();
@@ -94,14 +80,20 @@ class EvaluateIncomeRegelverkWorkerTest {
 	}
 
 	@Test
-	void flagsOffListAndNoChangeWarnings() {
+	void handleFlagsOffListAndNoChangeWarnings() {
 		final var offList = new ClassifiedIncome(
 			new SsbtekIncome("Något okänt", null, null, new BigDecimal("500"), LocalDate.of(2026, Month.MAY, 10), APPLICANT),
 			"EJ_PA_LISTAN", "-", true, "Ej på rålistan");
 
-		final var output = runWith(
-			Map.of("applicationMonth", "2026-06", "financialAidBasis", BASIS_JSON, "coApplicantFinancialAidBasis", BASIS_JSON),
-			new IncomeRegelverkResult(List.of(offList), List.of()));
+		final var task = mock(LockedExternalTask.class);
+		when(task.getVariables()).thenReturn(Variables.createVariables()
+			.putValue("applicationMonth", "2026-06")
+			.putValue("financialAidBasis", BASIS_JSON)
+			.putValue("coApplicantFinancialAidBasis", BASIS_JSON));
+		when(evaluatorMock.evaluate(anyList(), eq(YearMonth.of(2026, Month.JUNE))))
+			.thenReturn(new IncomeRegelverkResult(List.of(offList), List.of()));
+
+		final var output = worker.handle(task);
 
 		assertThat(output.get("incomeHasWarnings")).isEqualTo(true);
 		assertThat((String) output.get("incomeUnhandled")).contains("Något okänt (EJ_PA_LISTAN)");
@@ -109,43 +101,40 @@ class EvaluateIncomeRegelverkWorkerTest {
 	}
 
 	@Test
-	void noWarningsWhenAllHandledAndStable() {
-		final var output = runWith(
-			Map.of("applicationMonth", "2026-06", "financialAidBasis", BASIS_JSON),
-			new IncomeRegelverkResult(List.of(), List.of()));
+	void handleNoWarningsWhenAllHandledAndStable() {
+		final var task = mock(LockedExternalTask.class);
+		when(task.getVariables()).thenReturn(Variables.createVariables()
+			.putValue("applicationMonth", "2026-06")
+			.putValue("financialAidBasis", BASIS_JSON));
+		when(evaluatorMock.evaluate(anyList(), eq(YearMonth.of(2026, Month.JUNE))))
+			.thenReturn(new IncomeRegelverkResult(List.of(), List.of()));
+
+		final var output = worker.handle(task);
 
 		assertThat(output.get("incomeHasWarnings")).isEqualTo(false);
 		assertThat((String) output.get("classifiedIncomes")).isEqualTo("[]");
 	}
 
 	@Test
-	void executeWithNoTasks() {
-		final var queryBuilder = mock(ExternalTaskQueryBuilder.class);
-		final var topicBuilder = mock(ExternalTaskQueryTopicBuilder.class);
-		when(externalTaskServiceMock.fetchAndLock(anyInt(), any())).thenReturn(queryBuilder);
-		when(queryBuilder.topic(any(), anyLong())).thenReturn(topicBuilder);
-		when(topicBuilder.execute()).thenReturn(List.of());
+	void handleThrowsWhenApplicationMonthMissing() {
+		final var task = mock(LockedExternalTask.class);
+		when(task.getId()).thenReturn("task-1");
+		when(task.getVariables()).thenReturn(Variables.createVariables());
 
-		worker.execute();
-
-		verify(externalTaskServiceMock).fetchAndLock(10, "evaluate-income-regelverk-worker");
+		assertThatThrownBy(() -> worker.handle(task))
+			.isInstanceOf(IllegalStateException.class)
+			.hasMessage("Required process variable 'applicationMonth' is missing on task task-1");
 	}
 
 	@Test
-	void malformedBasisFailsTheTask() {
-		final var queryBuilder = mock(ExternalTaskQueryBuilder.class);
-		final var topicBuilder = mock(ExternalTaskQueryTopicBuilder.class);
+	void handleThrowsOnMalformedBasis() {
 		final var task = mock(LockedExternalTask.class);
-		when(externalTaskServiceMock.fetchAndLock(anyInt(), any())).thenReturn(queryBuilder);
-		when(queryBuilder.topic(any(), anyLong())).thenReturn(topicBuilder);
-		when(topicBuilder.execute()).thenReturn(List.of(task));
-		when(task.getId()).thenReturn("task-9");
 		when(task.getVariables()).thenReturn(Variables.createVariables()
 			.putValue("applicationMonth", "2026-06")
 			.putValue("financialAidBasis", "{not-json"));
 
-		worker.execute();
-
-		verify(externalTaskServiceMock).handleFailure(eq("task-9"), eq("evaluate-income-regelverk-worker"), any(), eq(0), eq(0L));
+		assertThatThrownBy(() -> worker.handle(task))
+			.isInstanceOf(IllegalStateException.class)
+			.hasMessage("Failed to parse financial-aid basis JSON");
 	}
 }

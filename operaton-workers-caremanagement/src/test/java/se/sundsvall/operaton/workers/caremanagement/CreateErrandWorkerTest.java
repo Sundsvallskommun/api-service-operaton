@@ -2,24 +2,21 @@ package se.sundsvall.operaton.workers.caremanagement;
 
 import generated.se.sundsvall.caremanagement.Errand;
 import java.net.URI;
-import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Answers;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.operaton.bpm.engine.ExternalTaskService;
-import org.operaton.bpm.engine.externaltask.ExternalTaskQueryBuilder;
-import org.operaton.bpm.engine.externaltask.ExternalTaskQueryTopicBuilder;
 import org.operaton.bpm.engine.externaltask.LockedExternalTask;
 import org.operaton.bpm.engine.variable.Variables;
 import org.springframework.http.ResponseEntity;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -28,7 +25,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class CreateErrandWorkerTest {
 
-	@Mock
+	@Mock(answer = Answers.RETURNS_DEEP_STUBS)
 	private ExternalTaskService externalTaskServiceMock;
 
 	@Mock
@@ -38,16 +35,16 @@ class CreateErrandWorkerTest {
 	private CreateErrandWorker createErrandWorker;
 
 	@Test
-	void executeWithTasks() {
-		final var queryBuilder = mock(ExternalTaskQueryBuilder.class);
-		final var topicBuilder = mock(ExternalTaskQueryTopicBuilder.class);
+	void executePollsForTasks() {
+		createErrandWorker.execute();
+
+		verify(externalTaskServiceMock).fetchAndLock(10, "create-errand-worker");
+	}
+
+	@Test
+	void handleWithAllVariables() {
 		final var task = mock(LockedExternalTask.class);
 		final ResponseEntity<Void> responseEntity = ResponseEntity.created(URI.create("/2281/my-namespace/errands/errand-123")).build();
-
-		when(externalTaskServiceMock.fetchAndLock(anyInt(), any())).thenReturn(queryBuilder);
-		when(queryBuilder.topic(any(), anyLong())).thenReturn(topicBuilder);
-		when(topicBuilder.execute()).thenReturn(List.of(task));
-		when(task.getId()).thenReturn("task-1");
 		when(task.getVariables()).thenReturn(Variables.createVariables()
 			.putValue("municipalityId", "2281")
 			.putValue("namespace", "my-namespace")
@@ -60,11 +57,11 @@ class CreateErrandWorkerTest {
 			.putValue("description", "Test description"));
 		when(careManagementClientMock.createErrand(any(), any(), any())).thenReturn(responseEntity);
 
-		createErrandWorker.execute();
+		final var result = createErrandWorker.handle(task);
 
 		final var errandCaptor = ArgumentCaptor.forClass(Errand.class);
 		verify(careManagementClientMock).createErrand(eq("2281"), eq("my-namespace"), errandCaptor.capture());
-		verify(externalTaskServiceMock).complete("task-1", "create-errand-worker", java.util.Map.of("errandId", "errand-123"));
+		assertThat(result).isEqualTo(Map.of("errandId", "errand-123"));
 
 		final var errand = errandCaptor.getValue();
 		assertThat(errand.getTitle()).isEqualTo("Test errand");
@@ -77,16 +74,9 @@ class CreateErrandWorkerTest {
 	}
 
 	@Test
-	void executeWithTasksUsesDefaultsWhenPriorityAndStatusAbsent() {
-		final var queryBuilder = mock(ExternalTaskQueryBuilder.class);
-		final var topicBuilder = mock(ExternalTaskQueryTopicBuilder.class);
+	void handleUsesDefaultsWhenPriorityAndStatusAbsent() {
 		final var task = mock(LockedExternalTask.class);
 		final ResponseEntity<Void> responseEntity = ResponseEntity.created(URI.create("/2281/my-namespace/errands/errand-456")).build();
-
-		when(externalTaskServiceMock.fetchAndLock(anyInt(), any())).thenReturn(queryBuilder);
-		when(queryBuilder.topic(any(), anyLong())).thenReturn(topicBuilder);
-		when(topicBuilder.execute()).thenReturn(List.of(task));
-		when(task.getId()).thenReturn("task-2");
 		when(task.getVariables()).thenReturn(Variables.createVariables()
 			.putValue("municipalityId", "2281")
 			.putValue("namespace", "my-namespace")
@@ -95,7 +85,7 @@ class CreateErrandWorkerTest {
 			.putValue("description", "Test description"));
 		when(careManagementClientMock.createErrand(any(), any(), any())).thenReturn(responseEntity);
 
-		createErrandWorker.execute();
+		createErrandWorker.handle(task);
 
 		final var errandCaptor = ArgumentCaptor.forClass(Errand.class);
 		verify(careManagementClientMock).createErrand(eq("2281"), eq("my-namespace"), errandCaptor.capture());
@@ -108,16 +98,9 @@ class CreateErrandWorkerTest {
 	}
 
 	@Test
-	void executeWithMissingLocationHeaderFallsBackToUnknown() {
-		final var queryBuilder = mock(ExternalTaskQueryBuilder.class);
-		final var topicBuilder = mock(ExternalTaskQueryTopicBuilder.class);
+	void handleWithMissingLocationHeaderFallsBackToUnknown() {
 		final var task = mock(LockedExternalTask.class);
 		final ResponseEntity<Void> responseEntity = ResponseEntity.<Void>noContent().build();
-
-		when(externalTaskServiceMock.fetchAndLock(anyInt(), any())).thenReturn(queryBuilder);
-		when(queryBuilder.topic(any(), anyLong())).thenReturn(topicBuilder);
-		when(topicBuilder.execute()).thenReturn(List.of(task));
-		when(task.getId()).thenReturn("task-3");
 		when(task.getVariables()).thenReturn(Variables.createVariables()
 			.putValue("municipalityId", "2281")
 			.putValue("namespace", "my-namespace")
@@ -126,37 +109,6 @@ class CreateErrandWorkerTest {
 			.putValue("description", "Test description"));
 		when(careManagementClientMock.createErrand(any(), any(), any())).thenReturn(responseEntity);
 
-		createErrandWorker.execute();
-
-		verify(externalTaskServiceMock).complete("task-3", "create-errand-worker", java.util.Map.of("errandId", "unknown"));
-	}
-
-	@Test
-	void executeWithNoTasks() {
-		final var queryBuilder = mock(ExternalTaskQueryBuilder.class);
-		final var topicBuilder = mock(ExternalTaskQueryTopicBuilder.class);
-
-		when(externalTaskServiceMock.fetchAndLock(anyInt(), any())).thenReturn(queryBuilder);
-		when(queryBuilder.topic(any(), anyLong())).thenReturn(topicBuilder);
-		when(topicBuilder.execute()).thenReturn(List.of());
-
-		createErrandWorker.execute();
-	}
-
-	@Test
-	void executeWithException() {
-		final var queryBuilder = mock(ExternalTaskQueryBuilder.class);
-		final var topicBuilder = mock(ExternalTaskQueryTopicBuilder.class);
-		final var task = mock(LockedExternalTask.class);
-
-		when(externalTaskServiceMock.fetchAndLock(anyInt(), any())).thenReturn(queryBuilder);
-		when(queryBuilder.topic(any(), anyLong())).thenReturn(topicBuilder);
-		when(topicBuilder.execute()).thenReturn(List.of(task));
-		when(task.getId()).thenReturn("task-1");
-		when(task.getVariables()).thenThrow(new RuntimeException("test error"));
-
-		createErrandWorker.execute();
-
-		verify(externalTaskServiceMock).handleFailure("task-1", "create-errand-worker", "test error", 0, 0L);
+		assertThat(createErrandWorker.handle(task)).isEqualTo(Map.of("errandId", "unknown"));
 	}
 }

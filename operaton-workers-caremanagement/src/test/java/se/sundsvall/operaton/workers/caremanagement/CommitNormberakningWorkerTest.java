@@ -2,25 +2,21 @@ package se.sundsvall.operaton.workers.caremanagement;
 
 import generated.se.sundsvall.caremanagement.NormberakningRequest;
 import generated.se.sundsvall.caremanagement.NormberakningResponse;
-import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Answers;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.operaton.bpm.engine.ExternalTaskService;
-import org.operaton.bpm.engine.externaltask.ExternalTaskQueryBuilder;
-import org.operaton.bpm.engine.externaltask.ExternalTaskQueryTopicBuilder;
 import org.operaton.bpm.engine.externaltask.LockedExternalTask;
 import org.operaton.bpm.engine.variable.Variables;
 import org.springframework.http.ResponseEntity;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -31,7 +27,7 @@ class CommitNormberakningWorkerTest {
 
 	private static final String WORKER_ID = "commit-normberakning-worker";
 
-	@Mock
+	@Mock(answer = Answers.RETURNS_DEEP_STUBS)
 	private ExternalTaskService externalTaskServiceMock;
 
 	@Mock
@@ -41,15 +37,15 @@ class CommitNormberakningWorkerTest {
 	private CommitNormberakningWorker worker;
 
 	@Test
-	void executeCommitsToLifecareAndOutputsCalculationId() {
-		final var queryBuilder = mock(ExternalTaskQueryBuilder.class);
-		final var topicBuilder = mock(ExternalTaskQueryTopicBuilder.class);
-		final var task = mock(LockedExternalTask.class);
+	void executePollsForTasks() {
+		worker.execute();
 
-		when(externalTaskServiceMock.fetchAndLock(anyInt(), any())).thenReturn(queryBuilder);
-		when(queryBuilder.topic(any(), anyLong())).thenReturn(topicBuilder);
-		when(topicBuilder.execute()).thenReturn(List.of(task));
-		when(task.getId()).thenReturn("task-1");
+		verify(externalTaskServiceMock).fetchAndLock(10, WORKER_ID);
+	}
+
+	@Test
+	void handleCommitsToLifecareAndOutputsCalculationId() {
+		final var task = mock(LockedExternalTask.class);
 		when(task.getVariables()).thenReturn(Variables.createVariables()
 			.putValue("municipalityId", "2281")
 			.putValue("namespace", "my-namespace")
@@ -60,25 +56,17 @@ class CommitNormberakningWorkerTest {
 		when(careManagementClientMock.commitNormberakning(any(), any(), any())).thenReturn(
 			ResponseEntity.ok(new NormberakningResponse().calculationId(4711)));
 
-		worker.execute();
+		final var result = worker.handle(task);
 
 		final var requestCaptor = ArgumentCaptor.forClass(NormberakningRequest.class);
 		verify(careManagementClientMock).commitNormberakning(eq("2281"), eq("my-namespace"), requestCaptor.capture());
 		assertThat(requestCaptor.getValue().getCoApplicant()).isEqualTo("a1b2c3d4-e5f6-7890-abcd-ef1234567890");
-
-		verify(externalTaskServiceMock).complete("task-1", WORKER_ID, Map.of("normberakningCalculationId", 4711));
+		assertThat(result).isEqualTo(Map.of("normberakningCalculationId", 4711));
 	}
 
 	@Test
-	void executeWithNullBodyOutputsNothing() {
-		final var queryBuilder = mock(ExternalTaskQueryBuilder.class);
-		final var topicBuilder = mock(ExternalTaskQueryTopicBuilder.class);
+	void handleWithNullBodyOutputsNothing() {
 		final var task = mock(LockedExternalTask.class);
-
-		when(externalTaskServiceMock.fetchAndLock(anyInt(), any())).thenReturn(queryBuilder);
-		when(queryBuilder.topic(any(), anyLong())).thenReturn(topicBuilder);
-		when(topicBuilder.execute()).thenReturn(List.of(task));
-		when(task.getId()).thenReturn("task-2");
 		when(task.getVariables()).thenReturn(Variables.createVariables()
 			.putValue("municipalityId", "2281")
 			.putValue("namespace", "my-namespace")
@@ -86,21 +74,12 @@ class CommitNormberakningWorkerTest {
 			.putValue("applicationMonth", "2026-06"));
 		when(careManagementClientMock.commitNormberakning(any(), any(), any())).thenReturn(ResponseEntity.ok().build());
 
-		worker.execute();
-
-		verify(externalTaskServiceMock).complete("task-2", WORKER_ID, Map.of());
+		assertThat(worker.handle(task)).isEqualTo(Map.of());
 	}
 
 	@Test
-	void executeIncludesSplitWarningLists() {
-		final var queryBuilder = mock(ExternalTaskQueryBuilder.class);
-		final var topicBuilder = mock(ExternalTaskQueryTopicBuilder.class);
+	void handleIncludesSplitWarningLists() {
 		final var task = mock(LockedExternalTask.class);
-
-		when(externalTaskServiceMock.fetchAndLock(anyInt(), any())).thenReturn(queryBuilder);
-		when(queryBuilder.topic(any(), anyLong())).thenReturn(topicBuilder);
-		when(topicBuilder.execute()).thenReturn(List.of(task));
-		when(task.getId()).thenReturn("task-3");
 		when(task.getVariables()).thenReturn(Variables.createVariables()
 			.putValue("municipalityId", "2281")
 			.putValue("namespace", "my-namespace")
@@ -111,12 +90,12 @@ class CommitNormberakningWorkerTest {
 		when(careManagementClientMock.commitNormberakning(any(), any(), any())).thenReturn(
 			ResponseEntity.ok(new NormberakningResponse().calculationId(4712)));
 
-		worker.execute();
+		final var result = worker.handle(task);
 
 		final var requestCaptor = ArgumentCaptor.forClass(NormberakningRequest.class);
 		verify(careManagementClientMock).commitNormberakning(eq("2281"), eq("my-namespace"), requestCaptor.capture());
 		assertThat(requestCaptor.getValue().getUnhandledIncomes()).containsExactly("Barnbidrag", "Bostadsbidrag");
 		assertThat(requestCaptor.getValue().getChangeWarnings()).isEmpty();
-		verify(externalTaskServiceMock).complete("task-3", WORKER_ID, Map.of("normberakningCalculationId", 4712));
+		assertThat(result).isEqualTo(Map.of("normberakningCalculationId", 4712));
 	}
 }
