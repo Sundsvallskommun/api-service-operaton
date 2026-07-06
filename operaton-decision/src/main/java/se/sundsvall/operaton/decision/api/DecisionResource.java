@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import se.sundsvall.dept44.common.validators.annotation.ValidMunicipalityId;
 import se.sundsvall.dept44.problem.Problem;
@@ -90,10 +91,10 @@ class DecisionResource {
 		@ApiResponse(responseCode = "200", description = "Successful Operation", useReturnTypeSchema = true),
 		@ApiResponse(responseCode = "404", description = "Not Found", content = @Content(mediaType = APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(implementation = Problem.class)))
 	})
-	@PostMapping(value = "/decision-definitions/{key}/evaluate", consumes = APPLICATION_JSON_VALUE, produces = APPLICATION_JSON_VALUE)
+	@PostMapping(value = "/decision-definitions/evaluate", consumes = APPLICATION_JSON_VALUE, produces = APPLICATION_JSON_VALUE)
 	ResponseEntity<EvaluateDecisionResponse> evaluateDecision(
 		@Parameter(name = "municipalityId", description = "Municipality id", example = "2281") @ValidMunicipalityId @PathVariable final String municipalityId,
-		@Parameter(name = "key", description = "Decision definition key", example = "Decision_inkomstRalista") @PathVariable final String key,
+		@Parameter(name = "key", description = "Decision definition key", example = "Decision_inkomstRalista") @RequestParam final String key,
 		@RequestBody final EvaluateDecisionRequest request) {
 
 		return ok(EvaluateDecisionResponse.create().withResults(decisionService.evaluate(key, request.getVariables())));

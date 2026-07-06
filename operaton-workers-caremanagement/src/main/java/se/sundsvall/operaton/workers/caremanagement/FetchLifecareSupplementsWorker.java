@@ -1,5 +1,6 @@
 package se.sundsvall.operaton.workers.caremanagement;
 
+import generated.se.sundsvall.caremanagement.RpaTaskRequest;
 import java.util.Map;
 import org.operaton.bpm.engine.ExternalTaskService;
 import org.operaton.bpm.engine.externaltask.LockedExternalTask;
@@ -59,7 +60,7 @@ public class FetchLifecareSupplementsWorker extends AbstractTopicWorker {
 		final var namespace = requireVariable(task, VAR_NAMESPACE, String.class);
 		final var errandId = requireVariable(task, VAR_ERRAND_ID, String.class);
 
-		careManagementClient.enqueueRpaTask(municipalityId, namespace, errandId, Map.of("action", ACTION_FETCH_SUPPLEMENTS));
+		careManagementClient.enqueueRpaTask(municipalityId, namespace, errandId, new RpaTaskRequest().action(ACTION_FETCH_SUPPLEMENTS));
 
 		LOG.info("Enqueued RPA fetch of Lifecare supplements for errand {}", errandId);
 		return Map.of();

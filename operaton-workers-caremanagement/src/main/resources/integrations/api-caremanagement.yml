@@ -2482,6 +2482,24 @@ components:
           description: The date the utbetalning was made (Lifecare PayDate), when effectuated
           examples:
             - "2026-05-27"
+    RpaTaskRequest:
+      type: object
+      description: Request to enqueue a UiPath RPA task on an errand
+      properties:
+        action:
+          type: string
+          description: >-
+            The RPA action — selects the Lifecare flow the robot runs (e.g. FETCH_SUPPLEMENTS, WRITE_NORMBERAKNING,
+            WRITE_DECISION, WRITE_JOURNAL, WRITE_DOCUMENT, WRITE_MONITORING, REGISTER_PAYMENT)
+          examples:
+            - FETCH_SUPPLEMENTS
+        parameters:
+          type: object
+          additionalProperties:
+            type: string
+          description: Optional extra hints for the robot, merged into the queue item SpecificContent
+      required:
+        - action
     Stakeholder:
       type: object
       description: Stakeholder model

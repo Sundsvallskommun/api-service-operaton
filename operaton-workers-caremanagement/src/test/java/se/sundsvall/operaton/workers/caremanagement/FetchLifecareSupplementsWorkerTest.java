@@ -1,5 +1,6 @@
 package se.sundsvall.operaton.workers.caremanagement;
 
+import generated.se.sundsvall.caremanagement.RpaTaskRequest;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -54,7 +55,7 @@ class FetchLifecareSupplementsWorkerTest {
 		worker.execute();
 
 		verify(careManagementClientMock).enqueueRpaTask(eq("2281"), eq("my-namespace"), eq("f47ac10b-58cc-4372-a567-0e02b2c3d479"),
-			eq(Map.of("action", "FETCH_SUPPLEMENTS")));
+			eq(new RpaTaskRequest().action("FETCH_SUPPLEMENTS")));
 		verify(externalTaskServiceMock).complete("task-1", WORKER_ID, Map.of());
 	}
 
