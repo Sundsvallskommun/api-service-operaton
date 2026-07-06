@@ -11,7 +11,7 @@ class CareManagementConfigurationTest {
 	void sentByInterceptorTagsRequestsAsOperaton() {
 		final var template = new RequestTemplate();
 
-		new CareManagementConfiguration().careManagementSentByInterceptor().apply(template);
+		CareManagementConfiguration.SENT_BY_INTERCEPTOR.apply(template);
 
 		assertThat(template.headers().get("X-Sent-By")).containsExactly("operaton; type=custom");
 	}

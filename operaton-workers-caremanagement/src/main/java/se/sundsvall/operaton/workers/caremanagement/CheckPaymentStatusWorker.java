@@ -16,20 +16,19 @@ import static java.lang.Boolean.TRUE;
 import static java.util.Optional.ofNullable;
 
 /**
- * Reads whether the manual Lifecare utbetalning for an approved ekonomiskt-bistånd errand has been effectuated and
+ * Reads whether the manual Lifecare payment for an approved financial-assistance errand has been effectuated and
  * reports it via the {@code paymentEffectuated} output variable that the rakel-ekonomiskt-bistand process gates on.
  *
  * <p>
- * The payment itself is a MANUAL step the handläggare performs in Lifecare — this worker makes no payment. It calls
- * CareManagement's {@code financial-assistance/payment-status} endpoint, which reads the Lifecare FC Payments for the
- * applicant and application month. While the payment is still pending the gateway loops on the process timer until it
- * is
- * registered.
+ * The payment itself is a MANUAL step the caseworker performs in Lifecare — this worker makes no payment. It calls
+ * CareManagement's {@code financial-assistance/payment-status} endpoint, which reads the Lifecare payment records for
+ * the applicant and application month. While the payment is still pending the gateway loops on the process timer until
+ * it is registered.
  */
 @Component
 @TopicWorker(
 	topic = "check-payment-status",
-	description = "Reads whether the manual Lifecare utbetalning for an approved ekonomiskt-bistånd errand has been effectuated (via CareManagement's payment-status read of Lifecare FC Payments) and reports it via paymentEffectuated. Makes NO payment — that is a manual handläggare step in Lifecare.",
+	description = "Reads whether the manual Lifecare payment for an approved financial-assistance errand has been effectuated (via CareManagement's payment-status read of the Lifecare payment records) and reports it via paymentEffectuated. Makes NO payment — that is a manual caseworker step in Lifecare.",
 	inputVariables = {
 		AbstractTopicWorker.VAR_MUNICIPALITY_ID,
 		CheckPaymentStatusWorker.VAR_NAMESPACE,

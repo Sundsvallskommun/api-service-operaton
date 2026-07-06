@@ -22,17 +22,20 @@ public class CareManagementConfiguration {
 	 */
 	static final String SENT_BY = "operaton; type=custom";
 
+	/**
+	 * Tags this client's outgoing requests with the {@code X-Sent-By} header. Kept in the customizer chain below rather
+	 * than exposed as a separate {@link RequestInterceptor} bean, so the tagging stays scoped to the care-management
+	 * client only.
+	 */
+	static final RequestInterceptor SENT_BY_INTERCEPTOR = requestTemplate -> requestTemplate.header(Identifier.HEADER_NAME, SENT_BY);
+
 	@Bean
 	FeignBuilderCustomizer feignBuilderCustomizer(final CareManagementProperties careManagementProperties, final ClientRegistrationRepository clientRegistrationRepository) {
 		return FeignMultiCustomizer.create()
 			.withErrorDecoder(new ProblemErrorDecoder(CLIENT_ID))
 			.withRequestTimeoutsInSeconds(careManagementProperties.connectTimeout(), careManagementProperties.readTimeout())
 			.withRetryableOAuth2InterceptorForClientRegistration(clientRegistrationRepository.findByRegistrationId(CLIENT_ID))
+			.withRequestInterceptor(SENT_BY_INTERCEPTOR)
 			.composeCustomizersToOne();
-	}
-
-	@Bean
-	RequestInterceptor careManagementSentByInterceptor() {
-		return requestTemplate -> requestTemplate.header(Identifier.HEADER_NAME, SENT_BY);
 	}
 }
