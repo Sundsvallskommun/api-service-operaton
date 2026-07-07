@@ -73,9 +73,9 @@ public class IncomeRegelverkEvaluator {
 	/** The per-income rålista verdict from {@code Decision_inkomstRalista}. */
 	private ClassifiedIncome classify(final SsbtekIncome income) {
 		final var row = evaluateFirst(RALISTA_DECISION_KEY, Map.of(
-			"forman", nz(income.forman()),
-			"delforman", nz(income.delforman()),
-			"beloppstyp", nz(income.beloppstyp())));
+			"forman", nullToEmpty(income.forman()),
+			"delforman", nullToEmpty(income.delforman()),
+			"beloppstyp", nullToEmpty(income.beloppstyp())));
 		return new ClassifiedIncome(income, str(row.get("atgard")), str(row.get("normberakning")),
 			Boolean.TRUE.equals(row.get("varning")), str(row.get("regel")));
 	}
@@ -100,7 +100,7 @@ public class IncomeRegelverkEvaluator {
 	}
 
 	private BigDecimal thresholdFor(final String forman) {
-		return ofNullable(evaluateFirst(TROSKEL_DECISION_KEY, Map.of("forman", nz(forman))).get("troskelProcent"))
+		return ofNullable(evaluateFirst(TROSKEL_DECISION_KEY, Map.of("forman", nullToEmpty(forman))).get("troskelProcent"))
 			.map(value -> new BigDecimal(value.toString()))
 			.orElse(DEFAULT_THRESHOLD_PERCENT);
 	}
@@ -121,7 +121,7 @@ public class IncomeRegelverkEvaluator {
 		return value == null ? "" : value.trim().toLowerCase();
 	}
 
-	private static String nz(final String value) {
+	private static String nullToEmpty(final String value) {
 		return value == null ? "" : value;
 	}
 

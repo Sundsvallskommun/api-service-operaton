@@ -56,8 +56,8 @@ class IncomeRegelverkEvaluatorTest {
 			YearMonth.of(2026, Month.JUNE));
 
 		assertThat(result.classified()).hasSize(1);
-		assertThat(result.classified().getFirst().atgard()).isEqualTo("TA_MED_KVITTNING");
-		assertThat(result.classified().getFirst().normberakning()).isEqualTo("Bostadsbidrag");
+		assertThat(result.classified().getFirst().action()).isEqualTo("TA_MED_KVITTNING");
+		assertThat(result.classified().getFirst().calculation()).isEqualTo("Bostadsbidrag");
 		assertThat(result.changeWarnings()).hasSize(1);
 		assertThat(result.changeWarnings().getFirst().forman()).isEqualTo("Bostadsbidrag");
 		assertThat(result.changeWarnings().getFirst().changePercent()).isEqualByComparingTo("-23");

@@ -89,8 +89,8 @@ public class EvaluateIncomeRegelverkWorker extends AbstractTopicWorker {
 		final var result = evaluator.evaluate(incomes, applicationMonth);
 
 		final var unhandled = result.classified().stream()
-			.filter(classified -> classified.varning() || OFF_LIST_ACTION.equals(classified.atgard()))
-			.map(classified -> classified.income().forman() + " (" + classified.atgard() + ")")
+			.filter(classified -> classified.warning() || OFF_LIST_ACTION.equals(classified.action()))
+			.map(classified -> classified.income().forman() + " (" + classified.action() + ")")
 			.distinct()
 			.toList();
 		final var changeWarnings = result.changeWarnings().stream()
