@@ -84,8 +84,9 @@ public class CommitNormberakningWorker extends AbstractTopicWorker {
 			request).getBody();
 
 		final var calculationId = ofNullable(response).map(NormberakningResponse::getCalculationId).orElse(null);
+		final var sanitizedCalculationId = sanitizeForLogging(String.valueOf(calculationId));
 
-		LOG.info("Normberäkning {} created in Lifecare via CareManagement", sanitizeForLogging(String.valueOf(calculationId)));
+		LOG.info("Normberäkning {} created in Lifecare via CareManagement", sanitizedCalculationId);
 		return ofNullable(calculationId)
 			.map(id -> Map.<String, Object>of(VAR_OUT_CALCULATION_ID, id))
 			.orElseGet(Map::of);

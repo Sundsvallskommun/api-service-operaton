@@ -73,7 +73,7 @@ class EvaluateIncomeRegelverkWorkerTest {
 
 		final var output = worker.handle(task);
 
-		assertThat(output.get("incomeHasWarnings")).isEqualTo(true);
+		assertThat((Boolean) output.get("incomeHasWarnings")).isTrue();
 		assertThat((String) output.get("incomeUnhandled")).isEmpty();
 		assertThat((String) output.get("incomeChangeWarnings")).contains("Bostadsbidrag: -23%");
 		assertThat((String) output.get("classifiedIncomes")).contains("\"normberakning\":\"Bostadsbidrag\"").contains("\"atgard\":\"TA_MED_KVITTNING\"");
@@ -95,7 +95,7 @@ class EvaluateIncomeRegelverkWorkerTest {
 
 		final var output = worker.handle(task);
 
-		assertThat(output.get("incomeHasWarnings")).isEqualTo(true);
+		assertThat((Boolean) output.get("incomeHasWarnings")).isTrue();
 		assertThat((String) output.get("incomeUnhandled")).contains("Något okänt (EJ_PA_LISTAN)");
 		assertThat((String) output.get("incomeChangeWarnings")).isEmpty();
 	}
@@ -111,7 +111,7 @@ class EvaluateIncomeRegelverkWorkerTest {
 
 		final var output = worker.handle(task);
 
-		assertThat(output.get("incomeHasWarnings")).isEqualTo(false);
+		assertThat((Boolean) output.get("incomeHasWarnings")).isFalse();
 		assertThat((String) output.get("classifiedIncomes")).isEqualTo("[]");
 	}
 

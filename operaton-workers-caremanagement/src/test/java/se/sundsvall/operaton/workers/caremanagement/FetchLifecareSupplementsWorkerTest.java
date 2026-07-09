@@ -12,7 +12,6 @@ import org.operaton.bpm.engine.externaltask.LockedExternalTask;
 import org.operaton.bpm.engine.variable.Variables;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -46,8 +45,8 @@ class FetchLifecareSupplementsWorkerTest {
 
 		final var result = worker.handle(task);
 
-		verify(careManagementClientMock).enqueueRpaTask(eq("2281"), eq("my-namespace"), eq("f47ac10b-58cc-4372-a567-0e02b2c3d479"),
-			eq(new RpaTaskRequest().action("FETCH_SUPPLEMENTS")));
+		verify(careManagementClientMock).enqueueRpaTask("2281", "my-namespace", "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+			new RpaTaskRequest().action("FETCH_SUPPLEMENTS"));
 		assertThat(result).isEmpty();
 	}
 }

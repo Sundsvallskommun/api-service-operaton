@@ -70,8 +70,9 @@ class SsbtekIncomeExtractorTest {
 
 		final var incomes = SsbtekIncomeExtractor.extract(basis, APPLICANT);
 
-		assertThat(incomes).hasSize(2);
-		assertThat(incomes).allSatisfy(income -> assertThat(income.period()).isNull());
-		assertThat(incomes).extracting(SsbtekIncome::forman).containsExactlyInAnyOrder("Dagersättning", "Barnbidrag");
+		assertThat(incomes)
+			.hasSize(2)
+			.allSatisfy(income -> assertThat(income.period()).isNull())
+			.extracting(SsbtekIncome::forman).containsExactlyInAnyOrder("Dagersättning", "Barnbidrag");
 	}
 }

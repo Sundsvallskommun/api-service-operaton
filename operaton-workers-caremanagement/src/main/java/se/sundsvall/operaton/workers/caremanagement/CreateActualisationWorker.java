@@ -73,11 +73,12 @@ public class CreateActualisationWorker extends AbstractTopicWorker {
 			request).getBody();
 
 		final var actualisationId = ofNullable(response).map(ActualisationResponse::getActualisationId).orElse(null);
+		final var sanitizedActualisationId = sanitizeForLogging(String.valueOf(actualisationId));
 
 		final Map<String, Object> output = new HashMap<>();
 		ofNullable(actualisationId).ifPresent(id -> output.put(VAR_OUT_ACTUALISATION_ID, id));
 
-		LOG.info("Aktualisering {} created via CareManagement", sanitizeForLogging(String.valueOf(actualisationId)));
+		LOG.info("Aktualisering {} created via CareManagement", sanitizedActualisationId);
 		return output;
 	}
 }
