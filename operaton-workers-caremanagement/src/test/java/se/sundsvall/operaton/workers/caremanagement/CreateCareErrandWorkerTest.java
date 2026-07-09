@@ -26,7 +26,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class CreateErrandWorkerTest {
+class CreateCareErrandWorkerTest {
 
 	@Mock
 	private ExternalTaskService externalTaskServiceMock;
@@ -35,7 +35,7 @@ class CreateErrandWorkerTest {
 	private CareManagementClient careManagementClientMock;
 
 	@InjectMocks
-	private CreateErrandWorker createErrandWorker;
+	private CreateCareErrandWorker createCareErrandWorker;
 
 	@Test
 	void executeWithTasks() {
@@ -60,11 +60,11 @@ class CreateErrandWorkerTest {
 			.putValue("description", "Test description"));
 		when(careManagementClientMock.createErrand(any(), any(), any())).thenReturn(responseEntity);
 
-		createErrandWorker.execute();
+		createCareErrandWorker.execute();
 
 		final var errandCaptor = ArgumentCaptor.forClass(Errand.class);
 		verify(careManagementClientMock).createErrand(eq("2281"), eq("my-namespace"), errandCaptor.capture());
-		verify(externalTaskServiceMock).complete("task-1", "create-errand-worker", java.util.Map.of("errandId", "errand-123"));
+		verify(externalTaskServiceMock).complete("task-1", "create-care-errand-worker", java.util.Map.of("errandId", "errand-123"));
 
 		final var errand = errandCaptor.getValue();
 		assertThat(errand.getTitle()).isEqualTo("Test errand");
@@ -95,7 +95,7 @@ class CreateErrandWorkerTest {
 			.putValue("description", "Test description"));
 		when(careManagementClientMock.createErrand(any(), any(), any())).thenReturn(responseEntity);
 
-		createErrandWorker.execute();
+		createCareErrandWorker.execute();
 
 		final var errandCaptor = ArgumentCaptor.forClass(Errand.class);
 		verify(careManagementClientMock).createErrand(eq("2281"), eq("my-namespace"), errandCaptor.capture());
@@ -126,9 +126,9 @@ class CreateErrandWorkerTest {
 			.putValue("description", "Test description"));
 		when(careManagementClientMock.createErrand(any(), any(), any())).thenReturn(responseEntity);
 
-		createErrandWorker.execute();
+		createCareErrandWorker.execute();
 
-		verify(externalTaskServiceMock).complete("task-3", "create-errand-worker", java.util.Map.of("errandId", "unknown"));
+		verify(externalTaskServiceMock).complete("task-3", "create-care-errand-worker", java.util.Map.of("errandId", "unknown"));
 	}
 
 	@Test
@@ -140,7 +140,7 @@ class CreateErrandWorkerTest {
 		when(queryBuilder.topic(any(), anyLong())).thenReturn(topicBuilder);
 		when(topicBuilder.execute()).thenReturn(List.of());
 
-		createErrandWorker.execute();
+		createCareErrandWorker.execute();
 	}
 
 	@Test
@@ -155,8 +155,8 @@ class CreateErrandWorkerTest {
 		when(task.getId()).thenReturn("task-1");
 		when(task.getVariables()).thenThrow(new RuntimeException("test error"));
 
-		createErrandWorker.execute();
+		createCareErrandWorker.execute();
 
-		verify(externalTaskServiceMock).handleFailure("task-1", "create-errand-worker", "test error", 0, 0L);
+		verify(externalTaskServiceMock).handleFailure("task-1", "create-care-errand-worker", "test error", 0, 0L);
 	}
 }
