@@ -12,6 +12,8 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 import se.sundsvall.operaton.app.Application;
 import se.sundsvall.operaton.decision.api.model.DecisionDefinitionResponse;
 import se.sundsvall.operaton.decision.api.model.DecisionDefinitionsResponse;
+import se.sundsvall.operaton.decision.api.model.EvaluateDecisionRequest;
+import se.sundsvall.operaton.decision.api.model.EvaluateDecisionResponse;
 import se.sundsvall.operaton.decision.service.DmnService;
 import se.sundsvall.operaton.deployment.service.DeploymentService;
 import se.sundsvall.operaton.process.service.ProcessService;
@@ -31,6 +33,7 @@ class DecisionResourceTest {
 	private static final String DECISION_DEFINITIONS_PATH = "/{municipalityId}/decision-definitions";
 	private static final String DECISION_DEFINITION_PATH = "/{municipalityId}/decision-definitions/{id}";
 	private static final String DECISION_DEFINITION_XML_PATH = "/{municipalityId}/decision-definitions/{id}/xml";
+	private static final String DECISION_DEFINITION_EVALUATE_PATH = "/{municipalityId}/decision-definitions/evaluate";
 
 	@MockitoBean
 	private DeploymentService deploymentServiceMock;
@@ -116,5 +119,29 @@ class DecisionResourceTest {
 
 		assertThat(response).isEqualTo(dmnXml);
 		verify(dmnServiceMock).getDecisionModel("approve-loan:1:5");
+	}
+
+	@Test
+	void evaluateDecision() {
+		final var key = "Decision_inkomstRalista";
+		final var variables = Map.<String, Object>of("forman", "Bostadsbidrag");
+		final var resultRows = List.<Map<String, Object>>of(Map.of("beloppstyp", "Avdrag Soc"));
+
+		when(dmnServiceMock.evaluate(key, variables)).thenReturn(resultRows);
+
+		final var response = webTestClient.post()
+			.uri(builder -> builder.path(DECISION_DEFINITION_EVALUATE_PATH)
+				.queryParam("key", key)
+				.build(Map.of("municipalityId", MUNICIPALITY_ID)))
+			.bodyValue(EvaluateDecisionRequest.create().withVariables(variables))
+			.exchange()
+			.expectStatus().isOk()
+			.expectBody(EvaluateDecisionResponse.class)
+			.returnResult()
+			.getResponseBody();
+
+		assertThat(response).isNotNull();
+		assertThat(response.getResults()).isEqualTo(resultRows);
+		verify(dmnServiceMock).evaluate(key, variables);
 	}
 }

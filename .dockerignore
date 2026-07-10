@@ -1,0 +1,7 @@
+# Keep the Docker build context lean. NOTE: .git is intentionally NOT ignored —
+# the git-commit-id Maven plugin reads it during the build.
+**/target/
+.idea/
+*.iml
+.DS_Store
+*.log

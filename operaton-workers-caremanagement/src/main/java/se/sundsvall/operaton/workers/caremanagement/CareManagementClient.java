@@ -1,9 +1,15 @@
 package se.sundsvall.operaton.workers.caremanagement;
 
+import generated.se.sundsvall.caremanagement.ActualisationRequest;
+import generated.se.sundsvall.caremanagement.ActualisationResponse;
 import generated.se.sundsvall.caremanagement.Decision;
 import generated.se.sundsvall.caremanagement.Errand;
-import generated.se.sundsvall.caremanagement.Parameter;
+import generated.se.sundsvall.caremanagement.NormberakningRequest;
+import generated.se.sundsvall.caremanagement.NormberakningResponse;
 import generated.se.sundsvall.caremanagement.PatchErrand;
+import generated.se.sundsvall.caremanagement.PaymentStatusRequest;
+import generated.se.sundsvall.caremanagement.PaymentStatusResponse;
+import generated.se.sundsvall.caremanagement.RpaTaskRequest;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.http.ResponseEntity;
@@ -36,17 +42,51 @@ public interface CareManagementClient {
 		@PathVariable final String errandId,
 		@RequestBody final PatchErrand patchErrand);
 
-	@PostMapping(path = "/{municipalityId}/{namespace}/errands/{errandId}/parameters", consumes = APPLICATION_JSON_VALUE)
-	ResponseEntity<Void> createErrandParameter(
-		@PathVariable final String municipalityId,
-		@PathVariable final String namespace,
-		@PathVariable final String errandId,
-		@RequestBody final Parameter parameter);
-
 	@PostMapping(path = "/{municipalityId}/{namespace}/errands/{errandId}/decisions", consumes = APPLICATION_JSON_VALUE)
 	ResponseEntity<Void> createErrandDecision(
 		@PathVariable final String municipalityId,
 		@PathVariable final String namespace,
 		@PathVariable final String errandId,
 		@RequestBody final Decision decision);
+
+	@PostMapping(path = "/{municipalityId}/{namespace}/errands/financial-assistance/calculation/prepare", consumes = APPLICATION_JSON_VALUE)
+	ResponseEntity<NormberakningResponse> prepareNormberakning(
+		@PathVariable final String municipalityId,
+		@PathVariable final String namespace,
+		@RequestBody final NormberakningRequest request);
+
+	@PostMapping(path = "/{municipalityId}/{namespace}/errands/financial-assistance/calculation/commit", consumes = APPLICATION_JSON_VALUE)
+	ResponseEntity<NormberakningResponse> commitNormberakning(
+		@PathVariable final String municipalityId,
+		@PathVariable final String namespace,
+		@RequestBody final NormberakningRequest request);
+
+	@PostMapping(path = "/{municipalityId}/{namespace}/errands/financial-assistance/calculation/from-application", consumes = APPLICATION_JSON_VALUE)
+	ResponseEntity<NormberakningResponse> createApplicationNormberakning(
+		@PathVariable final String municipalityId,
+		@PathVariable final String namespace,
+		@RequestBody final NormberakningRequest request);
+
+	@PostMapping(path = "/{municipalityId}/{namespace}/errands/financial-assistance/actualisation", consumes = APPLICATION_JSON_VALUE)
+	ResponseEntity<ActualisationResponse> createActualisation(
+		@PathVariable final String municipalityId,
+		@PathVariable final String namespace,
+		@RequestBody final ActualisationRequest request);
+
+	@PostMapping(path = "/{municipalityId}/{namespace}/errands/financial-assistance/payment-status", consumes = APPLICATION_JSON_VALUE)
+	ResponseEntity<PaymentStatusResponse> checkPaymentStatus(
+		@PathVariable final String municipalityId,
+		@PathVariable final String namespace,
+		@RequestBody final PaymentStatusRequest request);
+
+	/**
+	 * Enqueue a UiPath RPA task on an errand (CareManagement drops a queue item; a robot does the Lifecare GUI work out of
+	 * band). {@code action} selects the Lifecare flow the robot runs.
+	 */
+	@PostMapping(path = "/{municipalityId}/{namespace}/errands/{errandId}/rpa-tasks", consumes = APPLICATION_JSON_VALUE)
+	ResponseEntity<Void> enqueueRpaTask(
+		@PathVariable final String municipalityId,
+		@PathVariable final String namespace,
+		@PathVariable final String errandId,
+		@RequestBody final RpaTaskRequest request);
 }
