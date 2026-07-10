@@ -52,8 +52,8 @@
 		"name": "Fetch Financial Aid Basis"
 	},
 	{
-		"id": "se.sundsvall.operaton.EvaluateIncomeRegelverk",
-		"name": "Evaluate Income Regelverk"
+		"id": "se.sundsvall.operaton.EvaluateIncomeRules",
+		"name": "Evaluate Income Rules"
 	},
 	{
 		"id": "se.sundsvall.operaton.LogMessage",
