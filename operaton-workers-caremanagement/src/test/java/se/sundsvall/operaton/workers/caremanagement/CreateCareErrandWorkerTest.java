@@ -23,7 +23,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class CreateErrandWorkerTest {
+class CreateCareErrandWorkerTest {
 
 	@Mock(answer = Answers.RETURNS_DEEP_STUBS)
 	private ExternalTaskService externalTaskServiceMock;
@@ -32,13 +32,13 @@ class CreateErrandWorkerTest {
 	private CareManagementClient careManagementClientMock;
 
 	@InjectMocks
-	private CreateErrandWorker createErrandWorker;
+	private CreateCareErrandWorker createErrandWorker;
 
 	@Test
 	void executePollsForTasks() {
 		createErrandWorker.execute();
 
-		verify(externalTaskServiceMock).fetchAndLock(10, "create-errand-worker");
+		verify(externalTaskServiceMock).fetchAndLock(10, "create-care-errand-worker");
 	}
 
 	@Test

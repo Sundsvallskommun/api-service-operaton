@@ -8,8 +8,12 @@
 		"name": "Send Sms"
 	},
 	{
-		"id": "se.sundsvall.operaton.CreateErrand",
-		"name": "Create Errand"
+		"id": "se.sundsvall.operaton.CreateSupportErrand",
+		"name": "Create Support Errand"
+	},
+	{
+		"id": "se.sundsvall.operaton.CreateCareErrand",
+		"name": "Create Care Errand"
 	},
 	{
 		"id": "se.sundsvall.operaton.UpdateErrand",
