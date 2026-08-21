@@ -59,9 +59,15 @@ class RegisteredTopicsTest {
 			"create-support-errand",
 			"create-care-errand",
 			"update-errand",
-			"update-errand-parameter",
 			"add-errand-decision",
+			"create-actualisation",
+			"check-payment-status",
+			"prepare-normberakning",
+			"commit-normberakning",
+			"create-application-normberakning",
+			"fetch-lifecare-supplements",
 			"fetch-financial-aid-basis",
+			"evaluate-income-regelverk",
 			"log-message");
 	}
 }

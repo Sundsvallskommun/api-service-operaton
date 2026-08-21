@@ -38,7 +38,7 @@ class CreateCareErrandWorkerTest {
 	void executePollsForTasks() {
 		createErrandWorker.execute();
 
-		verify(externalTaskServiceMock).fetchAndLock(10, "create-errand-worker");
+		verify(externalTaskServiceMock).fetchAndLock(10, "create-care-errand-worker");
 	}
 
 	@Test
