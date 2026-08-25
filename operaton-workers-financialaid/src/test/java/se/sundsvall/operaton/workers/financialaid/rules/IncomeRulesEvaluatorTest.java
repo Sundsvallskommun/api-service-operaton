@@ -1,4 +1,4 @@
-package se.sundsvall.operaton.workers.financialaid.regelverk;
+package se.sundsvall.operaton.workers.financialaid.rules;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -19,18 +19,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static se.sundsvall.operaton.workers.financialaid.regelverk.ApplicantRole.APPLICANT;
-import static se.sundsvall.operaton.workers.financialaid.regelverk.IncomeRegelverkEvaluator.RALISTA_DECISION_KEY;
-import static se.sundsvall.operaton.workers.financialaid.regelverk.IncomeRegelverkEvaluator.TROSKEL_DECISION_KEY;
+import static se.sundsvall.operaton.workers.financialaid.rules.ApplicantRole.APPLICANT;
+import static se.sundsvall.operaton.workers.financialaid.rules.IncomeRulesEvaluator.INCOME_ALLOW_LIST_DECISION_KEY;
+import static se.sundsvall.operaton.workers.financialaid.rules.IncomeRulesEvaluator.INCOME_THRESHOLD_DECISION_KEY;
 
 @ExtendWith(MockitoExtension.class)
-class IncomeRegelverkEvaluatorTest {
+class IncomeRulesEvaluatorTest {
 
 	@Mock
 	private DecisionService decisionServiceMock;
 
 	@InjectMocks
-	private IncomeRegelverkEvaluator evaluator;
+	private IncomeRulesEvaluator evaluator;
 
 	private void stubDecision(final String key, final Map<String, Object> resultRow) {
 		final var builder = mock(DecisionsEvaluationBuilder.class);
@@ -41,14 +41,14 @@ class IncomeRegelverkEvaluatorTest {
 		when(result.getResultList()).thenReturn(List.of(resultRow));
 	}
 
-	private static SsbtekIncome income(final String forman, final String period, final String amount) {
-		return new SsbtekIncome(forman, null, null, new BigDecimal(amount), LocalDate.parse(period), APPLICANT);
+	private static SsbtekIncome income(final String benefit, final String period, final String amount) {
+		return new SsbtekIncome(benefit, null, null, new BigDecimal(amount), LocalDate.parse(period), APPLICANT);
 	}
 
 	@Test
 	void classifiesTransferableAndDetectsChangeOverThreshold() {
-		stubDecision(RALISTA_DECISION_KEY, Map.of("atgard", "TA_MED_KVITTNING", "normberakning", "Bostadsbidrag", "varning", false, "regel", "Ta med kvittning"));
-		stubDecision(TROSKEL_DECISION_KEY, Map.of("troskelProcent", 12));
+		stubDecision(INCOME_ALLOW_LIST_DECISION_KEY, Map.of("atgard", "TA_MED_KVITTNING", "normberakning", "Bostadsbidrag", "varning", false, "regel", "Ta med kvittning"));
+		stubDecision(INCOME_THRESHOLD_DECISION_KEY, Map.of("troskelProcent", 12));
 
 		final var result = evaluator.evaluate(List.of(
 			income("Bostadsbidrag", "2026-05-15", "1850"),
@@ -59,14 +59,14 @@ class IncomeRegelverkEvaluatorTest {
 		assertThat(result.classified().getFirst().action()).isEqualTo("TA_MED_KVITTNING");
 		assertThat(result.classified().getFirst().calculation()).isEqualTo("Bostadsbidrag");
 		assertThat(result.changeWarnings()).hasSize(1);
-		assertThat(result.changeWarnings().getFirst().forman()).isEqualTo("Bostadsbidrag");
+		assertThat(result.changeWarnings().getFirst().benefit()).isEqualTo("Bostadsbidrag");
 		assertThat(result.changeWarnings().getFirst().changePercent()).isEqualByComparingTo("-23");
 	}
 
 	@Test
-	void transfersJamforelseExtraAndSkipsWarningUnderThreshold() {
-		stubDecision(RALISTA_DECISION_KEY, Map.of("atgard", "TA_MED", "normberakning", "Dagersättning", "varning", false, "regel", "Ta med"));
-		stubDecision(TROSKEL_DECISION_KEY, Map.of("troskelProcent", 12));
+	void transfersComparisonFallbackAndSkipsWarningUnderThreshold() {
+		stubDecision(INCOME_ALLOW_LIST_DECISION_KEY, Map.of("atgard", "TA_MED", "normberakning", "Dagersättning", "varning", false, "regel", "Ta med"));
+		stubDecision(INCOME_THRESHOLD_DECISION_KEY, Map.of("troskelProcent", 12));
 
 		final var result = evaluator.evaluate(List.of(
 			income("Dagersättning", "2026-05-10", "5000"),
@@ -75,7 +75,7 @@ class IncomeRegelverkEvaluatorTest {
 			YearMonth.of(2026, Month.JUNE));
 
 		assertThat(result.classified()).hasSize(2);
-		assertThat(result.changeWarnings()).extracting(ChangeWarning::forman).containsExactly("Barnbidrag");
+		assertThat(result.changeWarnings()).extracting(ChangeWarning::benefit).containsExactly("Barnbidrag");
 	}
 
 	@Test

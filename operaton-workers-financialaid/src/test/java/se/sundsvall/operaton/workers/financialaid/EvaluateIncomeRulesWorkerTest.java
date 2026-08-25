@@ -15,11 +15,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.operaton.bpm.engine.ExternalTaskService;
 import org.operaton.bpm.engine.externaltask.LockedExternalTask;
 import org.operaton.bpm.engine.variable.Variables;
-import se.sundsvall.operaton.workers.financialaid.regelverk.ChangeWarning;
-import se.sundsvall.operaton.workers.financialaid.regelverk.ClassifiedIncome;
-import se.sundsvall.operaton.workers.financialaid.regelverk.IncomeRegelverkEvaluator;
-import se.sundsvall.operaton.workers.financialaid.regelverk.IncomeRegelverkResult;
-import se.sundsvall.operaton.workers.financialaid.regelverk.SsbtekIncome;
+import se.sundsvall.operaton.workers.financialaid.rules.ChangeWarning;
+import se.sundsvall.operaton.workers.financialaid.rules.ClassifiedIncome;
+import se.sundsvall.operaton.workers.financialaid.rules.IncomeRulesEvaluator;
+import se.sundsvall.operaton.workers.financialaid.rules.IncomeRulesResult;
+import se.sundsvall.operaton.workers.financialaid.rules.SsbtekIncome;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -28,10 +28,10 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static se.sundsvall.operaton.workers.financialaid.regelverk.ApplicantRole.APPLICANT;
+import static se.sundsvall.operaton.workers.financialaid.rules.ApplicantRole.APPLICANT;
 
 @ExtendWith(MockitoExtension.class)
-class EvaluateIncomeRegelverkWorkerTest {
+class EvaluateIncomeRulesWorkerTest {
 
 	private static final String BASIS_JSON = "{\"fk\":{\"utbetalningar\":[{\"nettobelopp\":{\"summa\":\"1850\"},\"datum\":\"2026-05-15\",\"formansfamilj\":{\"beskrivning\":\"Bostadsbidrag\"}}]}}";
 
@@ -39,15 +39,15 @@ class EvaluateIncomeRegelverkWorkerTest {
 	private ExternalTaskService externalTaskServiceMock;
 
 	@Mock
-	private IncomeRegelverkEvaluator evaluatorMock;
+	private IncomeRulesEvaluator evaluatorMock;
 
 	private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
-	private EvaluateIncomeRegelverkWorker worker;
+	private EvaluateIncomeRulesWorker worker;
 
 	@BeforeEach
 	void setUp() {
-		worker = new EvaluateIncomeRegelverkWorker(externalTaskServiceMock, evaluatorMock, objectMapper);
+		worker = new EvaluateIncomeRulesWorker(externalTaskServiceMock, evaluatorMock, objectMapper);
 	}
 
 	@Test
@@ -69,7 +69,7 @@ class EvaluateIncomeRegelverkWorkerTest {
 			.putValue("applicationMonth", "2026-06")
 			.putValue("financialAidBasis", BASIS_JSON));
 		when(evaluatorMock.evaluate(anyList(), eq(YearMonth.of(2026, Month.JUNE))))
-			.thenReturn(new IncomeRegelverkResult(List.of(classified), List.of(change)));
+			.thenReturn(new IncomeRulesResult(List.of(classified), List.of(change)));
 
 		final var output = worker.handle(task);
 
@@ -91,7 +91,7 @@ class EvaluateIncomeRegelverkWorkerTest {
 			.putValue("financialAidBasis", BASIS_JSON)
 			.putValue("coApplicantFinancialAidBasis", BASIS_JSON));
 		when(evaluatorMock.evaluate(anyList(), eq(YearMonth.of(2026, Month.JUNE))))
-			.thenReturn(new IncomeRegelverkResult(List.of(offList), List.of()));
+			.thenReturn(new IncomeRulesResult(List.of(offList), List.of()));
 
 		final var output = worker.handle(task);
 
@@ -107,7 +107,7 @@ class EvaluateIncomeRegelverkWorkerTest {
 			.putValue("applicationMonth", "2026-06")
 			.putValue("financialAidBasis", BASIS_JSON));
 		when(evaluatorMock.evaluate(anyList(), eq(YearMonth.of(2026, Month.JUNE))))
-			.thenReturn(new IncomeRegelverkResult(List.of(), List.of()));
+			.thenReturn(new IncomeRulesResult(List.of(), List.of()));
 
 		final var output = worker.handle(task);
 

@@ -64,8 +64,8 @@ public class FetchFinancialAidBasisWorker extends AbstractTopicWorker {
 			.filter(StringUtils::hasText)
 			.orElse(null);
 
-		// No person to look up (e.g. an errand without a co-applicant) — expose an empty basis so the regelverk just
-		// skips this member, without calling the API or branching the process.
+		// No person to look up (e.g. an errand without a co-applicant) — expose an empty basis so the income rules skip
+		// this member, without calling the API or branching the process.
 		if (personalNumber == null) {
 			LOG.info("No personal number supplied — skipping financial-aid fetch");
 			return Map.of(outputVariable, EMPTY_BASIS);

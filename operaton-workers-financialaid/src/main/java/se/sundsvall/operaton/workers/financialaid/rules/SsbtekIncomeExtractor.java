@@ -1,4 +1,4 @@
-package se.sundsvall.operaton.workers.financialaid.regelverk;
+package se.sundsvall.operaton.workers.financialaid.rules;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -10,19 +10,16 @@ import static java.util.Optional.ofNullable;
 
 /**
  * Turns the api-service-financial-aid SSBTEK basis — the untyped, per-agency map (parsed from the worker's
- * {@code financialAidBasis} JSON) — into normalised {@link SsbtekIncome}s for the regelverk. Most agencies are a
- * generic
- * XML→JSON conversion of the SSBTEK SOAP (keys mirror the XML element names, PascalCase); <b>fk</b> is delivered as
- * LEFI
- * JSON, so its keys are the LEFI property names (lowercase). Repeated elements arrive as a single object or a list, so
+ * {@code financialAidBasis} JSON) — into normalised {@link SsbtekIncome}s for the income rules. Most agencies are a
+ * generic XML-to-JSON conversion of the SSBTEK SOAP response; keys mirror the XML element names. <b>fk</b> is delivered
+ * as LEFI JSON, so its keys are the LEFI property names. Repeated elements arrive as a single object or a list, so
  * navigation is defensive throughout. One SSBTEK basis is one person's data, so the caller supplies the
  * {@link ApplicantRole}.
  *
  * <p>
- * Grounded agencies: <b>fk</b> (Försäkringskassan förmånsutbetalningar, from {@code utbetalningar}) and <b>so</b>
- * (arbetslöshetsersättning). The FK förmån comes from the payment's {@code formansfamilj.beskrivning}; FK förmåner not
- * on
- * the rålista surface as warnings downstream. <b>csn</b> amounts are not yet grounded — an extension point. Non-income
+ * Grounded agencies: <b>fk</b> (social insurance payments from {@code utbetalningar}) and <b>so</b> (unemployment
+ * benefit payments). The FK benefit comes from the payment's {@code formansfamilj.beskrivning}; FK benefits not on the
+ * allow list surface as warnings downstream. <b>csn</b> amounts are not yet grounded — an extension point. Non-income
  * agencies (af/tns/miv, skv capital) are intentionally not read.
  */
 public final class SsbtekIncomeExtractor {
@@ -45,39 +42,39 @@ public final class SsbtekIncomeExtractor {
 		}
 
 		final var incomes = new ArrayList<SsbtekIncome>();
-		incomes.addAll(extractFkUtbetalningar(asMap(agencyBasis.get(AGENCY_FK)), role));
-		incomes.addAll(extractArbetsloshetsersattning(asMap(agencyBasis.get(AGENCY_SO)), role));
+		incomes.addAll(extractSocialInsurancePayments(asMap(agencyBasis.get(AGENCY_FK)), role));
+		incomes.addAll(extractUnemploymentBenefitPayments(asMap(agencyBasis.get(AGENCY_SO)), role));
 		return List.copyOf(incomes);
 	}
 
 	/**
-	 * fk → utbetalningar(*): each effectuated FK/PM payment carries {@code nettobelopp.summa}, {@code datum}, the förmån
-	 * via {@code formansfamilj.beskrivning} and the beloppstyp via {@code typ.beskrivning}.
+	 * fk -> utbetalningar(*): each effectuated FK/PM payment carries {@code nettobelopp.summa}, {@code datum}, the
+	 * benefit via {@code formansfamilj.beskrivning}, and the amount type via {@code typ.beskrivning}.
 	 */
-	private static List<SsbtekIncome> extractFkUtbetalningar(final Map<String, Object> fk, final ApplicantRole role) {
+	private static List<SsbtekIncome> extractSocialInsurancePayments(final Map<String, Object> fk, final ApplicantRole role) {
 		final var incomes = new ArrayList<SsbtekIncome>();
-		for (final var utbetalning : asList(fk.get("utbetalningar"))) {
-			final var payment = asMap(utbetalning);
+		for (final var paymentItem : asList(fk.get("utbetalningar"))) {
+			final var payment = asMap(paymentItem);
 			final var amount = decimal(asMap(payment.get("nettobelopp")).get("summa"));
 			if (amount != null) {
-				final var formansfamilj = asMap(payment.get("formansfamilj"));
-				final var forman = ofNullable(str(formansfamilj.get("beskrivning"))).orElseGet(() -> str(formansfamilj.get("id")));
-				final var beloppstyp = str(asMap(payment.get("typ")).get("beskrivning"));
-				incomes.add(new SsbtekIncome(forman, null, beloppstyp, amount, date(payment.get("datum")), role));
+				final var benefitFamily = asMap(payment.get("formansfamilj"));
+				final var benefit = ofNullable(str(benefitFamily.get("beskrivning"))).orElseGet(() -> str(benefitFamily.get("id")));
+				final var amountType = str(asMap(payment.get("typ")).get("beskrivning"));
+				incomes.add(new SsbtekIncome(benefit, null, amountType, amount, date(payment.get("datum")), role));
 			}
 		}
 		return incomes;
 	}
 
 	/**
-	 * so → ArbetsloshetsersattningLista → Arbetsloshetsersattning(*) → Utbetalningar(*) → NettoEfterSkatt /
-	 * Utbetalningsdatum. Förmån "Arbetslöshetsersättning" (→ FC "A-kassa/Alfa").
+	 * so -> ArbetsloshetsersattningLista -> Arbetsloshetsersattning(*) -> Utbetalningar(*) -> NettoEfterSkatt /
+	 * Utbetalningsdatum. Benefit "Arbetslöshetsersättning" maps to the financial calculation category "A-kassa/Alfa".
 	 */
-	private static List<SsbtekIncome> extractArbetsloshetsersattning(final Map<String, Object> so, final ApplicantRole role) {
+	private static List<SsbtekIncome> extractUnemploymentBenefitPayments(final Map<String, Object> so, final ApplicantRole role) {
 		final var incomes = new ArrayList<SsbtekIncome>();
-		for (final var ersattning : asList(asMap(so.get("ArbetsloshetsersattningLista")).get("Arbetsloshetsersattning"))) {
-			for (final var utbetalning : asList(asMap(ersattning).get("Utbetalningar"))) {
-				final var payment = asMap(utbetalning);
+		for (final var benefitItem : asList(asMap(so.get("ArbetsloshetsersattningLista")).get("Arbetsloshetsersattning"))) {
+			for (final var paymentItem : asList(asMap(benefitItem).get("Utbetalningar"))) {
+				final var payment = asMap(paymentItem);
 				final var amount = decimal(payment.get("NettoEfterSkatt"));
 				if (amount != null) {
 					incomes.add(new SsbtekIncome("Arbetslöshetsersättning", null, null, amount, date(payment.get("Utbetalningsdatum")), role));

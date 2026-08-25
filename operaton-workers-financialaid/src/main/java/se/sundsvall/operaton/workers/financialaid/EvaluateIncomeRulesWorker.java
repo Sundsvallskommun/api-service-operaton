@@ -14,41 +14,38 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import se.sundsvall.dept44.scheduling.Dept44Scheduled;
-import se.sundsvall.operaton.workers.financialaid.regelverk.ClassifiedIncome;
-import se.sundsvall.operaton.workers.financialaid.regelverk.IncomeRegelverkEvaluator;
-import se.sundsvall.operaton.workers.financialaid.regelverk.SsbtekIncome;
-import se.sundsvall.operaton.workers.financialaid.regelverk.SsbtekIncomeExtractor;
+import se.sundsvall.operaton.workers.financialaid.rules.ClassifiedIncome;
+import se.sundsvall.operaton.workers.financialaid.rules.IncomeRulesEvaluator;
+import se.sundsvall.operaton.workers.financialaid.rules.SsbtekIncome;
+import se.sundsvall.operaton.workers.financialaid.rules.SsbtekIncomeExtractor;
 import se.sundsvall.operaton.workers.framework.AbstractTopicWorker;
 import se.sundsvall.operaton.workers.framework.annotation.TopicWorker;
 
-import static se.sundsvall.operaton.workers.financialaid.regelverk.ApplicantRole.APPLICANT;
-import static se.sundsvall.operaton.workers.financialaid.regelverk.ApplicantRole.CO_APPLICANT;
+import static se.sundsvall.operaton.workers.financialaid.rules.ApplicantRole.APPLICANT;
+import static se.sundsvall.operaton.workers.financialaid.rules.ApplicantRole.CO_APPLICANT;
 
 /**
- * Evaluates the SSBTEK regelverk in the process — the rules layer that used to live in caremanagement. Parses the
- * household's financial-aid basis (the {@code financialAidBasis} JSON from {@code fetch-financial-aid-basis}, applicant
- * +
- * optional co-applicant), extracts the incomes, and runs them through {@link IncomeRegelverkEvaluator} (period
- * selection
- * + the runtime-published DMNs). Outputs the classified incomes as JSON for caremanagement to assemble + post to
- * Lifecare, plus the unhandled-income and change warnings for the handläggare.
+ * Evaluates the SSBTEK income rules in the process. Parses the household's financial-aid basis (the
+ * {@code financialAidBasis} JSON from {@code fetch-financial-aid-basis}, applicant plus optional co-applicant),
+ * extracts the incomes, and runs them through {@link IncomeRulesEvaluator}. Outputs the classified incomes as JSON for
+ * caremanagement to assemble and post to Lifecare, plus the unhandled-income and change warnings for the case worker.
  */
 @Component
 @TopicWorker(
 	topic = "evaluate-income-regelverk",
-	description = "Evaluates the SSBTEK regelverk (rålista + thresholds + period rules, via the published DMNs) over the household's financial-aid income basis and outputs the classified incomes (JSON) for caremanagement plus the unhandled/change warnings. The regelverk lives entirely in the engine — caremanagement no longer evaluates it.",
+	description = "Evaluates the SSBTEK income rules (allow list, thresholds, and period rules via the published DMNs) over the household's financial-aid income basis and outputs the classified incomes (JSON) for caremanagement plus the unhandled/change warnings. The rules live entirely in the engine; caremanagement no longer evaluates them.",
 	inputVariables = {
-		EvaluateIncomeRegelverkWorker.VAR_APPLICATION_MONTH,
-		EvaluateIncomeRegelverkWorker.VAR_FINANCIAL_AID_BASIS,
-		EvaluateIncomeRegelverkWorker.VAR_CO_APPLICANT_BASIS
+		EvaluateIncomeRulesWorker.VAR_APPLICATION_MONTH,
+		EvaluateIncomeRulesWorker.VAR_FINANCIAL_AID_BASIS,
+		EvaluateIncomeRulesWorker.VAR_CO_APPLICANT_BASIS
 	},
 	outputVariables = {
-		EvaluateIncomeRegelverkWorker.VAR_OUT_CLASSIFIED,
-		EvaluateIncomeRegelverkWorker.VAR_OUT_UNHANDLED,
-		EvaluateIncomeRegelverkWorker.VAR_OUT_CHANGE_WARNINGS,
-		EvaluateIncomeRegelverkWorker.VAR_OUT_HAS_WARNINGS
+		EvaluateIncomeRulesWorker.VAR_OUT_CLASSIFIED,
+		EvaluateIncomeRulesWorker.VAR_OUT_UNHANDLED,
+		EvaluateIncomeRulesWorker.VAR_OUT_CHANGE_WARNINGS,
+		EvaluateIncomeRulesWorker.VAR_OUT_HAS_WARNINGS
 	})
-public class EvaluateIncomeRegelverkWorker extends AbstractTopicWorker {
+public class EvaluateIncomeRulesWorker extends AbstractTopicWorker {
 
 	static final String VAR_APPLICATION_MONTH = "applicationMonth";
 	static final String VAR_FINANCIAL_AID_BASIS = "financialAidBasis";
@@ -61,12 +58,12 @@ public class EvaluateIncomeRegelverkWorker extends AbstractTopicWorker {
 
 	private static final String OFF_LIST_ACTION = "EJ_PA_LISTAN";
 
-	private static final Logger LOG = LoggerFactory.getLogger(EvaluateIncomeRegelverkWorker.class);
+	private static final Logger LOG = LoggerFactory.getLogger(EvaluateIncomeRulesWorker.class);
 
-	private final IncomeRegelverkEvaluator evaluator;
+	private final IncomeRulesEvaluator evaluator;
 	private final ObjectMapper objectMapper;
 
-	public EvaluateIncomeRegelverkWorker(final ExternalTaskService externalTaskService, final IncomeRegelverkEvaluator evaluator, final ObjectMapper objectMapper) {
+	public EvaluateIncomeRulesWorker(final ExternalTaskService externalTaskService, final IncomeRulesEvaluator evaluator, final ObjectMapper objectMapper) {
 		super(externalTaskService);
 		this.evaluator = evaluator;
 		this.objectMapper = objectMapper;
@@ -90,11 +87,11 @@ public class EvaluateIncomeRegelverkWorker extends AbstractTopicWorker {
 
 		final var unhandled = result.classified().stream()
 			.filter(classified -> classified.warning() || OFF_LIST_ACTION.equals(classified.action()))
-			.map(classified -> classified.income().forman() + " (" + classified.action() + ")")
+			.map(classified -> classified.income().benefit() + " (" + classified.action() + ")")
 			.distinct()
 			.toList();
 		final var changeWarnings = result.changeWarnings().stream()
-			.map(warning -> warning.forman() + ": " + warning.changePercent() + "%")
+			.map(warning -> warning.benefit() + ": " + warning.changePercent() + "%")
 			.toList();
 		final var hasWarnings = !unhandled.isEmpty() || !changeWarnings.isEmpty();
 
@@ -104,7 +101,7 @@ public class EvaluateIncomeRegelverkWorker extends AbstractTopicWorker {
 		output.put(VAR_OUT_CHANGE_WARNINGS, String.join("; ", changeWarnings));
 		output.put(VAR_OUT_HAS_WARNINGS, hasWarnings);
 
-		LOG.info("Income regelverk evaluated ({} transferable incomes, warnings: {})", result.classified().size(), hasWarnings);
+		LOG.info("Income rules evaluated ({} transferable incomes, warnings: {})", result.classified().size(), hasWarnings);
 		return output;
 	}
 

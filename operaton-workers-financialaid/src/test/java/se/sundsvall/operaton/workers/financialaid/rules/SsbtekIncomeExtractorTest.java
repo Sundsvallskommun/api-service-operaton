@@ -1,4 +1,4 @@
-package se.sundsvall.operaton.workers.financialaid.regelverk;
+package se.sundsvall.operaton.workers.financialaid.rules;
 
 import java.time.LocalDate;
 import java.time.Month;
@@ -8,13 +8,13 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static se.sundsvall.operaton.workers.financialaid.regelverk.ApplicantRole.APPLICANT;
-import static se.sundsvall.operaton.workers.financialaid.regelverk.ApplicantRole.CO_APPLICANT;
+import static se.sundsvall.operaton.workers.financialaid.rules.ApplicantRole.APPLICANT;
+import static se.sundsvall.operaton.workers.financialaid.rules.ApplicantRole.CO_APPLICANT;
 
 class SsbtekIncomeExtractorTest {
 
 	@Test
-	void extractsFkUtbetalningarAndArbetsloshetsersattning() {
+	void extractsSocialInsuranceAndUnemploymentBenefitPayments() {
 		final Map<String, Object> basis = Map.of(
 			"fk", Map.of("utbetalningar", List.of(Map.of(
 				"nettobelopp", Map.of("summa", "1850"),
@@ -27,12 +27,12 @@ class SsbtekIncomeExtractorTest {
 		final var incomes = SsbtekIncomeExtractor.extract(basis, APPLICANT);
 
 		assertThat(incomes).hasSize(2);
-		final var bostadsbidrag = incomes.stream().filter(i -> "Bostadsbidrag".equals(i.forman())).findFirst().orElseThrow();
+		final var bostadsbidrag = incomes.stream().filter(i -> "Bostadsbidrag".equals(i.benefit())).findFirst().orElseThrow();
 		assertThat(bostadsbidrag.netAmount()).isEqualByComparingTo("1850");
-		assertThat(bostadsbidrag.beloppstyp()).isEqualTo("Månad");
+		assertThat(bostadsbidrag.amountType()).isEqualTo("Månad");
 		assertThat(bostadsbidrag.period()).isEqualTo(LocalDate.of(2026, Month.MAY, 15));
 		assertThat(bostadsbidrag.role()).isEqualTo(APPLICANT);
-		final var akassa = incomes.stream().filter(i -> "Arbetslöshetsersättning".equals(i.forman())).findFirst().orElseThrow();
+		final var akassa = incomes.stream().filter(i -> "Arbetslöshetsersättning".equals(i.benefit())).findFirst().orElseThrow();
 		assertThat(akassa.netAmount()).isEqualByComparingTo("3200");
 		assertThat(akassa.period()).isEqualTo(LocalDate.of(2026, Month.MAY, 20));
 	}
@@ -56,8 +56,8 @@ class SsbtekIncomeExtractorTest {
 		final var incomes = SsbtekIncomeExtractor.extract(basis, CO_APPLICANT);
 
 		assertThat(incomes).hasSize(1);
-		assertThat(incomes.getFirst().forman()).isEqualTo("PM");
-		assertThat(incomes.getFirst().beloppstyp()).isNull();
+		assertThat(incomes.getFirst().benefit()).isEqualTo("PM");
+		assertThat(incomes.getFirst().amountType()).isNull();
 		assertThat(incomes.getFirst().role()).isEqualTo(CO_APPLICANT);
 	}
 
@@ -73,6 +73,6 @@ class SsbtekIncomeExtractorTest {
 		assertThat(incomes)
 			.hasSize(2)
 			.allSatisfy(income -> assertThat(income.period()).isNull())
-			.extracting(SsbtekIncome::forman).containsExactlyInAnyOrder("Dagersättning", "Barnbidrag");
+			.extracting(SsbtekIncome::benefit).containsExactlyInAnyOrder("Dagersättning", "Barnbidrag");
 	}
 }
