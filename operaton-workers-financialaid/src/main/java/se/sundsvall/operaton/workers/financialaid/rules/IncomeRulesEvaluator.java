@@ -59,10 +59,10 @@ public class IncomeRulesEvaluator {
 
 	/** Control period incomes plus comparison period incomes whose benefit has no control period income. */
 	private static List<SsbtekIncome> selectTransferable(final List<SsbtekIncome> present, final SsbtekPeriods periods) {
-		final var controlPeriodIncomes = present.stream().filter(income -> periods.isInControlPeriod(income.period())).toList();
+		final var controlPeriodIncomes = present.stream().filter(income -> periods.isInControlPeriod(income.attributionDate())).toList();
 		final Set<String> controlPeriodBenefits = controlPeriodIncomes.stream().map(income -> normalize(income.benefit())).collect(toSet());
 		final var comparisonPeriodFallbackIncomes = present.stream()
-			.filter(income -> periods.isInComparisonPeriod(income.period()))
+			.filter(income -> periods.isInComparisonPeriod(income.attributionDate()))
 			.filter(income -> !controlPeriodBenefits.contains(normalize(income.benefit())))
 			.toList();
 		return concat(controlPeriodIncomes.stream(), comparisonPeriodFallbackIncomes.stream()).toList();
@@ -80,8 +80,8 @@ public class IncomeRulesEvaluator {
 
 	/** Per-benefit change warnings: comparison vs control net sum, flagged when the change exceeds the DMN threshold. */
 	private List<ChangeWarning> detectChanges(final List<SsbtekIncome> present, final SsbtekPeriods periods) {
-		final var controlSums = sumByBenefit(present.stream().filter(income -> periods.isInControlPeriod(income.period())).toList());
-		final var comparisonPeriodIncomes = present.stream().filter(income -> periods.isInComparisonPeriod(income.period())).toList();
+		final var controlSums = sumByBenefit(present.stream().filter(income -> periods.isInControlPeriod(income.attributionDate())).toList());
+		final var comparisonPeriodIncomes = present.stream().filter(income -> periods.isInComparisonPeriod(income.attributionDate())).toList();
 		final var displayNames = comparisonPeriodIncomes.stream().collect(toMap(income -> normalize(income.benefit()), SsbtekIncome::benefit, (first, second) -> first));
 
 		return sumByBenefit(comparisonPeriodIncomes).entrySet().stream()

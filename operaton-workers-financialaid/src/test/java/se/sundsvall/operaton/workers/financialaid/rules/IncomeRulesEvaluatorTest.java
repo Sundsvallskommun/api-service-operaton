@@ -45,6 +45,48 @@ class IncomeRulesEvaluatorTest {
 		return new SsbtekIncome(benefit, null, null, new BigDecimal(amount), LocalDate.parse(period), APPLICANT);
 	}
 
+	/** An income attributed by the period it covers rather than by the day it was paid. */
+	private static SsbtekIncome incomeForPeriod(final String benefit, final String paidOn, final String from, final String to, final String amount) {
+		return new SsbtekIncome(benefit, null, null, new BigDecimal(amount), LocalDate.parse(paidOn),
+			LocalDate.parse(from), LocalDate.parse(to), null, APPLICANT);
+	}
+
+	@Test
+	void attributesAnIncomeToThePeriodItCoversRatherThanTheDayItWasPaid() {
+		stubDecision(INCOME_ALLOW_LIST_DECISION_KEY, Map.of("atgard", "TA_MED", "normberakning", "Bostadsbidrag", "varning", false, "regel", "Ta med"));
+
+		// application month October → control period September. Paid 2 October, but it is September's money.
+		final var result = evaluator.evaluate(
+			List.of(incomeForPeriod("Bostadsbidrag", "2026-10-02", "2026-09-01", "2026-09-30", "4500")),
+			YearMonth.of(2026, Month.OCTOBER));
+
+		// on the payment date alone this landed in October and was transferred to no period at all
+		assertThat(result.classified()).hasSize(1);
+		assertThat(result.classified().getFirst().income().benefit()).isEqualTo("Bostadsbidrag");
+	}
+
+	@Test
+	void stillFallsBackToThePaymentDateWhenThePayloadCarriesNoPeriod() {
+		stubDecision(INCOME_ALLOW_LIST_DECISION_KEY, Map.of("atgard", "TA_MED", "normberakning", "Barnbidrag", "varning", false, "regel", "Ta med"));
+
+		// payments split over several detail rows carry no single period; the payment date has to stand in
+		final var result = evaluator.evaluate(
+			List.of(income("Allmänt barnbidrag", "2026-09-20", "1250")),
+			YearMonth.of(2026, Month.OCTOBER));
+
+		assertThat(result.classified()).hasSize(1);
+	}
+
+	@Test
+	void aPaymentCoveringAnEarlierMonthDoesNotCountAsThisMonthsIncome() {
+		// paid during the control period but covering the application month itself → outside both rule periods
+		final var result = evaluator.evaluate(
+			List.of(incomeForPeriod("Bostadsbidrag", "2026-09-28", "2026-10-01", "2026-10-31", "4500")),
+			YearMonth.of(2026, Month.OCTOBER));
+
+		assertThat(result.classified()).isEmpty();
+	}
+
 	@Test
 	void classifiesTransferableAndDetectsChangeOverThreshold() {
 		stubDecision(INCOME_ALLOW_LIST_DECISION_KEY, Map.of("atgard", "TA_MED_KVITTNING", "normberakning", "Bostadsbidrag", "varning", false, "regel", "Ta med kvittning"));
