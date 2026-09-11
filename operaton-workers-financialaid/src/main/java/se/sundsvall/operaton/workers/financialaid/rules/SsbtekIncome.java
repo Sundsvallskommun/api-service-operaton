@@ -15,5 +15,14 @@ public record SsbtekIncome(
 	@JsonProperty("beloppstyp") String amountType,
 	BigDecimal netAmount,
 	LocalDate period,
+	@JsonProperty("periodFran") LocalDate periodFrom,
+	@JsonProperty("periodTill") LocalDate periodTo,
+	@JsonProperty("dagar") Integer days,
 	ApplicantRole role) {
+
+	/** The payment-date-only shape, for callers that have no period or day information. */
+	public SsbtekIncome(final String benefit, final String subBenefit, final String amountType,
+		final BigDecimal netAmount, final LocalDate period, final ApplicantRole role) {
+		this(benefit, subBenefit, amountType, netAmount, period, null, null, null, role);
+	}
 }

@@ -29,12 +29,98 @@ class SsbtekIncomeExtractorTest {
 		assertThat(incomes).hasSize(2);
 		final var bostadsbidrag = incomes.stream().filter(i -> "Bostadsbidrag".equals(i.benefit())).findFirst().orElseThrow();
 		assertThat(bostadsbidrag.netAmount()).isEqualByComparingTo("1850");
-		assertThat(bostadsbidrag.amountType()).isEqualTo("Månad");
+		// "Månad" is the payout method (the regelverk's Typ column), not its Beloppstyp - a payment without detail
+		// rows has no amount type to report, and claiming one is what kept the rålista's kvittning rows unreachable
+		assertThat(bostadsbidrag.amountType()).isNull();
 		assertThat(bostadsbidrag.period()).isEqualTo(LocalDate.of(2026, Month.MAY, 15));
 		assertThat(bostadsbidrag.role()).isEqualTo(APPLICANT);
 		final var akassa = incomes.stream().filter(i -> "Arbetslöshetsersättning".equals(i.benefit())).findFirst().orElseThrow();
 		assertThat(akassa.netAmount()).isEqualByComparingTo("3200");
 		assertThat(akassa.period()).isEqualTo(LocalDate.of(2026, Month.MAY, 20));
+	}
+
+	@Test
+	void liftsSubBenefitAmountTypeAndDaysFromTheSingleDetailRow() {
+		final Map<String, Object> basis = Map.of("fk", Map.of("utbetalningar", List.of(Map.of(
+			"nettobelopp", Map.of("summa", "4500"),
+			"datum", "2026-05-25",
+			"period", Map.of("fran", "2026-04-01", "till", "2026-04-30"),
+			"formansfamilj", Map.of("beskrivning", "Bostadsbidrag"),
+			"typ", Map.of("beskrivning", "Månad"),
+			"utbetalningsdetalj", List.of(Map.of(
+				"forman", Map.of("beskrivning", "Bostadsbidrag"),
+				"beloppstyp", Map.of("beskrivning", "Avdrag Soc"),
+				"dagar", 30))))));
+
+		final var income = SsbtekIncomeExtractor.extract(basis, APPLICANT).getFirst();
+
+		assertThat(income.subBenefit()).isEqualTo("Bostadsbidrag");
+		assertThat(income.amountType()).isEqualTo("Avdrag Soc");
+		assertThat(income.days()).isEqualTo(30);
+		// the payment date and the period it covers are different months - both are carried
+		assertThat(income.period()).isEqualTo(LocalDate.of(2026, Month.MAY, 25));
+		assertThat(income.periodFrom()).isEqualTo(LocalDate.of(2026, Month.APRIL, 1));
+		assertThat(income.periodTo()).isEqualTo(LocalDate.of(2026, Month.APRIL, 30));
+		assertThat(income.netAmount()).isEqualByComparingTo("4500");
+	}
+
+	@Test
+	void leavesDetailFieldsUnsetWhenThePaymentIsSplitOverSeveralRows() {
+		final Map<String, Object> basis = Map.of("fk", Map.of("utbetalningar", List.of(Map.of(
+			"nettobelopp", Map.of("summa", "4500"),
+			"datum", "2026-05-25",
+			"period", Map.of("fran", "2026-04-01", "till", "2026-04-30"),
+			"formansfamilj", Map.of("beskrivning", "Bostadsbidrag"),
+			"utbetalningsdetalj", List.of(
+				Map.of("forman", Map.of("beskrivning", "Bostadsbidrag"), "beloppstyp", Map.of("beskrivning", "Preliminärt bostadsbidrag"), "dagar", 30),
+				Map.of("forman", Map.of("beskrivning", "Bostadsbidrag"), "beloppstyp", Map.of("beskrivning", "Avdrag Soc"), "dagar", 30))))));
+
+		final var income = SsbtekIncomeExtractor.extract(basis, APPLICANT).getFirst();
+
+		// an amount split across rows has no single sub-benefit or amount type; guessing one would misclassify it
+		assertThat(income.subBenefit()).isNull();
+		assertThat(income.amountType()).isNull();
+		assertThat(income.days()).isNull();
+		// the period still comes from the payment itself, so it survives the split
+		assertThat(income.periodFrom()).isEqualTo(LocalDate.of(2026, Month.APRIL, 1));
+		assertThat(income.netAmount()).isEqualByComparingTo("4500");
+	}
+
+	@Test
+	void fallsBackToTheLetterCodeAndToleratesAnUnreadableDayCount() {
+		final Map<String, Object> basis = Map.of("fk", Map.of("utbetalningar", List.of(Map.of(
+			"nettobelopp", Map.of("summa", "1000"),
+			"datum", "2026-05-25",
+			"formansfamilj", Map.of("beskrivning", "Dagersättning"),
+			"utbetalningsdetalj", List.of(Map.of(
+				"forman", Map.of("id", "FP"), // no beskrivning → fall back to the code
+				"beloppstyp", Map.of("id", "AFR"),
+				"dagar", "inte ett tal"))))));
+
+		final var income = SsbtekIncomeExtractor.extract(basis, APPLICANT).getFirst();
+
+		assertThat(income.subBenefit()).isEqualTo("FP");
+		assertThat(income.amountType()).isEqualTo("AFR");
+		assertThat(income.days()).isNull();
+		assertThat(income.periodFrom()).isNull();
+	}
+
+	@Test
+	void carriesThePeriodAndCompensationDaysFromTheUnemploymentFund() {
+		final Map<String, Object> basis = Map.of("so", Map.of("ArbetsloshetsersattningLista", Map.of("Arbetsloshetsersattning", List.of(
+			Map.of("Utbetalningar", List.of(Map.of(
+				"NettoEfterSkatt", "3200",
+				"Utbetalningsdatum", "2026-05-20",
+				"AvserFrom", "2026-04-01",
+				"AvserTom", "2026-04-30",
+				"Ersattningsdagar", "22")))))));
+
+		final var income = SsbtekIncomeExtractor.extract(basis, APPLICANT).getFirst();
+
+		assertThat(income.periodFrom()).isEqualTo(LocalDate.of(2026, Month.APRIL, 1));
+		assertThat(income.periodTo()).isEqualTo(LocalDate.of(2026, Month.APRIL, 30));
+		// the schema types this as a decimal; it is a day count
+		assertThat(income.days()).isEqualTo(22);
 	}
 
 	@Test

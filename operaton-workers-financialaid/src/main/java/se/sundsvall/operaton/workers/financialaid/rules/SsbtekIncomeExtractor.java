@@ -49,7 +49,19 @@ public final class SsbtekIncomeExtractor {
 
 	/**
 	 * fk -> utbetalningar(*): each effectuated FK/PM payment carries {@code nettobelopp.summa}, {@code datum}, the
-	 * benefit via {@code formansfamilj.beskrivning}, and the amount type via {@code typ.beskrivning}.
+	 * benefit via {@code formansfamilj.beskrivning}, and the period it covers via {@code period}.
+	 * <p>
+	 * The sub-benefit, the regelverk's amount type and the day count live one level down, on the payment's
+	 * {@code utbetalningsdetalj} rows - {@code forman} is the sub-benefit, {@code beloppstyp} is the rålista's
+	 * Beloppstyp column, and {@code dagar} is "antal avsedda dagar". The payment's own {@code typ} is the payout method
+	 * (Månad / Daglig / Retro), which is the regelverk's Typ column and not its Beloppstyp; feeding it as the amount
+	 * type is why the rålista's kvittning and Avdrag Soc rows could never match.
+	 * <p>
+	 * The detail fields are only lifted when the payment has exactly one detail row. The contract calls the relationship
+	 * between a detail's benefit and the payment's benefit family "nästan ett ett-till-ett förhållande", and a payment
+	 * split over several rows (an amount plus its deductions) has no single sub-benefit or amount type to speak of. The
+	 * amount itself always stays the payment-level net: summing detail rows would change what is transferred into the
+	 * calculation, which is a decision about money and not one to take while reading a schema.
 	 */
 	private static List<SsbtekIncome> extractSocialInsurancePayments(final Map<String, Object> fk, final ApplicantRole role) {
 		final var incomes = new ArrayList<SsbtekIncome>();
@@ -59,8 +71,19 @@ public final class SsbtekIncomeExtractor {
 			if (amount != null) {
 				final var benefitFamily = asMap(payment.get("formansfamilj"));
 				final var benefit = ofNullable(str(benefitFamily.get("beskrivning"))).orElseGet(() -> str(benefitFamily.get("id")));
-				final var amountType = str(asMap(payment.get("typ")).get("beskrivning"));
-				incomes.add(new SsbtekIncome(benefit, null, amountType, amount, date(payment.get("datum")), role));
+				final var details = asList(payment.get("utbetalningsdetalj"));
+				final var detail = (details.size() == 1) ? asMap(details.getFirst()) : Map.<String, Object>of();
+				final var period = asMap(payment.get("period"));
+				incomes.add(new SsbtekIncome(
+					benefit,
+					code(detail.get("forman")),
+					code(detail.get("beloppstyp")),
+					amount,
+					date(payment.get("datum")),
+					date(period.get("fran")),
+					date(period.get("till")),
+					integer(detail.get("dagar")),
+					role));
 			}
 		}
 		return incomes;
@@ -77,11 +100,36 @@ public final class SsbtekIncomeExtractor {
 				final var payment = asMap(paymentItem);
 				final var amount = decimal(payment.get("NettoEfterSkatt"));
 				if (amount != null) {
-					incomes.add(new SsbtekIncome("Arbetslöshetsersättning", null, null, amount, date(payment.get("Utbetalningsdatum")), role));
+					incomes.add(new SsbtekIncome("Arbetslöshetsersättning", null, null, amount,
+						date(payment.get("Utbetalningsdatum")),
+						date(payment.get("AvserFrom")), date(payment.get("AvserTom")),
+						integer(payment.get("Ersattningsdagar")), role));
 				}
 			}
 		}
 		return incomes;
+	}
+
+	/** The Swedish label of a LEFI letter code ({@code beskrivning}), falling back to the raw code. */
+	private static String code(final Object value) {
+		final var map = asMap(value);
+		return ofNullable(str(map.get("beskrivning"))).orElseGet(() -> str(map.get("id")));
+	}
+
+	/** A whole number from a LEFI integer or an SSBTEK decimal ("2"), or {@code null} when absent or unreadable. */
+	private static Integer integer(final Object value) {
+		if (value instanceof final Number number) {
+			return number.intValue();
+		}
+		return ofNullable(str(value))
+			.map(text -> {
+				try {
+					return new BigDecimal(text).intValue();
+				} catch (final NumberFormatException e) {
+					return null;
+				}
+			})
+			.orElse(null);
 	}
 
 	// ---- defensive untyped-map navigation -----------------------------------------------------------------------------
