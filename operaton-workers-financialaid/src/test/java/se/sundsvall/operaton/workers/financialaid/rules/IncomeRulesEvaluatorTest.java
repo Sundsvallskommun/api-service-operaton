@@ -121,6 +121,25 @@ class IncomeRulesEvaluatorTest {
 	}
 
 	@Test
+	void marksWhichIncomesCameFromTheComparisonPeriod() {
+		stubDecision(INCOME_ALLOW_LIST_DECISION_KEY, Map.of("atgard", "TA_MED", "normberakning", "Bostadsbidrag", "varning", false, "regel", "Ta med"));
+		stubDecision(INCOME_THRESHOLD_DECISION_KEY, Map.of("troskelProcent", 12));
+
+		// application month June → control May, comparison April. Underhållsstöd only exists in April.
+		final var result = evaluator.evaluate(List.of(
+			income("Bostadsbidrag", "2026-05-15", "1850"),
+			income("Underhållsstöd", "2026-04-20", "1673")),
+			YearMonth.of(2026, Month.JUNE));
+
+		assertThat(result.classified()).hasSize(2);
+		final var control = result.classified().stream().filter(c -> "Bostadsbidrag".equals(c.income().benefit())).findFirst().orElseThrow();
+		final var fallback = result.classified().stream().filter(c -> "Underhållsstöd".equals(c.income().benefit())).findFirst().orElseThrow();
+		assertThat(control.fromComparisonPeriod()).isFalse();
+		// caremanagement decides whether this one was already taken last month; the engine only says where it came from
+		assertThat(fallback.fromComparisonPeriod()).isTrue();
+	}
+
+	@Test
 	void nullIncomesYieldEmptyResult() {
 		final var result = evaluator.evaluate(null, YearMonth.of(2026, Month.JUNE));
 

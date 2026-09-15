@@ -50,32 +50,37 @@ public class IncomeRulesEvaluator {
 		final var present = ofNullable(incomes).orElseGet(List::of).stream().filter(Objects::nonNull).toList();
 		final var periods = SsbtekPeriods.forApplicationMonth(applicationMonth);
 
-		final var classified = selectTransferable(present, periods).stream()
-			.map(this::classify)
+		final var transferable = selectTransferable(present, periods);
+		final var classified = concat(
+			transferable.controlPeriod().stream().map(income -> classify(income, false)),
+			transferable.comparisonPeriodFallback().stream().map(income -> classify(income, true)))
 			.toList();
 
 		return new IncomeRulesResult(classified, detectChanges(present, periods));
 	}
 
+	/** The two transferable groups, kept apart so caremanagement can filter the fallbacks against the previous month. */
+	private record Transferable(List<SsbtekIncome> controlPeriod, List<SsbtekIncome> comparisonPeriodFallback) {}
+
 	/** Control period incomes plus comparison period incomes whose benefit has no control period income. */
-	private static List<SsbtekIncome> selectTransferable(final List<SsbtekIncome> present, final SsbtekPeriods periods) {
+	private static Transferable selectTransferable(final List<SsbtekIncome> present, final SsbtekPeriods periods) {
 		final var controlPeriodIncomes = present.stream().filter(income -> periods.isInControlPeriod(income.attributionDate())).toList();
 		final Set<String> controlPeriodBenefits = controlPeriodIncomes.stream().map(income -> normalize(income.benefit())).collect(toSet());
 		final var comparisonPeriodFallbackIncomes = present.stream()
 			.filter(income -> periods.isInComparisonPeriod(income.attributionDate()))
 			.filter(income -> !controlPeriodBenefits.contains(normalize(income.benefit())))
 			.toList();
-		return concat(controlPeriodIncomes.stream(), comparisonPeriodFallbackIncomes.stream()).toList();
+		return new Transferable(controlPeriodIncomes, comparisonPeriodFallbackIncomes);
 	}
 
 	/** The per-income allow-list verdict from {@code Decision_inkomstRalista}. */
-	private ClassifiedIncome classify(final SsbtekIncome income) {
+	private ClassifiedIncome classify(final SsbtekIncome income, final boolean fromComparisonPeriod) {
 		final var row = evaluateFirst(INCOME_ALLOW_LIST_DECISION_KEY, Map.of(
 			"forman", nullToEmpty(income.benefit()),
 			"delforman", nullToEmpty(income.subBenefit()),
 			"beloppstyp", nullToEmpty(income.amountType())));
 		return new ClassifiedIncome(income, str(row.get("atgard")), str(row.get("normberakning")),
-			Boolean.TRUE.equals(row.get("varning")), str(row.get("regel")));
+			Boolean.TRUE.equals(row.get("varning")), str(row.get("regel")), fromComparisonPeriod);
 	}
 
 	/** Per-benefit change warnings: comparison vs control net sum, flagged when the change exceeds the DMN threshold. */
