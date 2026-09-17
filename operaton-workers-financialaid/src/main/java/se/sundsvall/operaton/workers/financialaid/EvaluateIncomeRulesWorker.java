@@ -14,7 +14,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import se.sundsvall.dept44.scheduling.Dept44Scheduled;
+import se.sundsvall.operaton.workers.financialaid.rules.AgencyAnswer;
 import se.sundsvall.operaton.workers.financialaid.rules.ChangeWarning;
+import se.sundsvall.operaton.workers.financialaid.rules.ClassifiedAgencyAnswer;
 import se.sundsvall.operaton.workers.financialaid.rules.ClassifiedIncome;
 import se.sundsvall.operaton.workers.financialaid.rules.IncomeRulesEvaluator;
 import se.sundsvall.operaton.workers.financialaid.rules.SsbtekIncome;
@@ -22,6 +24,7 @@ import se.sundsvall.operaton.workers.financialaid.rules.SsbtekIncomeExtractor;
 import se.sundsvall.operaton.workers.framework.AbstractTopicWorker;
 import se.sundsvall.operaton.workers.framework.annotation.TopicWorker;
 
+import static java.util.stream.Stream.concat;
 import static org.springframework.util.StringUtils.hasText;
 import static se.sundsvall.operaton.workers.financialaid.rules.ApplicantRole.APPLICANT;
 import static se.sundsvall.operaton.workers.financialaid.rules.ApplicantRole.CO_APPLICANT;
@@ -80,16 +83,31 @@ public class EvaluateIncomeRulesWorker extends AbstractTopicWorker {
 	protected Map<String, Object> handle(final LockedExternalTask task) {
 		final var applicationMonth = YearMonth.parse(requireVariable(task, VAR_APPLICATION_MONTH, String.class));
 
-		final var incomes = new ArrayList<SsbtekIncome>(SsbtekIncomeExtractor.extract(parseBasis(requireVariable(task, VAR_FINANCIAL_AID_BASIS, String.class)), APPLICANT));
+		final var applicantBasis = parseBasis(requireVariable(task, VAR_FINANCIAL_AID_BASIS, String.class));
+		final var incomes = new ArrayList<SsbtekIncome>(SsbtekIncomeExtractor.extract(applicantBasis, APPLICANT));
+		final var answers = new ArrayList<AgencyAnswer>(SsbtekIncomeExtractor.extractAnswers(applicantBasis));
 		optionalVariable(task, VAR_CO_APPLICANT_BASIS, String.class)
 			.filter(json -> !json.isBlank())
-			.ifPresent(json -> incomes.addAll(SsbtekIncomeExtractor.extract(parseBasis(json), CO_APPLICANT)));
+			.ifPresent(json -> {
+				final var coApplicantBasis = parseBasis(json);
+				incomes.addAll(SsbtekIncomeExtractor.extract(coApplicantBasis, CO_APPLICANT));
+				answers.addAll(SsbtekIncomeExtractor.extractAnswers(coApplicantBasis));
+			});
 
-		final var result = evaluator.evaluate(incomes, applicationMonth);
+		final var result = evaluator.evaluate(incomes, answers, applicationMonth);
 
-		final var unhandled = result.classified().stream()
-			.filter(classified -> classified.warning() || OFF_LIST_ACTION.equals(classified.action()))
-			.map(classified -> classified.income().benefit() + " (" + classified.action() + ")")
+		// An organisation whose answer could not be verified is an unhandled item for the handläggare, not an absence
+		// of income: SSBTEK answering "I cannot say" must never read as "this person has nothing".
+		final var unverifiable = result.answers().stream()
+			.filter(ClassifiedAgencyAnswer::unverifiable)
+			.map(EvaluateIncomeRulesWorker::renderAnswer)
+			.distinct()
+			.toList();
+		final var unhandled = concat(
+			result.classified().stream()
+				.filter(classified -> classified.warning() || OFF_LIST_ACTION.equals(classified.action()))
+				.map(classified -> classified.income().benefit() + " (" + classified.action() + ")"),
+			unverifiable.stream())
 			.distinct()
 			.toList();
 		final var changeWarnings = result.changeWarnings().stream()
@@ -118,6 +136,22 @@ public class EvaluateIncomeRulesWorker extends AbstractTopicWorker {
 			return change + " – " + warning.rule();
 		}
 		return change;
+	}
+
+	/**
+	 * A verified-nothing and an unanswerable organisation look identical in the income list, so the text has to say
+	 * which one this is - phrased as a statement about our check, never about the sökande.
+	 */
+	private static String renderAnswer(final ClassifiedAgencyAnswer classified) {
+		final var organisation = classified.answer().organisation();
+		final var who = "A-kassa " + organisation;
+		if (!hasText(organisation)) {
+			return "A-kassa (okänd organisation): kunde inte kontrolleras";
+		}
+		if (hasText(classified.rule())) {
+			return who + ": kunde inte kontrolleras – " + classified.rule();
+		}
+		return who + ": kunde inte kontrolleras";
 	}
 
 	private static String changeText(final ChangeWarning warning) {

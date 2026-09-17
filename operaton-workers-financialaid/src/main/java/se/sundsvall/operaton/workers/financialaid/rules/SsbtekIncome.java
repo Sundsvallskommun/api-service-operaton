@@ -8,6 +8,10 @@ import java.time.LocalDate;
  * One normalised SSBTEK income, parsed from the api-service-financial-aid basis. The rule DMNs key off benefit,
  * sub-benefit, and amount type; {@code netAmount} and {@code period} drive period selection and change detection. The
  * serialized JSON keys stay aligned with the downstream Swedish contract.
+ * <p>
+ * {@code days} is a decimal, not a whole number: the SO contract declares {@code Ersattningsdagar} as
+ * {@code xs:decimal} and FK sends partial parental-benefit days, so quarter and half days are native to both formats.
+ * Truncating them to an int silently turned half a day into none, before any rule got to decide what half a day means.
  */
 public record SsbtekIncome(
 	@JsonProperty("forman") String benefit,
@@ -17,7 +21,7 @@ public record SsbtekIncome(
 	LocalDate period,
 	@JsonProperty("periodFran") LocalDate periodFrom,
 	@JsonProperty("periodTill") LocalDate periodTo,
-	@JsonProperty("dagar") Integer days,
+	@JsonProperty("dagar") BigDecimal days,
 	ApplicantRole role) {
 
 	/**

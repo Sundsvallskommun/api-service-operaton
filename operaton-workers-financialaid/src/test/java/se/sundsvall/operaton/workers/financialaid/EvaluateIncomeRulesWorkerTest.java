@@ -15,7 +15,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.operaton.bpm.engine.ExternalTaskService;
 import org.operaton.bpm.engine.externaltask.LockedExternalTask;
 import org.operaton.bpm.engine.variable.Variables;
+import se.sundsvall.operaton.workers.financialaid.rules.AgencyAnswer;
 import se.sundsvall.operaton.workers.financialaid.rules.ChangeWarning;
+import se.sundsvall.operaton.workers.financialaid.rules.ClassifiedAgencyAnswer;
 import se.sundsvall.operaton.workers.financialaid.rules.ClassifiedIncome;
 import se.sundsvall.operaton.workers.financialaid.rules.IncomeRulesEvaluator;
 import se.sundsvall.operaton.workers.financialaid.rules.IncomeRulesResult;
@@ -69,7 +71,7 @@ class EvaluateIncomeRulesWorkerTest {
 		when(task.getVariables()).thenReturn(Variables.createVariables()
 			.putValue("applicationMonth", "2026-06")
 			.putValue("financialAidBasis", BASIS_JSON));
-		when(evaluatorMock.evaluate(anyList(), eq(YearMonth.of(2026, Month.JUNE))))
+		when(evaluatorMock.evaluate(anyList(), anyList(), eq(YearMonth.of(2026, Month.JUNE))))
 			.thenReturn(new IncomeRulesResult(List.of(classified), List.of(change)));
 
 		final var output = worker.handle(task);
@@ -79,6 +81,63 @@ class EvaluateIncomeRulesWorkerTest {
 		assertThat((String) output.get("incomeChangeWarnings"))
 			.isEqualTo("Bostadsbidrag: -23% – Bostadsbidrag föregående månad är inte samma summa som denna månad – kontrollera summan");
 		assertThat((String) output.get("classifiedIncomes")).contains("\"normberakning\":\"Bostadsbidrag\"").contains("\"atgard\":\"TA_MED_KVITTNING\"");
+	}
+
+	@Test
+	void handleSurfacesAnUnverifiableAnswerAsSomethingToHandle() {
+		// No incomes and no change warnings: without the answer, this errand would look perfectly clean while an
+		// a-kassa had in fact not answered at all.
+		final var unverifiable = new ClassifiedAgencyAnswer(
+			new AgencyAnswer("so", "Unionens a-kassa", "9", false, false),
+			"EJ_KONTROLLERBAR", "Statuskodens innebörd är inte fastställd");
+
+		final var task = mock(LockedExternalTask.class);
+		when(task.getVariables()).thenReturn(Variables.createVariables()
+			.putValue("applicationMonth", "2026-06")
+			.putValue("financialAidBasis", BASIS_JSON));
+		when(evaluatorMock.evaluate(anyList(), anyList(), eq(YearMonth.of(2026, Month.JUNE))))
+			.thenReturn(new IncomeRulesResult(List.of(), List.of(), List.of(unverifiable)));
+
+		final var output = worker.handle(task);
+
+		assertThat((Boolean) output.get("incomeHasWarnings")).isTrue();
+		assertThat((String) output.get("incomeUnhandled"))
+			.isEqualTo("A-kassa Unionens a-kassa: kunde inte kontrolleras – Statuskodens innebörd är inte fastställd");
+		assertThat((String) output.get("incomeChangeWarnings")).isEmpty();
+	}
+
+	@Test
+	void handleDoesNotFlagAnAnswerThatWasUsable() {
+		final var answered = new ClassifiedAgencyAnswer(
+			new AgencyAnswer("so", "Unionens a-kassa", "1", false, true), "SVARAT", "Organisationen har lämnat utbetalningar");
+
+		final var task = mock(LockedExternalTask.class);
+		when(task.getVariables()).thenReturn(Variables.createVariables()
+			.putValue("applicationMonth", "2026-06")
+			.putValue("financialAidBasis", BASIS_JSON));
+		when(evaluatorMock.evaluate(anyList(), anyList(), eq(YearMonth.of(2026, Month.JUNE))))
+			.thenReturn(new IncomeRulesResult(List.of(), List.of(), List.of(answered)));
+
+		final var output = worker.handle(task);
+
+		assertThat((Boolean) output.get("incomeHasWarnings")).isFalse();
+		assertThat((String) output.get("incomeUnhandled")).isEmpty();
+	}
+
+	@Test
+	void handleNamesTheOrganisationEvenWhenTheAnswerCarriesNone() {
+		final var anonymous = new ClassifiedAgencyAnswer(
+			new AgencyAnswer("so", null, "9", false, false), "EJ_KONTROLLERBAR", null);
+
+		final var task = mock(LockedExternalTask.class);
+		when(task.getVariables()).thenReturn(Variables.createVariables()
+			.putValue("applicationMonth", "2026-06")
+			.putValue("financialAidBasis", BASIS_JSON));
+		when(evaluatorMock.evaluate(anyList(), anyList(), eq(YearMonth.of(2026, Month.JUNE))))
+			.thenReturn(new IncomeRulesResult(List.of(), List.of(), List.of(anonymous)));
+
+		assertThat((String) worker.handle(task).get("incomeUnhandled"))
+			.isEqualTo("A-kassa (okänd organisation): kunde inte kontrolleras");
 	}
 
 	@Test
@@ -92,7 +151,7 @@ class EvaluateIncomeRulesWorkerTest {
 			.putValue("applicationMonth", "2026-06")
 			.putValue("financialAidBasis", BASIS_JSON)
 			.putValue("coApplicantFinancialAidBasis", BASIS_JSON));
-		when(evaluatorMock.evaluate(anyList(), eq(YearMonth.of(2026, Month.JUNE))))
+		when(evaluatorMock.evaluate(anyList(), anyList(), eq(YearMonth.of(2026, Month.JUNE))))
 			.thenReturn(new IncomeRulesResult(List.of(offList), List.of()));
 
 		final var output = worker.handle(task);
@@ -108,7 +167,7 @@ class EvaluateIncomeRulesWorkerTest {
 		when(task.getVariables()).thenReturn(Variables.createVariables()
 			.putValue("applicationMonth", "2026-06")
 			.putValue("financialAidBasis", BASIS_JSON));
-		when(evaluatorMock.evaluate(anyList(), eq(YearMonth.of(2026, Month.JUNE))))
+		when(evaluatorMock.evaluate(anyList(), anyList(), eq(YearMonth.of(2026, Month.JUNE))))
 			.thenReturn(new IncomeRulesResult(List.of(), List.of()));
 
 		final var output = worker.handle(task);
@@ -127,7 +186,7 @@ class EvaluateIncomeRulesWorkerTest {
 		when(task.getVariables()).thenReturn(Variables.createVariables()
 			.putValue("applicationMonth", "2026-06")
 			.putValue("financialAidBasis", BASIS_JSON));
-		when(evaluatorMock.evaluate(anyList(), eq(YearMonth.of(2026, Month.JUNE))))
+		when(evaluatorMock.evaluate(anyList(), anyList(), eq(YearMonth.of(2026, Month.JUNE))))
 			.thenReturn(new IncomeRulesResult(List.of(), List.of(change)));
 
 		final var output = worker.handle(task);
@@ -147,7 +206,7 @@ class EvaluateIncomeRulesWorkerTest {
 		when(task.getVariables()).thenReturn(Variables.createVariables()
 			.putValue("applicationMonth", "2026-06")
 			.putValue("financialAidBasis", BASIS_JSON));
-		when(evaluatorMock.evaluate(anyList(), eq(YearMonth.of(2026, Month.JUNE))))
+		when(evaluatorMock.evaluate(anyList(), anyList(), eq(YearMonth.of(2026, Month.JUNE))))
 			.thenReturn(new IncomeRulesResult(List.of(), List.of(first, second)));
 
 		final var output = worker.handle(task);

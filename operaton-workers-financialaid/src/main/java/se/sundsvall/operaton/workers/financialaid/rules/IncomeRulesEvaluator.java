@@ -9,6 +9,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import org.operaton.bpm.engine.DecisionService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import static java.util.Optional.ofNullable;
@@ -28,8 +30,11 @@ import static java.util.stream.Stream.concat;
 @Component
 public class IncomeRulesEvaluator {
 
+	private static final Logger LOG = LoggerFactory.getLogger(IncomeRulesEvaluator.class);
+
 	static final String INCOME_ALLOW_LIST_DECISION_KEY = "Decision_inkomstRalista";
 	static final String INCOME_THRESHOLD_DECISION_KEY = "Decision_inkomstTroskel";
+	static final String ANSWER_QUALITY_DECISION_KEY = "Decision_ssbtekSvarKvalitet";
 
 	private static final BigDecimal HUNDRED = BigDecimal.valueOf(100);
 	private static final BigDecimal DEFAULT_THRESHOLD_PERCENT = BigDecimal.valueOf(12);
@@ -48,6 +53,16 @@ public class IncomeRulesEvaluator {
 	 * @return                  the transferable incomes with their per-income verdict, plus benefit-level change warnings
 	 */
 	public IncomeRulesResult evaluate(final List<SsbtekIncome> incomes, final YearMonth applicationMonth) {
+		return evaluate(incomes, List.of(), applicationMonth);
+	}
+
+	/**
+	 * Evaluate the income rules, and classify how far each responding organisation's answer can be trusted.
+	 *
+	 * @param answers the per-organisation answers from {@link SsbtekIncomeExtractor#extractAnswers}; may be {@code null}
+	 */
+	public IncomeRulesResult evaluate(final List<SsbtekIncome> incomes, final List<AgencyAnswer> answers,
+		final YearMonth applicationMonth) {
 		final var present = ofNullable(incomes).orElseGet(List::of).stream().filter(Objects::nonNull).toList();
 		final var periods = SsbtekPeriods.forApplicationMonth(applicationMonth);
 
@@ -57,7 +72,45 @@ public class IncomeRulesEvaluator {
 			transferable.comparisonPeriodFallback().stream().map(income -> classify(income, true)))
 			.toList();
 
-		return new IncomeRulesResult(classified, detectChanges(present, periods));
+		return new IncomeRulesResult(classified, detectChanges(present, periods), classifyAnswers(answers));
+	}
+
+	/**
+	 * The per-organisation quality verdict from {@code Decision_ssbtekSvarKvalitet}.
+	 * <p>
+	 * When the table is not deployed, or returns nothing for a status, the answer degrades to
+	 * {@code EJ_KONTROLLERBAR} rather than being assumed good. A missing regelverk must not read as "everything
+	 * answered" - that is precisely the silent false negative this classification exists to prevent.
+	 */
+	private List<ClassifiedAgencyAnswer> classifyAnswers(final List<AgencyAnswer> answers) {
+		return ofNullable(answers).orElseGet(List::of).stream()
+			.filter(Objects::nonNull)
+			.map(this::classifyAnswer)
+			.toList();
+	}
+
+	private ClassifiedAgencyAnswer classifyAnswer(final AgencyAnswer answer) {
+		final Map<String, Object> row;
+		try {
+			row = evaluateFirst(ANSWER_QUALITY_DECISION_KEY, Map.of(
+				"status", nullToEmpty(answer.status()),
+				"ansokningsuppgiftFinns", answer.applicationInfoPresent(),
+				"utbetalningarFinns", answer.paymentsPresent()));
+		} catch (final RuntimeException e) {
+			// The table is not published yet, or the engine refused it. Degrade rather than fail the whole
+			// evaluation: an unavailable regelverk means we cannot vouch for the answer, not that it was fine.
+			LOG.warn("Could not evaluate {} for {} ({}) - treating the answer as unverifiable: {}",
+				ANSWER_QUALITY_DECISION_KEY, answer.organisation(), answer.agency(), e.getMessage());
+			return new ClassifiedAgencyAnswer(answer, ClassifiedAgencyAnswer.QUALITY_UNVERIFIABLE,
+				"Regelverket för svarskvalitet kunde inte utvärderas");
+		}
+		final var quality = ofNullable(str(row.get("kvalitet")))
+			.filter(text -> !text.isBlank())
+			.orElse(ClassifiedAgencyAnswer.QUALITY_UNVERIFIABLE);
+		final var rule = ofNullable(str(row.get("regel")))
+			.filter(text -> !text.isBlank())
+			.orElse(null);
+		return new ClassifiedAgencyAnswer(answer, quality, rule);
 	}
 
 	/** The two transferable groups, kept apart so caremanagement can filter the fallbacks against the previous month. */

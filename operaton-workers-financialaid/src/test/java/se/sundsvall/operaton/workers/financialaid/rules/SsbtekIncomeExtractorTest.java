@@ -56,7 +56,7 @@ class SsbtekIncomeExtractorTest {
 
 		assertThat(income.subBenefit()).isEqualTo("Bostadsbidrag");
 		assertThat(income.amountType()).isEqualTo("Avdrag Soc");
-		assertThat(income.days()).isEqualTo(30);
+		assertThat(income.days()).isEqualByComparingTo("30");
 		// the payment date and the period it covers are different months - both are carried
 		assertThat(income.period()).isEqualTo(LocalDate.of(2026, Month.MAY, 25));
 		assertThat(income.periodFrom()).isEqualTo(LocalDate.of(2026, Month.APRIL, 1));
@@ -120,7 +120,7 @@ class SsbtekIncomeExtractorTest {
 		assertThat(income.periodFrom()).isEqualTo(LocalDate.of(2026, Month.APRIL, 1));
 		assertThat(income.periodTo()).isEqualTo(LocalDate.of(2026, Month.APRIL, 30));
 		// the schema types this as a decimal; it is a day count
-		assertThat(income.days()).isEqualTo(22);
+		assertThat(income.days()).isEqualByComparingTo("22");
 	}
 
 	@Test

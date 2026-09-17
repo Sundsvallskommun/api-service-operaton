@@ -82,7 +82,7 @@ public final class SsbtekIncomeExtractor {
 					date(payment.get("datum")),
 					date(period.get("fran")),
 					date(period.get("till")),
-					integer(detail.get("dagar")),
+					decimal(detail.get("dagar")),
 					role));
 			}
 		}
@@ -103,33 +103,55 @@ public final class SsbtekIncomeExtractor {
 					incomes.add(new SsbtekIncome("Arbetslöshetsersättning", null, null, amount,
 						date(payment.get("Utbetalningsdatum")),
 						date(payment.get("AvserFrom")), date(payment.get("AvserTom")),
-						integer(payment.get("Ersattningsdagar")), role));
+						decimal(payment.get("Ersattningsdagar")), role));
 				}
 			}
 		}
 		return incomes;
 	}
 
+	/**
+	 * Extract each responding organisation's answer <em>quality inputs</em> from one person's SSBTEK basis.
+	 * <p>
+	 * Kept separate from the incomes on purpose: an organisation that could not answer contributes no incomes, and a
+	 * caller that only looks at the income list cannot tell that apart from an organisation that answered "this person
+	 * has nothing with us". Reading the payments without reading the status is how an unanswerable a-kassa silently
+	 * becomes "ingen a-kassa-inkomst" in the normberäkning.
+	 * <p>
+	 * The status codes are <em>not</em> interpreted here - {@code Decision_ssbtekSvarKvalitet} does that, at runtime.
+	 *
+	 * @param  agencyBasis the per-agency SSBTEK basis (af/csn/fk/skv/so/tns/miv); may be {@code null}
+	 * @return             one entry per responding organisation, in the order SSBTEK returned them
+	 */
+	public static List<AgencyAnswer> extractAnswers(final Map<String, ?> agencyBasis) {
+		if (agencyBasis == null) {
+			return List.of();
+		}
+		return extractUnemploymentBenefitAnswers(asMap(agencyBasis.get(AGENCY_SO)));
+	}
+
+	/**
+	 * so -> ArbetsloshetsersattningLista -> Arbetsloshetsersattning(*) -> SvarandeOrganisation /
+	 * StatusSvarandeOrganisation.
+	 */
+	private static List<AgencyAnswer> extractUnemploymentBenefitAnswers(final Map<String, Object> so) {
+		final var answers = new ArrayList<AgencyAnswer>();
+		for (final var benefitItem : asList(asMap(so.get("ArbetsloshetsersattningLista")).get("Arbetsloshetsersattning"))) {
+			final var benefit = asMap(benefitItem);
+			answers.add(new AgencyAnswer(
+				AGENCY_SO,
+				str(benefit.get("SvarandeOrganisation")),
+				str(benefit.get("StatusSvarandeOrganisation")),
+				benefit.get("AnsoktOmErsattning") != null,
+				!asList(benefit.get("Utbetalningar")).isEmpty()));
+		}
+		return List.copyOf(answers);
+	}
+
 	/** The Swedish label of a LEFI letter code ({@code beskrivning}), falling back to the raw code. */
 	private static String code(final Object value) {
 		final var map = asMap(value);
 		return ofNullable(str(map.get("beskrivning"))).orElseGet(() -> str(map.get("id")));
-	}
-
-	/** A whole number from a LEFI integer or an SSBTEK decimal ("2"), or {@code null} when absent or unreadable. */
-	private static Integer integer(final Object value) {
-		if (value instanceof final Number number) {
-			return number.intValue();
-		}
-		return ofNullable(str(value))
-			.map(text -> {
-				try {
-					return new BigDecimal(text).intValue();
-				} catch (final NumberFormatException e) {
-					return null;
-				}
-			})
-			.orElse(null);
 	}
 
 	// ---- defensive untyped-map navigation -----------------------------------------------------------------------------
