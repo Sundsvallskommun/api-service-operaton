@@ -14,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import se.sundsvall.dept44.scheduling.Dept44Scheduled;
+import se.sundsvall.operaton.workers.financialaid.rules.ChangeWarning;
 import se.sundsvall.operaton.workers.financialaid.rules.ClassifiedIncome;
 import se.sundsvall.operaton.workers.financialaid.rules.IncomeRulesEvaluator;
 import se.sundsvall.operaton.workers.financialaid.rules.SsbtekIncome;
@@ -21,6 +22,7 @@ import se.sundsvall.operaton.workers.financialaid.rules.SsbtekIncomeExtractor;
 import se.sundsvall.operaton.workers.framework.AbstractTopicWorker;
 import se.sundsvall.operaton.workers.framework.annotation.TopicWorker;
 
+import static org.springframework.util.StringUtils.hasText;
 import static se.sundsvall.operaton.workers.financialaid.rules.ApplicantRole.APPLICANT;
 import static se.sundsvall.operaton.workers.financialaid.rules.ApplicantRole.CO_APPLICANT;
 
@@ -91,7 +93,7 @@ public class EvaluateIncomeRulesWorker extends AbstractTopicWorker {
 			.distinct()
 			.toList();
 		final var changeWarnings = result.changeWarnings().stream()
-			.map(warning -> warning.benefit() + ": " + warning.changePercent() + "%")
+			.map(EvaluateIncomeRulesWorker::render)
 			.toList();
 		final var hasWarnings = !unhandled.isEmpty() || !changeWarnings.isEmpty();
 
@@ -103,6 +105,26 @@ public class EvaluateIncomeRulesWorker extends AbstractTopicWorker {
 
 		LOG.info("Income rules evaluated ({} transferable incomes, warnings: {})", result.classified().size(), hasWarnings);
 		return output;
+	}
+
+	/**
+	 * The case worker's one-line rendering of a change warning: the change in percent, or the two sums when there is no
+	 * comparison sum to take a percentage of, followed by verksamhetens warning text from the DMN when the deployed
+	 * table carries one.
+	 */
+	private static String render(final ChangeWarning warning) {
+		final var change = warning.benefit() + ": " + changeText(warning);
+		if (hasText(warning.rule())) {
+			return change + " – " + warning.rule();
+		}
+		return change;
+	}
+
+	private static String changeText(final ChangeWarning warning) {
+		if (warning.changePercent() == null) {
+			return warning.comparisonSum() + " kr → " + warning.controlSum() + " kr";
+		}
+		return warning.changePercent() + "%";
 	}
 
 	private Map<String, Object> parseBasis(final String json) {

@@ -31,7 +31,10 @@ public record SsbtekIncome(
 	 * split over several detail rows and for agencies that send no period at all.
 	 */
 	public LocalDate attributionDate() {
-		return (periodFrom != null) ? periodFrom : period;
+		if (periodFrom != null) {
+			return periodFrom;
+		}
+		return period;
 	}
 
 	/** The payment-date-only shape, for callers that have no period or day information. */

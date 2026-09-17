@@ -72,7 +72,7 @@ public final class SsbtekIncomeExtractor {
 				final var benefitFamily = asMap(payment.get("formansfamilj"));
 				final var benefit = ofNullable(str(benefitFamily.get("beskrivning"))).orElseGet(() -> str(benefitFamily.get("id")));
 				final var details = asList(payment.get("utbetalningsdetalj"));
-				final var detail = (details.size() == 1) ? asMap(details.getFirst()) : Map.<String, Object>of();
+				final var detail = singleDetail(details);
 				final var period = asMap(payment.get("period"));
 				incomes.add(new SsbtekIncome(
 					benefit,
@@ -155,6 +155,14 @@ public final class SsbtekIncomeExtractor {
 
 	private static String str(final Object value) {
 		return ofNullable(value).map(Object::toString).map(String::trim).filter(text -> !text.isEmpty()).orElse(null);
+	}
+
+	/** The single detail row's fields, or nothing at all when the payment is split over several rows. */
+	private static Map<String, Object> singleDetail(final List<Object> details) {
+		if (details.size() == 1) {
+			return asMap(details.getFirst());
+		}
+		return Map.of();
 	}
 
 	private static BigDecimal decimal(final Object value) {

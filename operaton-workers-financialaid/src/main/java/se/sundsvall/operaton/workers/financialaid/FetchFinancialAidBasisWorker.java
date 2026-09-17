@@ -13,6 +13,8 @@ import se.sundsvall.dept44.scheduling.Dept44Scheduled;
 import se.sundsvall.operaton.workers.framework.AbstractTopicWorker;
 import se.sundsvall.operaton.workers.framework.annotation.TopicWorker;
 
+import static java.util.Optional.ofNullable;
+
 @Component
 @TopicWorker(
 	topic = "fetch-financial-aid-basis",
@@ -79,7 +81,7 @@ public class FetchFinancialAidBasisWorker extends AbstractTopicWorker {
 
 		final String basisJson;
 		try {
-			basisJson = objectMapper.writeValueAsString(response == null ? Map.of() : response);
+			basisJson = objectMapper.writeValueAsString(ofNullable(response).orElseGet(Map::of));
 		} catch (final JsonProcessingException e) {
 			throw new IllegalStateException("Failed to serialize financial-aid basis to JSON", e);
 		}

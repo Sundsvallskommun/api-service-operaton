@@ -62,7 +62,8 @@ class EvaluateIncomeRulesWorkerTest {
 		final var classified = new ClassifiedIncome(
 			new SsbtekIncome("Bostadsbidrag", null, null, new BigDecimal("1850"), LocalDate.of(2026, Month.MAY, 15), APPLICANT),
 			"TA_MED_KVITTNING", "Bostadsbidrag", false, "Ta med kvittning");
-		final var change = new ChangeWarning("Bostadsbidrag", new BigDecimal("-23"), new BigDecimal("2400"), new BigDecimal("1850"));
+		final var change = new ChangeWarning("Bostadsbidrag", new BigDecimal("-23"), new BigDecimal("2400"), new BigDecimal("1850"),
+			"Bostadsbidrag föregående månad är inte samma summa som denna månad – kontrollera summan");
 
 		final var task = mock(LockedExternalTask.class);
 		when(task.getVariables()).thenReturn(Variables.createVariables()
@@ -75,7 +76,8 @@ class EvaluateIncomeRulesWorkerTest {
 
 		assertThat((Boolean) output.get("incomeHasWarnings")).isTrue();
 		assertThat((String) output.get("incomeUnhandled")).isEmpty();
-		assertThat((String) output.get("incomeChangeWarnings")).contains("Bostadsbidrag: -23%");
+		assertThat((String) output.get("incomeChangeWarnings"))
+			.isEqualTo("Bostadsbidrag: -23% – Bostadsbidrag föregående månad är inte samma summa som denna månad – kontrollera summan");
 		assertThat((String) output.get("classifiedIncomes")).contains("\"normberakning\":\"Bostadsbidrag\"").contains("\"atgard\":\"TA_MED_KVITTNING\"");
 	}
 
@@ -113,6 +115,44 @@ class EvaluateIncomeRulesWorkerTest {
 
 		assertThat((Boolean) output.get("incomeHasWarnings")).isFalse();
 		assertThat((String) output.get("classifiedIncomes")).isEqualTo("[]");
+	}
+
+	@Test
+	void handleRendersTheTwoSumsWhenThereIsNoPercentToShow() {
+		// the exact comparison warns on a benefit that only exists this month, and a percentage of zero says nothing
+		final var change = new ChangeWarning("Bostadsbidrag", null, BigDecimal.ZERO, new BigDecimal("4500"),
+			"Bostadsbidrag föregående månad är inte samma summa som denna månad – kontrollera summan");
+
+		final var task = mock(LockedExternalTask.class);
+		when(task.getVariables()).thenReturn(Variables.createVariables()
+			.putValue("applicationMonth", "2026-06")
+			.putValue("financialAidBasis", BASIS_JSON));
+		when(evaluatorMock.evaluate(anyList(), eq(YearMonth.of(2026, Month.JUNE))))
+			.thenReturn(new IncomeRulesResult(List.of(), List.of(change)));
+
+		final var output = worker.handle(task);
+
+		assertThat((Boolean) output.get("incomeHasWarnings")).isTrue();
+		assertThat((String) output.get("incomeChangeWarnings"))
+			.isEqualTo("Bostadsbidrag: 0 kr → 4500 kr – Bostadsbidrag föregående månad är inte samma summa som denna månad – kontrollera summan");
+	}
+
+	@Test
+	void handleRendersPlainPercentWhenTheDmnCarriesNoRuleText() {
+		// the threshold table published before 2026-09-17 has no regel output
+		final var first = new ChangeWarning("Bostadsbidrag", new BigDecimal("-23"), new BigDecimal("2400"), new BigDecimal("1850"), null);
+		final var second = new ChangeWarning("Dagersättning", new BigDecimal("15"), new BigDecimal("4000"), new BigDecimal("4600"), "   ");
+
+		final var task = mock(LockedExternalTask.class);
+		when(task.getVariables()).thenReturn(Variables.createVariables()
+			.putValue("applicationMonth", "2026-06")
+			.putValue("financialAidBasis", BASIS_JSON));
+		when(evaluatorMock.evaluate(anyList(), eq(YearMonth.of(2026, Month.JUNE))))
+			.thenReturn(new IncomeRulesResult(List.of(), List.of(first, second)));
+
+		final var output = worker.handle(task);
+
+		assertThat((String) output.get("incomeChangeWarnings")).isEqualTo("Bostadsbidrag: -23%; Dagersättning: 15%");
 	}
 
 	@Test

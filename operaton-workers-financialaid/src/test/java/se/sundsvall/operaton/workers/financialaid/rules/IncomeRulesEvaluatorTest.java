@@ -41,6 +41,11 @@ class IncomeRulesEvaluatorTest {
 		when(result.getResultList()).thenReturn(List.of(resultRow));
 	}
 
+	/** The threshold table as verksamheten published it 2026-09-17: exact comparison plus the warning text. */
+	private void stubExactThreshold(final String rule) {
+		stubDecision(INCOME_THRESHOLD_DECISION_KEY, Map.of("troskelProcent", 0, "riktning", "ner_upp", "regel", rule));
+	}
+
 	private static SsbtekIncome income(final String benefit, final String period, final String amount) {
 		return new SsbtekIncome(benefit, null, null, new BigDecimal(amount), LocalDate.parse(period), APPLICANT);
 	}
@@ -54,6 +59,7 @@ class IncomeRulesEvaluatorTest {
 	@Test
 	void attributesAnIncomeToThePeriodItCoversRatherThanTheDayItWasPaid() {
 		stubDecision(INCOME_ALLOW_LIST_DECISION_KEY, Map.of("atgard", "TA_MED", "normberakning", "Bostadsbidrag", "varning", false, "regel", "Ta med"));
+		stubDecision(INCOME_THRESHOLD_DECISION_KEY, Map.of("troskelProcent", 12));
 
 		// application month October → control period September. Paid 2 October, but it is September's money.
 		final var result = evaluator.evaluate(
@@ -68,6 +74,7 @@ class IncomeRulesEvaluatorTest {
 	@Test
 	void stillFallsBackToThePaymentDateWhenThePayloadCarriesNoPeriod() {
 		stubDecision(INCOME_ALLOW_LIST_DECISION_KEY, Map.of("atgard", "TA_MED", "normberakning", "Barnbidrag", "varning", false, "regel", "Ta med"));
+		stubDecision(INCOME_THRESHOLD_DECISION_KEY, Map.of("troskelProcent", 12));
 
 		// payments split over several detail rows carry no single period; the payment date has to stand in
 		final var result = evaluator.evaluate(
@@ -103,6 +110,118 @@ class IncomeRulesEvaluatorTest {
 		assertThat(result.changeWarnings()).hasSize(1);
 		assertThat(result.changeWarnings().getFirst().benefit()).isEqualTo("Bostadsbidrag");
 		assertThat(result.changeWarnings().getFirst().changePercent()).isEqualByComparingTo("-23");
+	}
+
+	@Test
+	void anExactThresholdWarnsOnSumsThatDifferByLessThanARoundedPercent() {
+		stubDecision(INCOME_ALLOW_LIST_DECISION_KEY, Map.of("atgard", "TA_MED", "normberakning", "Barnbidrag", "varning", false, "regel", "Ta med"));
+		stubExactThreshold("Barnbidrag föregående månad är inte samma summa som denna månad – kontrollera summan");
+
+		// 1250 -> 1255 kr is 0,4 % and rounds to 0 %; the exact comparison is what catches it
+		final var result = evaluator.evaluate(List.of(
+			income("Allmänt barnbidrag", "2026-05-20", "1255"),
+			income("Allmänt barnbidrag", "2026-04-20", "1250")),
+			YearMonth.of(2026, Month.JUNE));
+
+		assertThat(result.changeWarnings()).hasSize(1);
+		final var warning = result.changeWarnings().getFirst();
+		assertThat(warning.benefit()).isEqualTo("Allmänt barnbidrag");
+		assertThat(warning.changePercent()).isEqualByComparingTo("0");
+		assertThat(warning.comparisonSum()).isEqualByComparingTo("1250");
+		assertThat(warning.controlSum()).isEqualByComparingTo("1255");
+		assertThat(warning.rule()).isEqualTo("Barnbidrag föregående månad är inte samma summa som denna månad – kontrollera summan");
+	}
+
+	@Test
+	void anExactThresholdIsQuietWhenTheSumsAreTheSame() {
+		stubDecision(INCOME_ALLOW_LIST_DECISION_KEY, Map.of("atgard", "TA_MED", "normberakning", "Barnbidrag", "varning", false, "regel", "Ta med"));
+		stubExactThreshold("Barnbidrag föregående månad är inte samma summa som denna månad – kontrollera summan");
+
+		// same amount, different scale - "samma summa" is about the value, not how SSBTEK wrote it
+		final var result = evaluator.evaluate(List.of(
+			income("Allmänt barnbidrag", "2026-05-20", "1250.00"),
+			income("Allmänt barnbidrag", "2026-04-20", "1250")),
+			YearMonth.of(2026, Month.JUNE));
+
+		assertThat(result.changeWarnings()).isEmpty();
+	}
+
+	@Test
+	void anExactThresholdTreatsAMissingComparisonSumAsZero() {
+		stubDecision(INCOME_ALLOW_LIST_DECISION_KEY, Map.of("atgard", "TA_MED", "normberakning", "Bostadsbidrag", "varning", false, "regel", "Ta med"));
+		stubExactThreshold("Bostadsbidrag föregående månad är inte samma summa som denna månad – kontrollera summan");
+
+		// the benefit is new this month: nothing in the comparison period, so that side is 0
+		final var result = evaluator.evaluate(List.of(
+			income("Bostadsbidrag", "2026-05-15", "4500")),
+			YearMonth.of(2026, Month.JUNE));
+
+		assertThat(result.changeWarnings()).hasSize(1);
+		final var warning = result.changeWarnings().getFirst();
+		assertThat(warning.comparisonSum()).isEqualByComparingTo("0");
+		assertThat(warning.controlSum()).isEqualByComparingTo("4500");
+		// there is no comparison sum to take a percentage of
+		assertThat(warning.changePercent()).isNull();
+	}
+
+	@Test
+	void anExactThresholdTreatsAMissingControlSumAsZero() {
+		stubDecision(INCOME_ALLOW_LIST_DECISION_KEY, Map.of("atgard", "TA_MED", "normberakning", "Underhållsstöd", "varning", false, "regel", "Ta med"));
+		stubExactThreshold("Underhållsstöd föregående månad är inte samma summa som denna månad – kontrollera summan");
+
+		// the benefit is gone this month - it only exists in the comparison period
+		final var result = evaluator.evaluate(List.of(
+			income("Underhållsstöd", "2026-04-20", "1673")),
+			YearMonth.of(2026, Month.JUNE));
+
+		assertThat(result.changeWarnings()).hasSize(1);
+		final var warning = result.changeWarnings().getFirst();
+		assertThat(warning.benefit()).isEqualTo("Underhållsstöd");
+		assertThat(warning.comparisonSum()).isEqualByComparingTo("1673");
+		assertThat(warning.controlSum()).isEqualByComparingTo("0");
+		assertThat(warning.changePercent()).isEqualByComparingTo("-100");
+	}
+
+	@Test
+	void aPercentThresholdStillSkipsTheBenefitWithNothingToComparePercentAgainst() {
+		stubDecision(INCOME_ALLOW_LIST_DECISION_KEY, Map.of("atgard", "TA_MED", "normberakning", "Dagersättning", "varning", false, "regel", "Ta med"));
+		stubDecision(INCOME_THRESHOLD_DECISION_KEY, Map.of("troskelProcent", 12, "regel", "Dagersättning skiljer sig mer än 12 %"));
+
+		// only in the control period, and a percentage of zero is undefined - the 12 % benefits keep being skipped
+		final var result = evaluator.evaluate(List.of(
+			income("Dagersättning", "2026-05-10", "5000")),
+			YearMonth.of(2026, Month.JUNE));
+
+		assertThat(result.changeWarnings()).isEmpty();
+	}
+
+	@Test
+	void toleratesAThresholdTableWithNoRuleText() {
+		stubDecision(INCOME_ALLOW_LIST_DECISION_KEY, Map.of("atgard", "TA_MED", "normberakning", "Bostadsbidrag", "varning", false, "regel", "Ta med"));
+		// the table published before 2026-09-17 has no regel output at all
+		stubDecision(INCOME_THRESHOLD_DECISION_KEY, Map.of("troskelProcent", 12, "riktning", "ner_upp"));
+
+		final var result = evaluator.evaluate(List.of(
+			income("Bostadsbidrag", "2026-05-15", "1850"),
+			income("Bostadsbidrag", "2026-04-15", "2400")),
+			YearMonth.of(2026, Month.JUNE));
+
+		assertThat(result.changeWarnings()).hasSize(1);
+		assertThat(result.changeWarnings().getFirst().rule()).isNull();
+	}
+
+	@Test
+	void fallsBackToTheDefaultThresholdWhenTheTableGivesNoPercent() {
+		stubDecision(INCOME_ALLOW_LIST_DECISION_KEY, Map.of("atgard", "TA_MED", "normberakning", "Bostadsbidrag", "varning", false, "regel", "Ta med"));
+		stubDecision(INCOME_THRESHOLD_DECISION_KEY, Map.of("riktning", "ner_upp"));
+
+		// no troskelProcent at all falls back to 12 %, so a 10 % change stays quiet
+		final var result = evaluator.evaluate(List.of(
+			income("Bostadsbidrag", "2026-05-15", "2200"),
+			income("Bostadsbidrag", "2026-04-15", "2000")),
+			YearMonth.of(2026, Month.JUNE));
+
+		assertThat(result.changeWarnings()).isEmpty();
 	}
 
 	@Test

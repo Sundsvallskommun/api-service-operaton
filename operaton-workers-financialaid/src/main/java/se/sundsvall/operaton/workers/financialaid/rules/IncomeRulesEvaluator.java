@@ -6,6 +6,7 @@ import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import org.operaton.bpm.engine.DecisionService;
 import org.springframework.stereotype.Component;
@@ -83,34 +84,98 @@ public class IncomeRulesEvaluator {
 			Boolean.TRUE.equals(row.get("varning")), str(row.get("regel")), fromComparisonPeriod);
 	}
 
-	/** Per-benefit change warnings: comparison vs control net sum, flagged when the change exceeds the DMN threshold. */
+	/**
+	 * Per-benefit change warnings: the comparison period net sum against the control period net sum, flagged according to
+	 * the threshold {@code Decision_inkomstTroskel} gives for the benefit. Every benefit seen in either period is
+	 * compared - a benefit that only exists on one side has 0 on the other, per verksamhetens "finns inte summa, sätt
+	 * till 0" (Regelverk Drakel 2026-09-17), so both a new and a vanished benefit can warn.
+	 */
 	private List<ChangeWarning> detectChanges(final List<SsbtekIncome> present, final SsbtekPeriods periods) {
-		final var controlSums = sumByBenefit(present.stream().filter(income -> periods.isInControlPeriod(income.attributionDate())).toList());
+		final var controlPeriodIncomes = present.stream().filter(income -> periods.isInControlPeriod(income.attributionDate())).toList();
 		final var comparisonPeriodIncomes = present.stream().filter(income -> periods.isInComparisonPeriod(income.attributionDate())).toList();
-		final var displayNames = comparisonPeriodIncomes.stream().collect(toMap(income -> normalize(income.benefit()), SsbtekIncome::benefit, (first, second) -> first));
+		final var controlSums = sumByBenefit(controlPeriodIncomes);
+		final var comparisonSums = sumByBenefit(comparisonPeriodIncomes);
+		final var displayNames = displayNames(concat(comparisonPeriodIncomes.stream(), controlPeriodIncomes.stream()).toList());
 
-		return sumByBenefit(comparisonPeriodIncomes).entrySet().stream()
-			.filter(entry -> entry.getValue().signum() != 0)
-			.map(entry -> {
-				final var comparisonSum = entry.getValue();
-				final var controlSum = controlSums.getOrDefault(entry.getKey(), BigDecimal.ZERO);
-				final var changePercent = controlSum.subtract(comparisonSum).multiply(HUNDRED)
-					.divide(comparisonSum.abs(), 0, RoundingMode.HALF_UP);
-				return new ChangeWarning(displayNames.get(entry.getKey()), changePercent, comparisonSum, controlSum);
-			})
-			.filter(warning -> warning.changePercent().abs().compareTo(thresholdFor(warning.benefit())) > 0)
+		return concat(comparisonSums.keySet().stream(), controlSums.keySet().stream()).distinct().sorted()
+			.flatMap(benefit -> warningFor(displayNames.get(benefit),
+				comparisonSums.getOrDefault(benefit, BigDecimal.ZERO),
+				controlSums.getOrDefault(benefit, BigDecimal.ZERO)).stream())
 			.toList();
 	}
 
-	private BigDecimal thresholdFor(final String benefit) {
-		return ofNullable(evaluateFirst(INCOME_THRESHOLD_DECISION_KEY, Map.of("forman", nullToEmpty(benefit))).get("troskelProcent"))
+	/** The warning for one benefit, when the threshold from the DMN says the change is worth flagging. */
+	private Optional<ChangeWarning> warningFor(final String benefit, final BigDecimal comparisonSum, final BigDecimal controlSum) {
+		final var threshold = thresholdFor(benefit);
+		if (threshold.isExact()) {
+			return exactWarning(benefit, comparisonSum, controlSum, threshold);
+		}
+		return percentWarning(benefit, comparisonSum, controlSum, threshold);
+	}
+
+	/**
+	 * Threshold 0 is verksamhetens exact comparison - "om samma summa = ingen varning, om olika summa = generera
+	 * varning". It has to compare the sums themselves rather than the rounded percent: a 1250 -> 1255 kr change is 0,4 %,
+	 * rounds to 0 %, and would slip past a percent comparison.
+	 */
+	private static Optional<ChangeWarning> exactWarning(final String benefit, final BigDecimal comparisonSum,
+		final BigDecimal controlSum, final Threshold threshold) {
+		if (controlSum.compareTo(comparisonSum) == 0) {
+			return Optional.empty();
+		}
+		return Optional.of(new ChangeWarning(benefit, changePercentOrNull(comparisonSum, controlSum), comparisonSum, controlSum, threshold.rule()));
+	}
+
+	/** The percent comparison for the benefits verksamheten still allows a tolerance for. */
+	private static Optional<ChangeWarning> percentWarning(final String benefit, final BigDecimal comparisonSum,
+		final BigDecimal controlSum, final Threshold threshold) {
+		if (comparisonSum.signum() == 0) {
+			// a percentage of nothing says nothing; only the exact comparison can judge these
+			return Optional.empty();
+		}
+		final var changePercent = changePercent(comparisonSum, controlSum);
+		if (changePercent.abs().compareTo(threshold.percent()) <= 0) {
+			return Optional.empty();
+		}
+		return Optional.of(new ChangeWarning(benefit, changePercent, comparisonSum, controlSum, threshold.rule()));
+	}
+
+	/** The change in percent, or {@code null} when there is no comparison sum to express it as a share of. */
+	private static BigDecimal changePercentOrNull(final BigDecimal comparisonSum, final BigDecimal controlSum) {
+		if (comparisonSum.signum() == 0) {
+			return null;
+		}
+		return changePercent(comparisonSum, controlSum);
+	}
+
+	private static BigDecimal changePercent(final BigDecimal comparisonSum, final BigDecimal controlSum) {
+		return controlSum.subtract(comparisonSum).multiply(HUNDRED).divide(comparisonSum.abs(), 0, RoundingMode.HALF_UP);
+	}
+
+	/** The threshold percent plus verksamhetens warning text from {@code Decision_inkomstTroskel}. */
+	private record Threshold(BigDecimal percent, String rule) {
+
+		/** Threshold 0 means "the sums must be identical", not "the rounded percent must be 0". */
+		boolean isExact() {
+			return percent.signum() == 0;
+		}
+	}
+
+	private Threshold thresholdFor(final String benefit) {
+		final var row = evaluateFirst(INCOME_THRESHOLD_DECISION_KEY, Map.of("forman", nullToEmpty(benefit)));
+		final var percent = ofNullable(row.get("troskelProcent"))
 			.map(value -> new BigDecimal(value.toString()))
 			.orElse(DEFAULT_THRESHOLD_PERCENT);
+		// regel is absent in tables published before 2026-09-17 - the warning then carries no verksamhetstext
+		return new Threshold(percent, str(row.get("regel")));
 	}
 
 	private Map<String, Object> evaluateFirst(final String decisionKey, final Map<String, Object> variables) {
 		final var rows = decisionService.evaluateDecisionByKey(decisionKey).variables(variables).evaluate().getResultList();
-		return rows.isEmpty() ? Map.of() : rows.getFirst();
+		if (rows.isEmpty()) {
+			return Map.of();
+		}
+		return rows.getFirst();
 	}
 
 	private static Map<String, BigDecimal> sumByBenefit(final List<SsbtekIncome> incomes) {
@@ -120,15 +185,30 @@ public class IncomeRulesEvaluator {
 				mapping(SsbtekIncome::netAmount, reducing(BigDecimal.ZERO, BigDecimal::add))));
 	}
 
+	/** The benefit name as SSBTEK spelled it, keyed by its normalized form, for the warnings the case worker reads. */
+	private static Map<String, String> displayNames(final List<SsbtekIncome> incomes) {
+		return incomes.stream().collect(toMap(income -> normalize(income.benefit()),
+			income -> nullToEmpty(income.benefit()), (first, second) -> first));
+	}
+
 	private static String normalize(final String value) {
-		return value == null ? "" : value.trim().toLowerCase();
+		if (value == null) {
+			return "";
+		}
+		return value.trim().toLowerCase();
 	}
 
 	private static String nullToEmpty(final String value) {
-		return value == null ? "" : value;
+		if (value == null) {
+			return "";
+		}
+		return value;
 	}
 
 	private static String str(final Object value) {
-		return value == null ? null : value.toString();
+		if (value == null) {
+			return null;
+		}
+		return value.toString();
 	}
 }
