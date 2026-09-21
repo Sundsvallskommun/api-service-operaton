@@ -16,11 +16,11 @@ class SsbtekIncomeExtractorTest {
 	@Test
 	void extractsSocialInsuranceAndUnemploymentBenefitPayments() {
 		final Map<String, Object> basis = Map.of(
-			"fk", Map.of("utbetalningar", List.of(Map.of(
+			"fk", Map.of("formansinformation", Map.of("utbetalningsuppgift", List.of(Map.of(
 				"nettobelopp", Map.of("summa", "1850"),
 				"datum", "2026-05-15",
 				"formansfamilj", Map.of("beskrivning", "Bostadsbidrag"),
-				"typ", Map.of("beskrivning", "Månad")))),
+				"typ", Map.of("beskrivning", "Månad"))))),
 			"so", Map.of("ArbetsloshetsersattningLista", Map.of("Arbetsloshetsersattning", List.of(
 				Map.of("Utbetalningar", List.of(Map.of("NettoEfterSkatt", "3200", "Utbetalningsdatum", "2026-05-20")))))));
 
@@ -41,7 +41,7 @@ class SsbtekIncomeExtractorTest {
 
 	@Test
 	void liftsSubBenefitAmountTypeAndDaysFromTheSingleDetailRow() {
-		final Map<String, Object> basis = Map.of("fk", Map.of("utbetalningar", List.of(Map.of(
+		final Map<String, Object> basis = Map.of("fk", Map.of("formansinformation", Map.of("utbetalningsuppgift", List.of(Map.of(
 			"nettobelopp", Map.of("summa", "4500"),
 			"datum", "2026-05-25",
 			"period", Map.of("fran", "2026-04-01", "till", "2026-04-30"),
@@ -50,7 +50,7 @@ class SsbtekIncomeExtractorTest {
 			"utbetalningsdetalj", List.of(Map.of(
 				"forman", Map.of("beskrivning", "Bostadsbidrag"),
 				"beloppstyp", Map.of("beskrivning", "Avdrag Soc"),
-				"dagar", 30))))));
+				"dagar", 30)))))));
 
 		final var income = SsbtekIncomeExtractor.extract(basis, APPLICANT).getFirst();
 
@@ -66,14 +66,14 @@ class SsbtekIncomeExtractorTest {
 
 	@Test
 	void leavesDetailFieldsUnsetWhenThePaymentIsSplitOverSeveralRows() {
-		final Map<String, Object> basis = Map.of("fk", Map.of("utbetalningar", List.of(Map.of(
+		final Map<String, Object> basis = Map.of("fk", Map.of("formansinformation", Map.of("utbetalningsuppgift", List.of(Map.of(
 			"nettobelopp", Map.of("summa", "4500"),
 			"datum", "2026-05-25",
 			"period", Map.of("fran", "2026-04-01", "till", "2026-04-30"),
 			"formansfamilj", Map.of("beskrivning", "Bostadsbidrag"),
 			"utbetalningsdetalj", List.of(
 				Map.of("forman", Map.of("beskrivning", "Bostadsbidrag"), "beloppstyp", Map.of("beskrivning", "Preliminärt bostadsbidrag"), "dagar", 30),
-				Map.of("forman", Map.of("beskrivning", "Bostadsbidrag"), "beloppstyp", Map.of("beskrivning", "Avdrag Soc"), "dagar", 30))))));
+				Map.of("forman", Map.of("beskrivning", "Bostadsbidrag"), "beloppstyp", Map.of("beskrivning", "Avdrag Soc"), "dagar", 30)))))));
 
 		final var income = SsbtekIncomeExtractor.extract(basis, APPLICANT).getFirst();
 
@@ -88,14 +88,14 @@ class SsbtekIncomeExtractorTest {
 
 	@Test
 	void fallsBackToTheLetterCodeAndToleratesAnUnreadableDayCount() {
-		final Map<String, Object> basis = Map.of("fk", Map.of("utbetalningar", List.of(Map.of(
+		final Map<String, Object> basis = Map.of("fk", Map.of("formansinformation", Map.of("utbetalningsuppgift", List.of(Map.of(
 			"nettobelopp", Map.of("summa", "1000"),
 			"datum", "2026-05-25",
 			"formansfamilj", Map.of("beskrivning", "Dagersättning"),
 			"utbetalningsdetalj", List.of(Map.of(
 				"forman", Map.of("id", "FP"), // no beskrivning → fall back to the code
 				"beloppstyp", Map.of("id", "AFR"),
-				"dagar", "inte ett tal"))))));
+				"dagar", "inte ett tal")))))));
 
 		final var income = SsbtekIncomeExtractor.extract(basis, APPLICANT).getFirst();
 
@@ -103,6 +103,60 @@ class SsbtekIncomeExtractorTest {
 		assertThat(income.amountType()).isEqualTo("AFR");
 		assertThat(income.days()).isNull();
 		assertThat(income.periodFrom()).isNull();
+	}
+
+	@Test
+	void bothEffectuatedAndPreliminaryFkPaymentsAreFoundUnderFormansinformation() {
+		final Map<String, Object> basis = Map.of("fk", Map.of("formansinformation", Map.of(
+			"utbetalningsuppgift", List.of(Map.of(
+				"nettobelopp", Map.of("summa", "1850"),
+				"datum", "2026-05-15",
+				"formansfamilj", Map.of("beskrivning", "Bostadsbidrag"))),
+			"preliminarautbetalningar", List.of(Map.of(
+				"nettobelopp", Map.of("summa", "900"),
+				"datum", "2026-05-20",
+				"formansfamilj", Map.of("beskrivning", "Sjukpenning"))))));
+
+		final var incomes = SsbtekIncomeExtractor.extract(basis, APPLICANT);
+
+		// preliminarautbetalningar carries a payment SSBTEK has not yet effectuated - per the contract a payment
+		// stops appearing there once it is, so reading both lists cannot double-count the same payment
+		assertThat(incomes).hasSize(2);
+		assertThat(incomes).extracting(SsbtekIncome::benefit).containsExactlyInAnyOrder("Bostadsbidrag", "Sjukpenning");
+	}
+
+	@Test
+	void singleObjectIdFallbackAndAmountlessSkip() {
+		final Map<String, Object> withId = new HashMap<>();
+		withId.put("nettobelopp", Map.of("summa", "500"));
+		withId.put("datum", "2026-05-01");
+		withId.put("formansfamilj", Map.of("id", "TFP")); // no beskrivning → fall back to id
+
+		final Map<String, Object> basis = Map.of("fk", Map.of("formansinformation", Map.of("utbetalningsuppgift", List.of(
+			withId,
+			Map.of("formansfamilj", Map.of("beskrivning", "Skip")))))); // no amount → skipped
+
+		final var incomes = SsbtekIncomeExtractor.extract(basis, CO_APPLICANT);
+
+		assertThat(incomes).hasSize(1);
+		assertThat(incomes.getFirst().benefit()).isEqualTo("TFP");
+		assertThat(incomes.getFirst().amountType()).isNull();
+		assertThat(incomes.getFirst().role()).isEqualTo(CO_APPLICANT);
+	}
+
+	@Test
+	void toleratesBadAmountAndUnparsableDates() {
+		final Map<String, Object> basis = Map.of("fk", Map.of("formansinformation", Map.of("utbetalningsuppgift", List.of(
+			Map.of("nettobelopp", Map.of("summa", "abc"), "datum", "2026-05-01", "formansfamilj", Map.of("beskrivning", "X")), // bad amount → skipped
+			Map.of("nettobelopp", Map.of("summa", "2000"), "datum", "2026", "formansfamilj", Map.of("beskrivning", "Dagersättning")),       // short date → null period
+			Map.of("nettobelopp", Map.of("summa", "1000"), "datum", "2026-13-45", "formansfamilj", Map.of("beskrivning", "Barnbidrag")))))); // invalid date → null period
+
+		final var incomes = SsbtekIncomeExtractor.extract(basis, APPLICANT);
+
+		assertThat(incomes)
+			.hasSize(2)
+			.allSatisfy(income -> assertThat(income.period()).isNull())
+			.extracting(SsbtekIncome::benefit).containsExactlyInAnyOrder("Dagersättning", "Barnbidrag");
 	}
 
 	@Test
@@ -124,41 +178,63 @@ class SsbtekIncomeExtractorTest {
 	}
 
 	@Test
-	void nullBasisYieldsEmpty() {
-		assertThat(SsbtekIncomeExtractor.extract(null, APPLICANT)).isEmpty();
+	void pensionAuthorityPaymentAmountAndPeriodAreParsedFromTheIntegerAndFromTomShape() {
+		final Map<String, Object> basis = Map.of("fk", Map.of(
+			"utbetalningar", List.of(Map.of(
+				"utbetalningsdatum", "2026-05-15",
+				"utbetalningsperiod", Map.of("from", "2026-05-01", "tom", "2026-05-31"),
+				"nettobelopp", 12500, // a plain integer, not {summa: ...} - the shape that used to drop every PM row
+				"utbetalningsrader", List.of(Map.of(
+					"utbetalningsforman", Map.of("kod", "ALP", "beskrivning", "Ålderspension"),
+					"beloppstyp", Map.of("kod", "NETTO", "beskrivning", "Nettobelopp"),
+					"belopp", 12500))))));
+
+		final var income = SsbtekIncomeExtractor.extract(basis, APPLICANT).getFirst();
+
+		assertThat(income.benefit()).isEqualTo("PM");
+		assertThat(income.netAmount()).isEqualByComparingTo("12500");
+		assertThat(income.period()).isEqualTo(LocalDate.of(2026, Month.MAY, 15));
+		// PM's period keys are from/tom, not fran/till
+		assertThat(income.periodFrom()).isEqualTo(LocalDate.of(2026, Month.MAY, 1));
+		assertThat(income.periodTo()).isEqualTo(LocalDate.of(2026, Month.MAY, 31));
+		assertThat(income.subBenefit()).isEqualTo("Ålderspension");
+		assertThat(income.amountType()).isEqualTo("Nettobelopp");
+		assertThat(income.days()).isNull();
 	}
 
 	@Test
-	void singleObjectIdFallbackAndAmountlessSkip() {
-		final Map<String, Object> withId = new HashMap<>();
-		withId.put("nettobelopp", Map.of("summa", "500"));
-		withId.put("datum", "2026-05-01");
-		withId.put("formansfamilj", Map.of("id", "PM")); // no beskrivning → fall back to id
+	void pensionAuthorityMultiRowPaymentLeavesSubBenefitAndAmountTypeNull() {
+		final Map<String, Object> basis = Map.of("fk", Map.of(
+			"utbetalningar", List.of(Map.of(
+				"utbetalningsdatum", "2026-05-15",
+				"nettobelopp", 8000,
+				"utbetalningsrader", List.of(
+					Map.of("utbetalningsforman", Map.of("kod", "ALP"), "beloppstyp", Map.of("kod", "BRUTTO"), "belopp", 9000),
+					Map.of("utbetalningsforman", Map.of("kod", "ALP"), "beloppstyp", Map.of("kod", "SKATT"), "belopp", -1000))))));
 
-		final Map<String, Object> basis = Map.of("fk", Map.of("utbetalningar", List.of(
-			withId,
-			Map.of("formansfamilj", Map.of("beskrivning", "Skip"))))); // no amount → skipped
+		final var income = SsbtekIncomeExtractor.extract(basis, APPLICANT).getFirst();
 
-		final var incomes = SsbtekIncomeExtractor.extract(basis, CO_APPLICANT);
-
-		assertThat(incomes).hasSize(1);
-		assertThat(incomes.getFirst().benefit()).isEqualTo("PM");
-		assertThat(incomes.getFirst().amountType()).isNull();
-		assertThat(incomes.getFirst().role()).isEqualTo(CO_APPLICANT);
+		// two rows sum to the same net, but summing utbetalningsrader is a decision about money, not a schema reading -
+		// so a split payment reports no single sub-benefit or amount type, same as the FK detail rows
+		assertThat(income.subBenefit()).isNull();
+		assertThat(income.amountType()).isNull();
+		assertThat(income.netAmount()).isEqualByComparingTo("8000");
 	}
 
 	@Test
-	void toleratesBadAmountAndUnparsableDates() {
-		final Map<String, Object> basis = Map.of("fk", Map.of("utbetalningar", List.of(
-			Map.of("nettobelopp", Map.of("summa", "abc"), "datum", "2026-05-01", "formansfamilj", Map.of("beskrivning", "X")), // bad amount → skipped
-			Map.of("nettobelopp", Map.of("summa", "2000"), "datum", "2026", "formansfamilj", Map.of("beskrivning", "Dagersättning")),       // short date → null period
-			Map.of("nettobelopp", Map.of("summa", "1000"), "datum", "2026-13-45", "formansfamilj", Map.of("beskrivning", "Barnbidrag")))));  // invalid date → null period
+	void pensionAuthorityBenefitIsPmForEffectuatedAndPmPrelForPreliminary() {
+		final Map<String, Object> basis = Map.of("fk", Map.of(
+			"utbetalningar", List.of(Map.of("utbetalningsdatum", "2026-05-15", "nettobelopp", 1000)),
+			"preliminaraUtbetalningar", List.of(Map.of("utbetalningsdatum", "2026-06-15", "nettobelopp", 1100))));
 
 		final var incomes = SsbtekIncomeExtractor.extract(basis, APPLICANT);
 
-		assertThat(incomes)
-			.hasSize(2)
-			.allSatisfy(income -> assertThat(income.period()).isNull())
-			.extracting(SsbtekIncome::benefit).containsExactlyInAnyOrder("Dagersättning", "Barnbidrag");
+		assertThat(incomes).hasSize(2);
+		assertThat(incomes).extracting(SsbtekIncome::benefit).containsExactlyInAnyOrder("PM", "PM-Prel");
+	}
+
+	@Test
+	void nullBasisYieldsEmpty() {
+		assertThat(SsbtekIncomeExtractor.extract(null, APPLICANT)).isEmpty();
 	}
 }

@@ -47,7 +47,10 @@ class SsbtekFkDayCountAssumptionTest {
 	}
 
 	private static List<SsbtekIncome> extract(final Map<String, Object>... payments) {
-		return SsbtekIncomeExtractor.extract(Map.of("fk", Map.of("utbetalningar", List.of((Object[]) payments))), APPLICANT);
+		// FK's effectuated payments live under formansinformation.utbetalningsuppgift, not the top-level
+		// "utbetalningar" - that key is Pensionsmyndighetens, per the fix for the bug this repo's javadoc used to describe.
+		return SsbtekIncomeExtractor.extract(
+			Map.of("fk", Map.of("formansinformation", Map.of("utbetalningsuppgift", List.of((Object[]) payments)))), APPLICANT);
 	}
 
 	/**
