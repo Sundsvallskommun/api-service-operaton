@@ -26,6 +26,12 @@ public abstract class AbstractTopicWorker {
 	private static final int MAX_TASKS = 10;
 	private static final long LOCK_DURATION_MS = 60_000L;
 
+	// Retry policy: a downstream outage (gateway restart, token endpoint 503) must not wedge every in-flight instance on
+	// the first failure. Doubling from 15s over 5 attempts rides out roughly 3m45s of downtime before an incident.
+	private static final int MAX_ATTEMPTS = 5;
+	private static final long INITIAL_RETRY_BACKOFF_MS = 15_000L;
+	private static final long MAX_RETRY_BACKOFF_MS = 300_000L;
+
 	protected final ExternalTaskService externalTaskService;
 	private final String topic;
 	private final String workerId;
@@ -46,7 +52,7 @@ public abstract class AbstractTopicWorker {
 	 */
 	protected static <T> T requireVariable(final LockedExternalTask task, final String name, final Class<T> type) {
 		return optionalVariable(task, name, type)
-			.orElseThrow(() -> new IllegalStateException(
+			.orElseThrow(() -> new NonRetryableTaskException(
 				"Required process variable '%s' is missing on task %s".formatted(name, task.getId())));
 	}
 
@@ -58,7 +64,7 @@ public abstract class AbstractTopicWorker {
 		return ofNullable(task.getVariables().get(name))
 			.map(value -> {
 				if (!type.isInstance(value)) {
-					throw new IllegalStateException(
+					throw new NonRetryableTaskException(
 						"Process variable '%s' on task %s expected to be %s but was %s".formatted(
 							name, task.getId(), type.getSimpleName(), value.getClass().getSimpleName()));
 				}
@@ -83,10 +89,50 @@ public abstract class AbstractTopicWorker {
 			try {
 				externalTaskService.complete(task.getId(), workerId, handle(task));
 			} catch (final Exception e) {
-				LOG.error("{} failed to process task {}", workerId, task.getId(), e);
-				externalTaskService.handleFailure(task.getId(), workerId, e.getMessage(), 0, 0);
+				handleFailure(task, e);
 			}
 		});
+	}
+
+	/**
+	 * Fail a task with an exponential backoff instead of going straight to an incident, so a transient downstream outage
+	 * is ridden out rather than wedging the process instance. Retries count down from {@link #maxAttempts()} and the
+	 * engine raises the incident only once they reach zero. Failures that can never succeed on a retry
+	 * ({@link NonRetryableTaskException}) skip the backoff entirely.
+	 */
+	private void handleFailure(final LockedExternalTask task, final Exception e) {
+		final var remainingRetries = e instanceof NonRetryableTaskException ? 0 : remainingRetries(task);
+		final var backoffMs = remainingRetries == 0 ? 0L : backoffMs(maxAttempts() - remainingRetries);
+
+		if (remainingRetries == 0) {
+			LOG.error("{} failed to process task {}, giving up - the engine will raise an incident", workerId, task.getId(), e);
+		} else {
+			LOG.warn("{} failed to process task {}, retrying in {} ms ({} attempt(s) left)", workerId, task.getId(), backoffMs, remainingRetries, e);
+		}
+		externalTaskService.handleFailure(task.getId(), workerId, e.getMessage(), remainingRetries, backoffMs);
+	}
+
+	/**
+	 * Retries left after this failure. A task that has never failed carries no retry count, so this failure is the first
+	 * of {@link #maxAttempts()}.
+	 */
+	private int remainingRetries(final LockedExternalTask task) {
+		return ofNullable(task.getRetries())
+			.map(retries -> Math.max(retries - 1, 0))
+			.orElseGet(() -> maxAttempts() - 1);
+	}
+
+	/**
+	 * Backoff before the next attempt, doubling per failure up to a cap. {@code failureCount} is 1 on the first failure.
+	 */
+	private static long backoffMs(final int failureCount) {
+		// Clamped because retries may have been raised by hand in Cockpit, which puts failureCount outside 1..maxAttempts.
+		return Math.min(INITIAL_RETRY_BACKOFF_MS << Math.clamp(failureCount - 1L, 0, 16), MAX_RETRY_BACKOFF_MS);
+	}
+
+	/** Total attempts (initial try plus retries) before the engine raises an incident. Override to tune per worker. */
+	protected int maxAttempts() {
+		return MAX_ATTEMPTS;
 	}
 
 	/**
