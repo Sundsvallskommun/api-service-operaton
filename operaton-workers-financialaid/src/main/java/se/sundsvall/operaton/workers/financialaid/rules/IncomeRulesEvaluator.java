@@ -119,12 +119,20 @@ public class IncomeRulesEvaluator {
 	/** Control period incomes plus comparison period incomes whose benefit has no control period income. */
 	private static Transferable selectTransferable(final List<SsbtekIncome> present, final SsbtekPeriods periods) {
 		final var controlPeriodIncomes = present.stream().filter(income -> periods.isInControlPeriod(income.attributionDate())).toList();
-		final Set<String> controlPeriodBenefits = controlPeriodIncomes.stream().map(income -> normalize(income.benefit())).collect(toSet());
+		final var controlPeriodBenefits = benefitsIn(controlPeriodIncomes);
 		final var comparisonPeriodFallbackIncomes = present.stream()
 			.filter(income -> periods.isInComparisonPeriod(income.attributionDate()))
 			.filter(income -> !controlPeriodBenefits.contains(normalize(income.benefit())))
 			.toList();
 		return new Transferable(controlPeriodIncomes, comparisonPeriodFallbackIncomes);
+	}
+
+	/**
+	 * The benefits a period carries, by <em>presence</em> rather than by sum: {@link #sumByBenefit} drops an income
+	 * whose net amount is absent, and a benefit SSBTEK reported without an amount is still a benefit that was reported.
+	 */
+	private static Set<String> benefitsIn(final List<SsbtekIncome> incomes) {
+		return incomes.stream().map(income -> normalize(income.benefit())).collect(toSet());
 	}
 
 	/** The per-income allow-list verdict from {@code Decision_inkomstRalista}. */
@@ -139,18 +147,27 @@ public class IncomeRulesEvaluator {
 
 	/**
 	 * Per-benefit change warnings: the comparison period net sum against the control period net sum, flagged according to
-	 * the threshold {@code Decision_inkomstTroskel} gives for the benefit. Every benefit seen in either period is
-	 * compared - a benefit that only exists on one side has 0 on the other, per verksamhetens "finns inte summa, sätt
-	 * till 0" (Regelverk Drakel 2026-09-17), so both a new and a vanished benefit can warn.
+	 * the threshold {@code Decision_inkomstTroskel} gives for the benefit. A benefit that is new this month is compared
+	 * with 0 on the other side, per verksamhetens "finns inte summa, sätt till 0" (Regelverk Drakel 2026-09-17).
+	 *
+	 * <p>
+	 * A benefit that has <em>vanished</em> - present in the comparison period, absent from the control period - is
+	 * deliberately left out. Verksamhetens revised regelverk treats föregående månad as facit and wants it said plainly:
+	 * "INKOMST fanns föregående månad i SSBTEK men saknas nu", raised by caremanagement off the
+	 * {@code jamforelseperiod} flag. Comparing it here as well would give the handläggare two rows for one fact, and
+	 * the change would read as a measured -100 % rather than as an answer we never got.
+	 * </p>
 	 */
 	private List<ChangeWarning> detectChanges(final List<SsbtekIncome> present, final SsbtekPeriods periods) {
 		final var controlPeriodIncomes = present.stream().filter(income -> periods.isInControlPeriod(income.attributionDate())).toList();
 		final var comparisonPeriodIncomes = present.stream().filter(income -> periods.isInComparisonPeriod(income.attributionDate())).toList();
+		final var controlPeriodBenefits = benefitsIn(controlPeriodIncomes);
 		final var controlSums = sumByBenefit(controlPeriodIncomes);
 		final var comparisonSums = sumByBenefit(comparisonPeriodIncomes);
 		final var displayNames = displayNames(concat(comparisonPeriodIncomes.stream(), controlPeriodIncomes.stream()).toList());
 
 		return concat(comparisonSums.keySet().stream(), controlSums.keySet().stream()).distinct().sorted()
+			.filter(controlPeriodBenefits::contains)
 			.flatMap(benefit -> warningFor(displayNames.get(benefit),
 				comparisonSums.getOrDefault(benefit, BigDecimal.ZERO),
 				controlSums.getOrDefault(benefit, BigDecimal.ZERO)).stream())

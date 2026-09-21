@@ -165,21 +165,38 @@ class IncomeRulesEvaluatorTest {
 	}
 
 	@Test
-	void anExactThresholdTreatsAMissingControlSumAsZero() {
+	void aVanishedBenefitIsNotAChangeWarningButIsCarriedForTheMissingIncomeWarning() {
+		// Verksamhetens reviderade regelverk (2026-09-21) wants "INKOMST fanns föregående månad i SSBTEK men saknas
+		// nu", raised by caremanagement off jamforelseperiod. Warning here as well would give the handläggare two rows
+		// for one fact, and -100 % reads as a measured change rather than as an answer we never got.
+		stubDecision(INCOME_ALLOW_LIST_DECISION_KEY, Map.of("atgard", "TA_MED", "normberakning", "Underhållsstöd", "varning", false, "regel", "Ta med"));
+
+		final var result = evaluator.evaluate(List.of(
+			income("Underhållsstöd", "2026-04-20", "1673")),
+			YearMonth.of(2026, Month.JUNE));
+
+		assertThat(result.changeWarnings()).isEmpty();
+		assertThat(result.classified()).singleElement().satisfies(classified -> {
+			assertThat(classified.income().benefit()).isEqualTo("Underhållsstöd");
+			assertThat(classified.fromComparisonPeriod()).isTrue();
+		});
+	}
+
+	@Test
+	void aBenefitThatIsNewThisMonthStillWarns() {
+		// The opposite direction is untouched: nothing in the comparison period, an amount in the control period.
 		stubDecision(INCOME_ALLOW_LIST_DECISION_KEY, Map.of("atgard", "TA_MED", "normberakning", "Underhållsstöd", "varning", false, "regel", "Ta med"));
 		stubExactThreshold("Underhållsstöd föregående månad är inte samma summa som denna månad – kontrollera summan");
 
-		// the benefit is gone this month - it only exists in the comparison period
 		final var result = evaluator.evaluate(List.of(
-			income("Underhållsstöd", "2026-04-20", "1673")),
+			income("Underhållsstöd", "2026-05-20", "1673")),
 			YearMonth.of(2026, Month.JUNE));
 
 		assertThat(result.changeWarnings()).hasSize(1);
 		final var warning = result.changeWarnings().getFirst();
 		assertThat(warning.benefit()).isEqualTo("Underhållsstöd");
-		assertThat(warning.comparisonSum()).isEqualByComparingTo("1673");
-		assertThat(warning.controlSum()).isEqualByComparingTo("0");
-		assertThat(warning.changePercent()).isEqualByComparingTo("-100");
+		assertThat(warning.comparisonSum()).isEqualByComparingTo("0");
+		assertThat(warning.controlSum()).isEqualByComparingTo("1673");
 	}
 
 	@Test
@@ -235,8 +252,14 @@ class IncomeRulesEvaluatorTest {
 			income("Barnbidrag", "2026-04-12", "1250")),
 			YearMonth.of(2026, Month.JUNE));
 
+		// Dagersättning moved 4800 -> 5000 (+4 %, under the 12 % tolerance). Barnbidrag exists only in the comparison
+		// period, so it is carried as a fallback and left to caremanagement's "saknas nu" warning rather than being
+		// reported here as a -100 % change.
 		assertThat(result.classified()).hasSize(2);
-		assertThat(result.changeWarnings()).extracting(ChangeWarning::benefit).containsExactly("Barnbidrag");
+		assertThat(result.classified()).filteredOn(classified -> "Barnbidrag".equals(classified.income().benefit()))
+			.singleElement()
+			.satisfies(classified -> assertThat(classified.fromComparisonPeriod()).isTrue());
+		assertThat(result.changeWarnings()).isEmpty();
 	}
 
 	@Test
