@@ -2388,6 +2388,9 @@ components:
           description: The period-over-period change warnings from the operaton regelverk, recorded on the errand recommendation
           items:
             type: string
+        ssbtekError:
+          type: boolean
+          description: Whether SSBTEK could not be read for this run. True means the rules were deliberately not evaluated - the calculation is left exactly as it stands and the errand carries the read-failure warning until a later run succeeds. Absent is read as false.
       required:
         - applicant
         - applicationMonth

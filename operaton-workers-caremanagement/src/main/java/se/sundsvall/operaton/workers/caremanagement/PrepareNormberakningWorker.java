@@ -37,7 +37,8 @@ import static java.util.Optional.ofNullable;
 		PrepareNormberakningWorker.VAR_ERRAND_ID,
 		PrepareNormberakningWorker.VAR_CLASSIFIED_INCOMES,
 		PrepareNormberakningWorker.VAR_UNHANDLED_INCOMES,
-		PrepareNormberakningWorker.VAR_CHANGE_WARNINGS
+		PrepareNormberakningWorker.VAR_CHANGE_WARNINGS,
+		PrepareNormberakningWorker.VAR_SSBTEK_ERROR
 	},
 	outputVariables = {
 		PrepareNormberakningWorker.VAR_OUT_INFORMATION_COMPLETE,
@@ -54,6 +55,7 @@ public class PrepareNormberakningWorker extends AbstractTopicWorker {
 	static final String VAR_CLASSIFIED_INCOMES = "classifiedIncomes";
 	static final String VAR_UNHANDLED_INCOMES = "unhandledIncomes";
 	static final String VAR_CHANGE_WARNINGS = "changeWarnings";
+	static final String VAR_SSBTEK_ERROR = "ssbtekError";
 
 	// Completeness of this month's normberäkning vs the previous month's — drives the process's daily SSBTEK poll loop.
 	static final String VAR_OUT_INFORMATION_COMPLETE = "informationComplete";
@@ -84,6 +86,9 @@ public class PrepareNormberakningWorker extends AbstractTopicWorker {
 		optionalVariable(task, VAR_CLASSIFIED_INCOMES, String.class).ifPresent(request::classifiedIncomes);
 		optionalVariable(task, VAR_UNHANDLED_INCOMES, String.class).map(PrepareNormberakningWorker::split).ifPresent(request::unhandledIncomes);
 		optionalVariable(task, VAR_CHANGE_WARNINGS, String.class).map(PrepareNormberakningWorker::split).ifPresent(request::changeWarnings);
+		// Absent on an instance started before the gate existed — careManagement reads absent as false, i.e. the old
+		// behaviour, so running instances need no migration.
+		optionalVariable(task, VAR_SSBTEK_ERROR, Boolean.class).ifPresent(request::ssbtekError);
 
 		final var response = careManagementClient.prepareNormberakning(
 			requireVariable(task, VAR_MUNICIPALITY_ID, String.class),

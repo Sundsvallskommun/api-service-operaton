@@ -77,6 +77,16 @@ public abstract class AbstractTopicWorker {
 	}
 
 	/**
+	 * Whether this is the last attempt before the engine raises an incident — i.e. failing now leaves no retries. Lets a
+	 * worker ride out a transient downstream outage on the normal backoff ladder and only then degrade to a
+	 * business-level outcome, instead of reporting the first hiccup as a real answer. A task that has never failed
+	 * carries no retry count and is therefore never the final attempt.
+	 */
+	protected static boolean isFinalAttempt(final LockedExternalTask task) {
+		return ofNullable(task.getRetries()).filter(retries -> retries <= 1).isPresent();
+	}
+
+	/**
 	 * Poll for tasks on this worker's topic, invoke {@link #handle(LockedExternalTask)} for each, and complete or fail the
 	 * task based on the result. Called from the subclass's scheduled method.
 	 */

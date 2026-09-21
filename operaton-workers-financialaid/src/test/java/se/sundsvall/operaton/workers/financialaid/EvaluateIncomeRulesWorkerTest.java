@@ -29,6 +29,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static se.sundsvall.operaton.workers.financialaid.rules.ApplicantRole.APPLICANT;
 
@@ -223,6 +224,53 @@ class EvaluateIncomeRulesWorkerTest {
 		assertThatThrownBy(() -> worker.handle(task))
 			.isInstanceOf(IllegalStateException.class)
 			.hasMessage("Required process variable 'applicationMonth' is missing on task task-1");
+	}
+
+	@Test
+	void handleSkipsTheRulesWhenSsbtekCouldNotBeRead() {
+		// Verksamhetens regelverk: a failed read must not be evaluated at all. classifiedIncomes is deliberately blank
+		// rather than "[]" — an empty list reads downstream as "this month has no incomes" and would clear the draft.
+		final var task = mock(LockedExternalTask.class);
+		when(task.getVariables()).thenReturn(Variables.createVariables()
+			.putValue("applicationMonth", "2026-06")
+			.putValue("financialAidBasis", "{\"fk\":{\"error\":{\"kalla\":\"FK\",\"felkod\":\"2001\"}}}"));
+
+		final var output = worker.handle(task);
+
+		verifyNoInteractions(evaluatorMock);
+		assertThat((Boolean) output.get("ssbtekError")).isTrue();
+		assertThat((Boolean) output.get("incomeHasWarnings")).isTrue();
+		assertThat((String) output.get("classifiedIncomes")).isEmpty();
+		assertThat((String) output.get("incomeUnhandled")).isEmpty();
+		assertThat((String) output.get("incomeChangeWarnings")).isEmpty();
+	}
+
+	@Test
+	void handleSkipsTheRulesWhenTheCoApplicantsSsbtekCouldNotBeRead() {
+		final var task = mock(LockedExternalTask.class);
+		when(task.getVariables()).thenReturn(Variables.createVariables()
+			.putValue("applicationMonth", "2026-06")
+			.putValue("financialAidBasis", BASIS_JSON)
+			.putValue("coApplicantFinancialAidBasis", "{\"so\":{\"error\":{\"kalla\":\"SO\"}}}"));
+
+		final var output = worker.handle(task);
+
+		verifyNoInteractions(evaluatorMock);
+		assertThat((Boolean) output.get("ssbtekError")).isTrue();
+	}
+
+	@Test
+	void handleReportsNoReadFailureOnASuccessfulRun() {
+		final var task = mock(LockedExternalTask.class);
+		when(task.getVariables()).thenReturn(Variables.createVariables()
+			.putValue("applicationMonth", "2026-06")
+			.putValue("financialAidBasis", BASIS_JSON));
+		when(evaluatorMock.evaluate(anyList(), anyList(), eq(YearMonth.of(2026, Month.JUNE))))
+			.thenReturn(new IncomeRulesResult(List.of(), List.of()));
+
+		final var output = worker.handle(task);
+
+		assertThat((Boolean) output.get("ssbtekError")).isFalse();
 	}
 
 	@Test

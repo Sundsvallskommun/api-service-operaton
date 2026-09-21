@@ -2,6 +2,7 @@ package se.sundsvall.operaton.workers.financialaid;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.YearMonth;
 import java.util.ArrayList;
@@ -19,6 +20,7 @@ import se.sundsvall.operaton.workers.financialaid.rules.ChangeWarning;
 import se.sundsvall.operaton.workers.financialaid.rules.ClassifiedAgencyAnswer;
 import se.sundsvall.operaton.workers.financialaid.rules.ClassifiedIncome;
 import se.sundsvall.operaton.workers.financialaid.rules.IncomeRulesEvaluator;
+import se.sundsvall.operaton.workers.financialaid.rules.SsbtekAvailability;
 import se.sundsvall.operaton.workers.financialaid.rules.SsbtekIncome;
 import se.sundsvall.operaton.workers.financialaid.rules.SsbtekIncomeExtractor;
 import se.sundsvall.operaton.workers.framework.AbstractTopicWorker;
@@ -48,7 +50,8 @@ import static se.sundsvall.operaton.workers.financialaid.rules.ApplicantRole.CO_
 		EvaluateIncomeRulesWorker.VAR_OUT_CLASSIFIED,
 		EvaluateIncomeRulesWorker.VAR_OUT_UNHANDLED,
 		EvaluateIncomeRulesWorker.VAR_OUT_CHANGE_WARNINGS,
-		EvaluateIncomeRulesWorker.VAR_OUT_HAS_WARNINGS
+		EvaluateIncomeRulesWorker.VAR_OUT_HAS_WARNINGS,
+		EvaluateIncomeRulesWorker.VAR_OUT_SSBTEK_ERROR
 	})
 public class EvaluateIncomeRulesWorker extends AbstractTopicWorker {
 
@@ -60,8 +63,10 @@ public class EvaluateIncomeRulesWorker extends AbstractTopicWorker {
 	static final String VAR_OUT_UNHANDLED = "incomeUnhandled";
 	static final String VAR_OUT_CHANGE_WARNINGS = "incomeChangeWarnings";
 	static final String VAR_OUT_HAS_WARNINGS = "incomeHasWarnings";
+	static final String VAR_OUT_SSBTEK_ERROR = "ssbtekError";
 
 	private static final String OFF_LIST_ACTION = "EJ_PA_LISTAN";
+	private static final String EMPTY_BASIS = "{}";
 
 	private static final Logger LOG = LoggerFactory.getLogger(EvaluateIncomeRulesWorker.class);
 
@@ -83,16 +88,27 @@ public class EvaluateIncomeRulesWorker extends AbstractTopicWorker {
 	protected Map<String, Object> handle(final LockedExternalTask task) {
 		final var applicationMonth = YearMonth.parse(requireVariable(task, VAR_APPLICATION_MONTH, String.class));
 
-		final var applicantBasis = parseBasis(requireVariable(task, VAR_FINANCIAL_AID_BASIS, String.class));
+		final var applicantBasisJson = requireVariable(task, VAR_FINANCIAL_AID_BASIS, String.class);
+		final var coApplicantBasisJson = optionalVariable(task, VAR_CO_APPLICANT_BASIS, String.class)
+			.filter(json -> !json.isBlank())
+			.orElse(EMPTY_BASIS);
+
+		// Verksamhetens regelverk: when SSBTEK could not be read, the rules must not run at all — the handläggare gets
+		// the read-failure warning instead and the daily loop tries again. Rules run over a basis we could not read
+		// report an income we never saw as an income the sökande does not have.
+		if (SsbtekAvailability.hasReadFailure(readTree(applicantBasisJson)) || SsbtekAvailability.hasReadFailure(readTree(coApplicantBasisJson))) {
+			LOG.warn("SSBTEK could not be read — skipping the income rules for this run");
+			return readFailureOutput();
+		}
+
+		final var applicantBasis = parseBasis(applicantBasisJson);
+		final var coApplicantBasis = parseBasis(coApplicantBasisJson);
 		final var incomes = new ArrayList<SsbtekIncome>(SsbtekIncomeExtractor.extract(applicantBasis, APPLICANT));
 		final var answers = new ArrayList<AgencyAnswer>(SsbtekIncomeExtractor.extractAnswers(applicantBasis));
-		optionalVariable(task, VAR_CO_APPLICANT_BASIS, String.class)
-			.filter(json -> !json.isBlank())
-			.ifPresent(json -> {
-				final var coApplicantBasis = parseBasis(json);
-				incomes.addAll(SsbtekIncomeExtractor.extract(coApplicantBasis, CO_APPLICANT));
-				answers.addAll(SsbtekIncomeExtractor.extractAnswers(coApplicantBasis));
-			});
+		if (!coApplicantBasis.isEmpty()) {
+			incomes.addAll(SsbtekIncomeExtractor.extract(coApplicantBasis, CO_APPLICANT));
+			answers.addAll(SsbtekIncomeExtractor.extractAnswers(coApplicantBasis));
+		}
 
 		final var result = evaluator.evaluate(incomes, answers, applicationMonth);
 
@@ -120,8 +136,25 @@ public class EvaluateIncomeRulesWorker extends AbstractTopicWorker {
 		output.put(VAR_OUT_UNHANDLED, String.join("; ", unhandled));
 		output.put(VAR_OUT_CHANGE_WARNINGS, String.join("; ", changeWarnings));
 		output.put(VAR_OUT_HAS_WARNINGS, hasWarnings);
+		output.put(VAR_OUT_SSBTEK_ERROR, false);
 
 		LOG.info("Income rules evaluated ({} transferable incomes, warnings: {})", result.classified().size(), hasWarnings);
+		return output;
+	}
+
+	/**
+	 * The output of a run where SSBTEK could not be read. The classified incomes are left <strong>blank</strong> rather
+	 * than an empty JSON list: caremanagement reads an empty list as "this month has no incomes" and would clear the
+	 * draft rows the previous run transferred. The blank string plus {@code ssbtekError} tells it to leave the
+	 * calculation exactly as it stands and only raise the warning.
+	 */
+	private static Map<String, Object> readFailureOutput() {
+		final Map<String, Object> output = new HashMap<>();
+		output.put(VAR_OUT_CLASSIFIED, "");
+		output.put(VAR_OUT_UNHANDLED, "");
+		output.put(VAR_OUT_CHANGE_WARNINGS, "");
+		output.put(VAR_OUT_HAS_WARNINGS, true);
+		output.put(VAR_OUT_SSBTEK_ERROR, true);
 		return output;
 	}
 
@@ -164,6 +197,19 @@ public class EvaluateIncomeRulesWorker extends AbstractTopicWorker {
 	private Map<String, Object> parseBasis(final String json) {
 		try {
 			return objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {});
+		} catch (final JsonProcessingException e) {
+			throw new IllegalStateException("Failed to parse financial-aid basis JSON", e);
+		}
+	}
+
+	/**
+	 * The basis as a JSON tree, for the availability check. Deliberately not the {@code Map} above: the FEEL engine's
+	 * Jackson module binds nested objects to its own map type, so a type-based test on the map's values misses an
+	 * agency error entirely.
+	 */
+	private JsonNode readTree(final String json) {
+		try {
+			return objectMapper.readTree(json);
 		} catch (final JsonProcessingException e) {
 			throw new IllegalStateException("Failed to parse financial-aid basis JSON", e);
 		}

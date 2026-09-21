@@ -68,6 +68,48 @@ class PrepareNormberakningWorkerTest {
 	}
 
 	@Test
+	void handleForwardsTheSsbtekReadFailureFlag() {
+		// The flag is what tells careManagement to raise the read-failure warning and leave the calculation alone. An
+		// instance started before the gate existed carries no such variable, and careManagement reads absent as false.
+		final var task = mock(LockedExternalTask.class);
+		when(task.getVariables()).thenReturn(Variables.createVariables()
+			.putValue("municipalityId", "2281")
+			.putValue("namespace", "my-namespace")
+			.putValue("applicant", "f47ac10b-58cc-4372-a567-0e02b2c3d479")
+			.putValue("applicationMonth", "2026-06")
+			.putValue("errandId", "cb20c51f-fcf3-42c0-b613-de563634a8ec")
+			.putValue("ssbtekError", true));
+		when(careManagementClientMock.prepareNormberakning(any(), any(), any())).thenReturn(
+			ResponseEntity.ok(new NormberakningResponse().informationComplete(false)));
+
+		worker.handle(task);
+
+		final var requestCaptor = ArgumentCaptor.forClass(NormberakningRequest.class);
+		verify(careManagementClientMock).prepareNormberakning(eq("2281"), eq("my-namespace"), requestCaptor.capture());
+		assertThat(requestCaptor.getValue().getSsbtekError()).isTrue();
+	}
+
+	@Test
+	void handleLeavesTheSsbtekReadFailureFlagUnsetOnANormalRun() {
+		final var task = mock(LockedExternalTask.class);
+		when(task.getVariables()).thenReturn(Variables.createVariables()
+			.putValue("municipalityId", "2281")
+			.putValue("namespace", "my-namespace")
+			.putValue("applicant", "f47ac10b-58cc-4372-a567-0e02b2c3d479")
+			.putValue("applicationMonth", "2026-06")
+			.putValue("errandId", "cb20c51f-fcf3-42c0-b613-de563634a8ec")
+			.putValue("classifiedIncomes", "[]"));
+		when(careManagementClientMock.prepareNormberakning(any(), any(), any())).thenReturn(
+			ResponseEntity.ok(new NormberakningResponse().informationComplete(true)));
+
+		worker.handle(task);
+
+		final var requestCaptor = ArgumentCaptor.forClass(NormberakningRequest.class);
+		verify(careManagementClientMock).prepareNormberakning(eq("2281"), eq("my-namespace"), requestCaptor.capture());
+		assertThat(requestCaptor.getValue().getSsbtekError()).isNull();
+	}
+
+	@Test
 	void handleDefaultsToCompleteWhenResponseBodyAbsent() {
 		final var task = mock(LockedExternalTask.class);
 		when(task.getVariables()).thenReturn(Variables.createVariables()

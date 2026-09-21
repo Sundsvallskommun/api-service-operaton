@@ -3,6 +3,7 @@ package se.sundsvall.operaton.workers.financialaid;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,6 +17,8 @@ import org.operaton.bpm.engine.externaltask.LockedExternalTask;
 import org.operaton.bpm.engine.variable.Variables;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.InstanceOfAssertFactories.MAP;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -131,5 +134,43 @@ class FetchFinancialAidBasisWorkerTest {
 
 		verifyNoInteractions(financialAidClientMock);
 		assertThat(output).isEqualTo(Map.of("coApplicantFinancialAidBasis", "{}"));
+	}
+
+	@Test
+	void handleRethrowsWhileRetriesRemain() {
+		// A transient outage must ride out the backoff ladder. Degrading on the first failure would show the handläggare
+		// "SSBTEK could not be read" for a gateway that was restarting.
+		final var task = failingTask(5);
+
+		assertThatThrownBy(() -> worker.handle(task))
+			.isInstanceOf(IllegalStateException.class)
+			.hasMessage("financial-aid unreachable");
+	}
+
+	@Test
+	void handleDegradesToAReadFailureOnTheFinalAttempt() throws Exception {
+		final var task = failingTask(1);
+
+		final var output = worker.handle(task);
+
+		final var basis = objectMapper.readValue((String) output.get("financialAidBasis"), new TypeReference<Map<String, Object>>() {});
+		assertThat(basis).containsOnlyKeys("error");
+		assertThat(basis.get("error")).asInstanceOf(MAP)
+			.containsEntry("kalla", "financial-aid")
+			.containsEntry("felkod", "IllegalStateException")
+			.containsEntry("felmeddelande", List.of("financial-aid unreachable"));
+	}
+
+	private LockedExternalTask failingTask(final int retries) {
+		final var task = mock(LockedExternalTask.class);
+		when(task.getVariables()).thenReturn(Variables.createVariables()
+			.putValue("municipalityId", "2281")
+			.putValue("personalNumber", "199001011234")
+			.putValue("fromDate", "2026-01-01")
+			.putValue("toDate", "2026-05-20"));
+		when(task.getRetries()).thenReturn(retries);
+		when(financialAidClientMock.getFinancialAidBasis(any(), any(), any(), any()))
+			.thenThrow(new IllegalStateException("financial-aid unreachable"));
+		return task;
 	}
 }
