@@ -25,20 +25,26 @@ public record SsbtekIncome(
 	ApplicantRole role) {
 
 	/**
-	 * The date this income is attributed to when placing it in a rule period.
+	 * The date this income is attributed to when placing it in a rule period: the date it was <em>paid</em>.
 	 * <p>
-	 * The period the payment <em>covers</em> wins over the date it was paid: a payment made on 2 October for September
-	 * belongs to September. Verksamheten confirmed this reading on 2026-09-11 - "inkomsterna som ska tas med är för
-	 * kontrollperioden". Payments whose covered period spans two months are attributed to the month it starts in.
+	 * A payment made on 2 May belongs to May, whatever month it covers. Verksamheten decided this on 2026-09-21 -
+	 * "det är utbetalningsdatumet som styr vilken inkomst som ska tas med till normberäkningen" - reversing the
+	 * opposite reading they had confirmed on 2026-09-11 and which this method carried until now (commit 8f6f2d2,
+	 * "place an income in the period it covers, not the day it was paid").
 	 * <p>
-	 * Falls back to the payment date when the payload carries no period, which is the case for every payment that is
-	 * split over several detail rows and for agencies that send no period at all.
+	 * The reversal is about which of the two <em>wins</em>, not about discarding the period: CSN schedules a payment
+	 * with {@code utbetdatum = "0"} - "not booked yet" - and only a week-derived period to place it by. Dropping back
+	 * to the covered period there keeps such a payment in a rule period instead of silently losing it, which is what
+	 * reading {@code period()} alone would do. So: the payment date decides whenever there is one.
+	 * <p>
+	 * Known conflict, verksamhetens to resolve: the aktivitetsstöd rule in the regelverk still reads "månaden som
+	 * ersättningen avser", which is the reading this reversal drops.
 	 */
 	public LocalDate attributionDate() {
-		if (periodFrom != null) {
-			return periodFrom;
+		if (period != null) {
+			return period;
 		}
-		return period;
+		return periodFrom;
 	}
 
 	/** The payment-date-only shape, for callers that have no period or day information. */

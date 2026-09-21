@@ -105,7 +105,8 @@ class SsbtekIncomeExtractorCsnTest {
 		assertThat(income.period()).isNull();
 		assertThat(income.periodFrom()).isEqualTo(LocalDate.of(2027, Month.JANUARY, 4));
 		assertThat(income.periodTo()).isEqualTo(LocalDate.of(2027, Month.JANUARY, 31));
-		// attributionDate() prefers periodFrom, so a dateless-but-scheduled payment still lands in a rule period
+		// the payment date decides since 2026-09-21, but there is none here, so attributionDate() falls back to
+		// periodFrom and a dateless-but-scheduled payment still lands in a rule period rather than vanishing
 		assertThat(income.attributionDate()).isEqualTo(income.periodFrom());
 	}
 

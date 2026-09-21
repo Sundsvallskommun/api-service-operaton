@@ -91,19 +91,22 @@ class SsbtekFkDayCountAssumptionTest {
 	}
 
 	/**
-	 * Case 4. A period straddling a month boundary is attributed to the month it starts in, so an August-starting
-	 * period lands in the comparison period of an October application rather than the control period.
+	 * Case 4. A period straddling a month boundary follows the <em>payment date</em>, not the period: verksamheten
+	 * decided on 2026-09-21 that "det är utbetalningsdatumet som styr". A payment made on 10 September for
+	 * 25 August - 5 September therefore lands in the control period of an October application, where the period it
+	 * covers would have put it in the comparison period. The covered period is still parsed; it just no longer decides.
 	 */
 	@Test
-	void aPeriodStraddlingAMonthBoundaryIsAttributedToTheMonthItStartsIn() {
+	void aPeriodStraddlingAMonthBoundaryFollowsThePaymentDateNotThePeriod() {
 		final var income = extract(payment("Föräldrapenning", "2026-09-10", "2026-08-25", "2026-09-05", "4620",
 			List.of(detail("Belopp", 11)))).getFirst();
 
-		assertThat(income.attributionDate()).isEqualTo(LocalDate.of(2026, Month.AUGUST, 25));
+		assertThat(income.attributionDate()).isEqualTo(LocalDate.of(2026, Month.SEPTEMBER, 10));
+		assertThat(income.periodFrom()).isEqualTo(LocalDate.of(2026, Month.AUGUST, 25));
 
 		final var periods = SsbtekPeriods.forApplicationMonth(APPLICATION_MONTH);
-		assertThat(periods.isInComparisonPeriod(income.attributionDate())).isTrue();
-		assertThat(periods.isInControlPeriod(income.attributionDate())).isFalse();
+		assertThat(periods.isInControlPeriod(income.attributionDate())).isTrue();
+		assertThat(periods.isInComparisonPeriod(income.attributionDate())).isFalse();
 	}
 
 	/**

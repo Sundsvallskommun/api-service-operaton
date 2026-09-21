@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -17,7 +18,9 @@ import org.operaton.bpm.engine.dmn.DecisionsEvaluationBuilder;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static se.sundsvall.operaton.workers.financialaid.rules.ApplicantRole.APPLICANT;
 import static se.sundsvall.operaton.workers.financialaid.rules.IncomeRulesEvaluator.INCOME_ALLOW_LIST_DECISION_KEY;
@@ -50,33 +53,29 @@ class IncomeRulesEvaluatorTest {
 		return new SsbtekIncome(benefit, null, null, new BigDecimal(amount), LocalDate.parse(period), APPLICANT);
 	}
 
-	/** An income attributed by the period it covers rather than by the day it was paid. */
+	/** An income that carries both a payment date and a covered period, so the two can disagree. */
 	private static SsbtekIncome incomeForPeriod(final String benefit, final String paidOn, final String from, final String to, final String amount) {
 		return new SsbtekIncome(benefit, null, null, new BigDecimal(amount), LocalDate.parse(paidOn),
 			LocalDate.parse(from), LocalDate.parse(to), null, APPLICANT);
 	}
 
 	@Test
-	void attributesAnIncomeToThePeriodItCoversRatherThanTheDayItWasPaid() {
-		stubDecision(INCOME_ALLOW_LIST_DECISION_KEY, Map.of("atgard", "TA_MED", "normberakning", "Bostadsbidrag", "varning", false, "regel", "Ta med"));
-		stubDecision(INCOME_THRESHOLD_DECISION_KEY, Map.of("troskelProcent", 12));
-
-		// application month October → control period September. Paid 2 October, but it is September's money.
+	void attributesAnIncomeToTheDayItWasPaidRatherThanThePeriodItCovers() {
+		// verksamheten 2026-09-21: "det är utbetalningsdatumet som styr". Paid 2 October for September, so it is
+		// October's money and falls outside both rule periods for an October application.
 		final var result = evaluator.evaluate(
 			List.of(incomeForPeriod("Bostadsbidrag", "2026-10-02", "2026-09-01", "2026-09-30", "4500")),
 			YearMonth.of(2026, Month.OCTOBER));
 
-		// on the payment date alone this landed in October and was transferred to no period at all
-		assertThat(result.classified()).hasSize(1);
-		assertThat(result.classified().getFirst().income().benefit()).isEqualTo("Bostadsbidrag");
+		assertThat(result.classified()).isEmpty();
 	}
 
 	@Test
-	void stillFallsBackToThePaymentDateWhenThePayloadCarriesNoPeriod() {
+	void usesThePaymentDateWhenThePayloadCarriesNoPeriodAtAll() {
 		stubDecision(INCOME_ALLOW_LIST_DECISION_KEY, Map.of("atgard", "TA_MED", "normberakning", "Barnbidrag", "varning", false, "regel", "Ta med"));
 		stubDecision(INCOME_THRESHOLD_DECISION_KEY, Map.of("troskelProcent", 12));
 
-		// payments split over several detail rows carry no single period; the payment date has to stand in
+		// payments split over several detail rows carry no single period; nothing changes for them
 		final var result = evaluator.evaluate(
 			List.of(income("Allmänt barnbidrag", "2026-09-20", "1250")),
 			YearMonth.of(2026, Month.OCTOBER));
@@ -85,13 +84,18 @@ class IncomeRulesEvaluatorTest {
 	}
 
 	@Test
-	void aPaymentCoveringAnEarlierMonthDoesNotCountAsThisMonthsIncome() {
-		// paid during the control period but covering the application month itself → outside both rule periods
+	void aPaymentMadeInTheControlPeriodCountsThereEvenWhenItCoversAnotherMonth() {
+		stubDecision(INCOME_ALLOW_LIST_DECISION_KEY, Map.of("atgard", "TA_MED", "normberakning", "Bostadsbidrag", "varning", false, "regel", "Ta med"));
+		stubDecision(INCOME_THRESHOLD_DECISION_KEY, Map.of("troskelProcent", 12));
+
+		// paid 28 September (the control period for an October application) but covering October - the payment
+		// date wins, so it is transferred. This is the exact case that reversed on 2026-09-21.
 		final var result = evaluator.evaluate(
 			List.of(incomeForPeriod("Bostadsbidrag", "2026-09-28", "2026-10-01", "2026-10-31", "4500")),
 			YearMonth.of(2026, Month.OCTOBER));
 
-		assertThat(result.classified()).isEmpty();
+		assertThat(result.classified()).hasSize(1);
+		assertThat(result.classified().getFirst().income().benefit()).isEqualTo("Bostadsbidrag");
 	}
 
 	@Test
@@ -287,5 +291,62 @@ class IncomeRulesEvaluatorTest {
 
 		assertThat(result.classified()).isEmpty();
 		assertThat(result.changeWarnings()).isEmpty();
+	}
+
+	@Test
+	void aNegativeThresholdMeansTheBenefitIsNotComparedAtAll() {
+		stubDecision(INCOME_ALLOW_LIST_DECISION_KEY, Map.of("atgard", "TA_MED", "normberakning", "Dagersättning", "varning", false, "regel", "Ta med"));
+		stubDecision(INCOME_THRESHOLD_DECISION_KEY, Map.of("troskelProcent", -1, "regel", "Dagersättning jämförs inte mot föregående månad"));
+
+		// 1000 → 5000 is a 400 % change; with no comparison at all it still says nothing
+		final var result = evaluator.evaluate(List.of(
+			income("Dagersättning", "2026-04-15", "1000"),
+			income("Dagersättning", "2026-05-15", "5000")),
+			YearMonth.of(2026, Month.JUNE));
+
+		assertThat(result.classified()).hasSize(1);
+		assertThat(result.changeWarnings()).isEmpty();
+	}
+
+	@Test
+	void aNegativeThresholdIsNotTheSameAsAWideTolerance() {
+		stubDecision(INCOME_ALLOW_LIST_DECISION_KEY, Map.of("atgard", "TA_MED", "normberakning", "Barnbidrag", "varning", false, "regel", "Ta med"));
+		stubDecision(INCOME_THRESHOLD_DECISION_KEY, Map.of("troskelProcent", 0, "regel", "Barnbidrag är inte samma summa"));
+
+		// the same shape with an exact threshold does warn, so the silence above comes from -1 and nothing else
+		final var result = evaluator.evaluate(List.of(
+			income("Allmänt barnbidrag", "2026-04-15", "1000"),
+			income("Allmänt barnbidrag", "2026-05-15", "5000")),
+			YearMonth.of(2026, Month.JUNE));
+
+		assertThat(result.changeWarnings()).hasSize(1);
+	}
+
+	@Test
+	void passesTheNetAmountToTheAllowListSoTheAmountOnlyRulesCanFire() {
+		stubDecision(INCOME_ALLOW_LIST_DECISION_KEY, Map.of("atgard", "EJ_TA_MED", "normberakning", "-", "varning", false, "regel", "Extratillägg"));
+		stubDecision(INCOME_THRESHOLD_DECISION_KEY, Map.of("troskelProcent", 0));
+		final var variables = ArgumentCaptor.forClass(Map.class);
+
+		evaluator.evaluate(List.of(income("Studiehjalp", "2026-05-15", "855")), YearMonth.of(2026, Month.JUNE));
+
+		verify(decisionServiceMock.evaluateDecisionByKey(INCOME_ALLOW_LIST_DECISION_KEY), atLeastOnce()).variables(variables.capture());
+		assertThat(variables.getAllValues()).anySatisfy(vars -> assertThat(vars)
+			.containsEntry("forman", "Studiehjalp")
+			.containsEntry("belopp", new BigDecimal("855")));
+	}
+
+	@Test
+	void sendsANullAmountRatherThanOmittingItWhenSsbtekReportedNoSum() {
+		stubDecision(INCOME_ALLOW_LIST_DECISION_KEY, Map.of("atgard", "TA_MED", "normberakning", "Barnbidrag", "varning", false, "regel", "Ta med"));
+		final var variables = ArgumentCaptor.forClass(Map.class);
+
+		evaluator.evaluate(List.of(new SsbtekIncome("Allmänt barnbidrag", null, null, null, LocalDate.parse("2026-05-15"), APPLICANT)),
+			YearMonth.of(2026, Month.JUNE));
+
+		verify(decisionServiceMock.evaluateDecisionByKey(INCOME_ALLOW_LIST_DECISION_KEY), atLeastOnce()).variables(variables.capture());
+		// a null amount must reach the table as null, not be left out: an absent key and a null read the same in FEEL,
+		// but only an explicit null keeps the caller honest about having looked
+		assertThat(variables.getAllValues()).anySatisfy(vars -> assertThat(vars).containsEntry("belopp", null));
 	}
 }

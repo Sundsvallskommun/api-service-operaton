@@ -3,6 +3,7 @@ package se.sundsvall.operaton.workers.financialaid.rules;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.YearMonth;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -135,12 +136,21 @@ public class IncomeRulesEvaluator {
 		return incomes.stream().map(income -> normalize(income.benefit())).collect(toSet());
 	}
 
-	/** The per-income allow-list verdict from {@code Decision_inkomstRalista}. */
+	/**
+	 * The per-income allow-list verdict from {@code Decision_inkomstRalista}.
+	 * <p>
+	 * {@code belopp} is passed as well as the three name columns because one rule cannot be told from the names alone:
+	 * extratillägg reaches us as ordinary studiehjälp and is only recognisable by its amount. Verksamheten 2026-09-21:
+	 * "går inte att utläsa på namnet, så om Studiehjalp och summan = 855 kr = ta ej med som inkomst". A missing amount
+	 * is sent as {@code null}, which no amount clause matches, so such an income falls through to the name rules.
+	 */
 	private ClassifiedIncome classify(final SsbtekIncome income, final boolean fromComparisonPeriod) {
-		final var row = evaluateFirst(INCOME_ALLOW_LIST_DECISION_KEY, Map.of(
-			"forman", nullToEmpty(income.benefit()),
-			"delforman", nullToEmpty(income.subBenefit()),
-			"beloppstyp", nullToEmpty(income.amountType())));
+		final var variables = new HashMap<String, Object>();
+		variables.put("forman", nullToEmpty(income.benefit()));
+		variables.put("delforman", nullToEmpty(income.subBenefit()));
+		variables.put("beloppstyp", nullToEmpty(income.amountType()));
+		variables.put("belopp", income.netAmount());
+		final var row = evaluateFirst(INCOME_ALLOW_LIST_DECISION_KEY, variables);
 		return new ClassifiedIncome(income, str(row.get("atgard")), str(row.get("normberakning")),
 			Boolean.TRUE.equals(row.get("varning")), str(row.get("regel")), fromComparisonPeriod);
 	}
@@ -177,6 +187,9 @@ public class IncomeRulesEvaluator {
 	/** The warning for one benefit, when the threshold from the DMN says the change is worth flagging. */
 	private Optional<ChangeWarning> warningFor(final String benefit, final BigDecimal comparisonSum, final BigDecimal controlSum) {
 		final var threshold = thresholdFor(benefit);
+		if (threshold.isNoComparison()) {
+			return Optional.empty();
+		}
 		if (threshold.isExact()) {
 			return exactWarning(benefit, comparisonSum, controlSum, threshold);
 		}
@@ -228,6 +241,16 @@ public class IncomeRulesEvaluator {
 		/** Threshold 0 means "the sums must be identical", not "the rounded percent must be 0". */
 		boolean isExact() {
 			return percent.signum() == 0;
+		}
+
+		/**
+		 * A negative threshold means "do not compare this benefit at all", which is not the same as a tolerance so wide
+		 * nothing trips it. Verksamheten 2026-09-21 removed the 12 % comparison for the benefits their new regelverk no
+		 * longer lists - "ta bort, hanteras genom att dom inte finns på rålistan" - and a benefit that is not compared
+		 * must produce no change warning whatever the sums do.
+		 */
+		boolean isNoComparison() {
+			return percent.signum() < 0;
 		}
 	}
 
