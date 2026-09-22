@@ -32,6 +32,16 @@ public abstract class AbstractTopicWorker {
 	private static final long INITIAL_RETRY_BACKOFF_MS = 15_000L;
 	private static final long MAX_RETRY_BACKOFF_MS = 300_000L;
 
+	// The engine stores a string variable in ACT_RU_VARIABLE.TEXT_ and ACT_HI_DETAIL.TEXT_, both varchar(4000), and its
+	// own serializer checks nothing. Caught here the failure names the variable and never enters a transaction; left to
+	// MariaDB it becomes "An exception occurred in the persistence layer" on a rolled-back task, five times over.
+	private static final int MAX_STRING_VARIABLE_LENGTH = 4000;
+
+	private static final String VARIABLE_TOO_LONG = """
+		Output variable '%s' is %d characters, over the engine's %d-character limit for a string variable. \
+		A value this size does not belong in a process variable — keep it in the service that owns the data \
+		and carry a reference.""";
+
 	protected final ExternalTaskService externalTaskService;
 	private final String topic;
 	private final String workerId;
@@ -97,11 +107,31 @@ public abstract class AbstractTopicWorker {
 
 		tasks.forEach(task -> {
 			try {
-				externalTaskService.complete(task.getId(), workerId, handle(task));
+				externalTaskService.complete(task.getId(), workerId, storable(handle(task)));
 			} catch (final Exception e) {
 				handleFailure(task, e);
 			}
 		});
+	}
+
+	/**
+	 * The worker's output, checked before it reaches the engine. A string variable the engine cannot store is a
+	 * modelling error, not a transient one — no retry makes it shorter — so it skips the backoff ladder and surfaces
+	 * immediately, naming the variable and its length.
+	 */
+	private static Map<String, Object> storable(final Map<String, Object> variables) {
+		ofNullable(variables).orElseGet(Map::of).forEach(AbstractTopicWorker::verifyStorable);
+		return variables;
+	}
+
+	private static void verifyStorable(final String name, final Object value) {
+		if (!(value instanceof final String text)) {
+			return;
+		}
+		if (text.length() <= MAX_STRING_VARIABLE_LENGTH) {
+			return;
+		}
+		throw new NonRetryableTaskException(VARIABLE_TOO_LONG.formatted(name, text.length(), MAX_STRING_VARIABLE_LENGTH));
 	}
 
 	/**

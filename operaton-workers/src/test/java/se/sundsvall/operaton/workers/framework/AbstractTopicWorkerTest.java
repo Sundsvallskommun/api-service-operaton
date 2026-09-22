@@ -21,6 +21,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -199,6 +201,65 @@ class AbstractTopicWorkerTest {
 		lenient().when(task.getRetries()).thenReturn(retries);
 
 		return task;
+	}
+
+	/**
+	 * A string variable the engine cannot store is a modelling error, not a transient one. Caught here it names the
+	 * variable and its length and goes straight to an incident; left to the engine it reaches MariaDB, rolls the task
+	 * back and comes out as "An exception occurred in the persistence layer" — five times over, naming nothing. That is
+	 * how the EB process went down on 2026-09-22.
+	 */
+	@Test
+	void processTasksRejectsAnOutputVariableTooLongForTheEngineWithoutRetrying() {
+		final var task = taskFailingWith(null);
+		final var tooLong = "x".repeat(4001);
+
+		new TestWorker(externalTaskServiceMock, _ -> Map.of("financialAidBasis", tooLong)).processTasks();
+
+		verify(externalTaskServiceMock, never()).complete(any(), any(), any());
+		verify(externalTaskServiceMock).handleFailure(
+			eq("task-2"), eq("test-topic-worker"),
+			contains("Output variable 'financialAidBasis' is 4001 characters"),
+			eq(0), eq(0L));
+		assertThat(task).isNotNull();
+	}
+
+	@Test
+	void processTasksAllowsAnOutputVariableExactlyAtTheLimit() {
+		final var queryBuilder = mock(ExternalTaskQueryBuilder.class);
+		final var topicBuilder = mock(ExternalTaskQueryTopicBuilder.class);
+		final var task = mock(LockedExternalTask.class);
+		final var output = Map.<String, Object>of("atLimit", "x".repeat(4000));
+
+		when(externalTaskServiceMock.fetchAndLock(anyInt(), any())).thenReturn(queryBuilder);
+		when(queryBuilder.topic(any(), anyLong())).thenReturn(topicBuilder);
+		when(topicBuilder.execute()).thenReturn(List.of(task));
+		when(task.getId()).thenReturn("task-1");
+
+		new TestWorker(externalTaskServiceMock, _ -> output).processTasks();
+
+		verify(externalTaskServiceMock).complete("task-1", "test-topic-worker", output);
+	}
+
+	/** Only strings are bounded — a long value or a null must not be mistaken for an oversized one. */
+	@Test
+	void processTasksLeavesNonStringOutputAlone() {
+		final var queryBuilder = mock(ExternalTaskQueryBuilder.class);
+		final var topicBuilder = mock(ExternalTaskQueryTopicBuilder.class);
+		final var task = mock(LockedExternalTask.class);
+		final var output = new java.util.HashMap<String, Object>();
+		output.put("flag", true);
+		output.put("count", 4001L);
+		output.put("absent", null);
+
+		when(externalTaskServiceMock.fetchAndLock(anyInt(), any())).thenReturn(queryBuilder);
+		when(queryBuilder.topic(any(), anyLong())).thenReturn(topicBuilder);
+		when(topicBuilder.execute()).thenReturn(List.of(task));
+		when(task.getId()).thenReturn("task-1");
+
+		new TestWorker(externalTaskServiceMock, _ -> output).processTasks();
+
+		verify(externalTaskServiceMock).complete("task-1", "test-topic-worker", output);
 	}
 
 	@Test
