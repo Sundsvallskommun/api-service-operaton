@@ -1,6 +1,5 @@
 package se.sundsvall.operaton.app.configuration;
 
-import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -14,20 +13,20 @@ class SensitiveVariableHistoryPluginTest {
 
 	private static final List<String> SUPPRESSED = List.of("financialAidBasis", "coApplicantFinancialAidBasis");
 
-	private static StandaloneProcessEngineConfiguration configuration(final String history) {
+	/** The engine hands postInit a configuration whose history level is already resolved and validated. */
+	private static StandaloneProcessEngineConfiguration resolvedAs(final HistoryLevel level) {
 		final var configuration = new StandaloneProcessEngineConfiguration();
-		configuration.setHistory(history);
+		configuration.setHistoryLevel(level);
 		return configuration;
 	}
 
 	@Test
-	void registersTheLevelAndSelectsItByName() {
-		final var configuration = configuration("full");
+	void wrapsTheResolvedLevel() {
+		final var configuration = resolvedAs(HistoryLevel.HISTORY_LEVEL_FULL);
 
-		new SensitiveVariableHistoryPlugin(SUPPRESSED).preInit(configuration);
+		new SensitiveVariableHistoryPlugin(SUPPRESSED).postInit(configuration);
 
-		assertThat(configuration.getHistory()).isEqualTo("full-without-sensitive-variables");
-		assertThat(configuration.getCustomHistoryLevels()).singleElement()
+		assertThat(configuration.getHistoryLevel())
 			.isInstanceOfSatisfying(SensitiveVariableHistoryLevel.class, level -> {
 				assertThat(level.getDelegate()).isEqualTo(HistoryLevel.HISTORY_LEVEL_FULL);
 				assertThat(level.getSuppressedVariables()).containsExactlyInAnyOrderElementsOf(SUPPRESSED);
@@ -35,62 +34,78 @@ class SensitiveVariableHistoryPluginTest {
 	}
 
 	/**
-	 * The id has to come from the level actually in force, whatever that is, because the engine matches it against the
-	 * one stored in ACT_GE_PROPERTY and will not start on a disagreement. Pinning 'full' here would have turned a
-	 * deployment configured for audit into a engine that refuses to boot.
+	 * The regression this class exists for. Every deployment that leaves {@code history} at its default resolves it
+	 * from the database during init, and the previous version of this plugin matched the configured <em>string</em>
+	 * against a table of level names at preInit - where the string is still {@code auto}. It therefore wrapped nothing,
+	 * on exactly the deployments nobody had configured explicitly, while the configuration looked correct.
+	 * <p>
+	 * Reading the resolved level instead means the configured string never enters into it.
+	 */
+	@Test
+	void wrapsEvenWhenHistoryWasLeftOnAuto() {
+		final var configuration = resolvedAs(HistoryLevel.HISTORY_LEVEL_FULL);
+		configuration.setHistory("auto");
+
+		new SensitiveVariableHistoryPlugin(SUPPRESSED).postInit(configuration);
+
+		assertThat(configuration.getHistoryLevel()).isInstanceOf(SensitiveVariableHistoryLevel.class);
+	}
+
+	/**
+	 * The id has to come from the level actually in force, because the engine matches it against the one stored in
+	 * ACT_GE_PROPERTY and will not start on a disagreement. Pinning one level here would turn a deployment configured
+	 * for another into an engine that refuses to boot.
 	 */
 	@ParameterizedTest
 	@ValueSource(strings = {
 		"none", "activity", "audit", "full"
 	})
-	void takesItsIdFromWhicheverLevelWasConfigured(final String history) {
-		final var configuration = configuration(history);
+	void takesItsIdFromWhicheverLevelWasResolved(final String name) {
+		final var resolved = levelNamed(name);
+		final var configuration = resolvedAs(resolved);
 
-		new SensitiveVariableHistoryPlugin(SUPPRESSED).preInit(configuration);
+		new SensitiveVariableHistoryPlugin(SUPPRESSED).postInit(configuration);
 
-		final var level = (SensitiveVariableHistoryLevel) configuration.getCustomHistoryLevels().getFirst();
-		assertThat(level.getId()).isEqualTo(level.getDelegate().getId());
-		assertThat(level.getDelegate().getName()).isEqualTo(history);
-	}
-
-	/**
-	 * 'auto' has no level to wrap yet — the engine resolves it from the database after preInit — and an unknown value
-	 * is not ours to reinterpret. Both leave the engine exactly as configured, which means the payloads keep being
-	 * written; the plugin logs a warning rather than failing, but this pins that it changes nothing.
-	 */
-	@ParameterizedTest
-	@ValueSource(strings = {
-		"auto", "something-else"
-	})
-	void leavesTheEngineAloneWhenTheConfiguredLevelCannotBeWrapped(final String history) {
-		final var configuration = configuration(history);
-
-		new SensitiveVariableHistoryPlugin(SUPPRESSED).preInit(configuration);
-
-		assertThat(configuration.getHistory()).isEqualTo(history);
-		assertThat(configuration.getCustomHistoryLevels()).isNullOrEmpty();
+		final var level = (SensitiveVariableHistoryLevel) configuration.getHistoryLevel();
+		assertThat(level.getId()).isEqualTo(resolved.getId());
+		assertThat(level.getDelegate().getName()).isEqualTo(name);
 	}
 
 	@Test
-	void leavesTheEngineAloneWhenNothingIsConfiguredForSuppression() {
-		final var configuration = configuration("full");
+	void leavesTheLevelAloneWithNothingToSuppress() {
+		final var configuration = resolvedAs(HistoryLevel.HISTORY_LEVEL_FULL);
 
-		new SensitiveVariableHistoryPlugin(List.of(" ")).preInit(configuration);
+		new SensitiveVariableHistoryPlugin(List.of(" ")).postInit(configuration);
 
-		assertThat(configuration.getHistory()).isEqualTo("full");
-		assertThat(configuration.getCustomHistoryLevels()).isNullOrEmpty();
+		assertThat(configuration.getHistoryLevel()).isEqualTo(HistoryLevel.HISTORY_LEVEL_FULL);
 	}
 
-	/** Another plugin's custom level must survive ours being added. */
 	@Test
-	void keepsCustomLevelsRegisteredByAnyoneElse() {
-		final var configuration = configuration("full");
-		configuration.setCustomHistoryLevels(new ArrayList<>(List.of(HistoryLevel.HISTORY_LEVEL_AUDIT)));
+	void doesNotWrapTwice() {
+		final var configuration = resolvedAs(HistoryLevel.HISTORY_LEVEL_FULL);
+		final var plugin = new SensitiveVariableHistoryPlugin(SUPPRESSED);
 
-		new SensitiveVariableHistoryPlugin(SUPPRESSED).preInit(configuration);
+		plugin.postInit(configuration);
+		final var afterFirst = configuration.getHistoryLevel();
+		plugin.postInit(configuration);
 
-		assertThat(configuration.getCustomHistoryLevels())
-			.hasSize(2)
-			.element(0).isEqualTo(HistoryLevel.HISTORY_LEVEL_AUDIT);
+		assertThat(configuration.getHistoryLevel()).isSameAs(afterFirst);
+	}
+
+	@Test
+	void survivesAnUnresolvedLevel() {
+		final var configuration = new StandaloneProcessEngineConfiguration();
+
+		new SensitiveVariableHistoryPlugin(SUPPRESSED).postInit(configuration);
+
+		assertThat(configuration.getHistoryLevel()).isNull();
+	}
+
+	private static HistoryLevel levelNamed(final String name) {
+		return List.of(HistoryLevel.HISTORY_LEVEL_NONE, HistoryLevel.HISTORY_LEVEL_ACTIVITY,
+			HistoryLevel.HISTORY_LEVEL_AUDIT, HistoryLevel.HISTORY_LEVEL_FULL).stream()
+			.filter(level -> level.getName().equals(name))
+			.findFirst()
+			.orElseThrow();
 	}
 }

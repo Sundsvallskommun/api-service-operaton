@@ -1,48 +1,44 @@
 package se.sundsvall.operaton.app.configuration;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import org.operaton.bpm.engine.ProcessEngineConfiguration;
 import org.operaton.bpm.engine.impl.cfg.AbstractProcessEnginePlugin;
 import org.operaton.bpm.engine.impl.cfg.ProcessEngineConfigurationImpl;
-import org.operaton.bpm.engine.impl.history.HistoryLevel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import static java.util.Optional.ofNullable;
-
 /**
- * Registers {@link SensitiveVariableHistoryLevel} and makes the engine use it, so the variables named in
- * {@code operaton.history.suppressed-variables} leave no history behind. Runs in {@code preInit}, which the engine
- * invokes before {@code initHistoryLevel()} — the only window in which a custom level can still be added to the
- * candidate list and selected.
+ * Wraps whatever history level the engine ended up with in a {@link SensitiveVariableHistoryLevel}, so the variables
+ * named in {@code operaton.history.suppressed-variables} leave no history behind.
  *
  * <p>
- * The level being wrapped is resolved from whatever {@code history} is configured rather than pinned to {@code full}.
- * That is what keeps the substitution safe: the engine refuses to start when the configured level's id disagrees with
- * the one stored in {@code ACT_GE_PROPERTY}, so taking the id from the level already in force means this plugin cannot
- * introduce a mismatch no matter how the deployment is configured.
+ * Runs in {@code postInit}, <strong>after</strong> {@code initHistoryLevel()}. That is the whole point. The level is
+ * taken as a resolved object rather than as the configured string, which means:
+ * </p>
+ * <ul>
+ * <li><strong>{@code history: auto} works.</strong> Auto has no level to read at {@code preInit} — the engine derives
+ * it from {@code ACT_GE_PROPERTY} during init — so an earlier version of this plugin, which mapped the configured
+ * string against a table of known level names, silently did nothing on every deployment that left history at its
+ * default. The configuration looked right, the payloads kept being written, and the outage it was written to fix
+ * stayed open. Reading the resolved level cannot miss, whatever history is set to.</li>
+ * <li><strong>It cannot stop the engine starting.</strong> The engine compares the active level's id against the one
+ * stored in {@code ACT_GE_PROPERTY} and refuses to start on a disagreement, and Operaton 2.1.4 has no
+ * {@code skipHistoryLevelCheck}. That comparison has already happened by {@code postInit}, and
+ * {@link SensitiveVariableHistoryLevel#getId()} reports the wrapped level's id anyway, so this substitution is
+ * invisible to it from either side.</li>
+ * </ul>
  *
  * <p>
- * Two cases leave the engine alone and say so. {@code history: auto} has no level to wrap yet — the engine determines
- * it from the database after this point — and an unrecognised value is not ours to reinterpret. Both log a warning
- * naming the value, because silently keeping full history would put the payloads back in {@code ACT_HI_DETAIL} without
- * anyone noticing.
+ * The engine reads the active level off the configuration each time it asks whether an event is produced, so replacing
+ * it here takes effect for everything written afterwards. Nothing already persisted is affected — rows written before
+ * this plugin worked are still there and want their own cleanup.
+ * </p>
  */
 @Component
 public class SensitiveVariableHistoryPlugin extends AbstractProcessEnginePlugin {
 
 	private static final Logger LOG = LoggerFactory.getLogger(SensitiveVariableHistoryPlugin.class);
-
-	private static final Map<String, HistoryLevel> WRAPPABLE_LEVELS = Map.of(
-		ProcessEngineConfiguration.HISTORY_NONE, HistoryLevel.HISTORY_LEVEL_NONE,
-		ProcessEngineConfiguration.HISTORY_ACTIVITY, HistoryLevel.HISTORY_LEVEL_ACTIVITY,
-		ProcessEngineConfiguration.HISTORY_AUDIT, HistoryLevel.HISTORY_LEVEL_AUDIT,
-		ProcessEngineConfiguration.HISTORY_FULL, HistoryLevel.HISTORY_LEVEL_FULL);
 
 	private final List<String> suppressedVariables;
 
@@ -52,30 +48,26 @@ public class SensitiveVariableHistoryPlugin extends AbstractProcessEnginePlugin 
 	}
 
 	@Override
-	public void preInit(final ProcessEngineConfigurationImpl configuration) {
+	public void postInit(final ProcessEngineConfigurationImpl configuration) {
 		if (suppressedVariables.isEmpty()) {
 			LOG.info("No variables configured for history suppression - leaving the history level alone");
 			return;
 		}
 
-		final var history = ofNullable(configuration.getHistory()).orElse("");
-		final var delegate = wrappableLevel(history);
-		if (delegate.isEmpty()) {
-			LOG.warn("History level '{}' cannot be wrapped - {} will keep being written to history", history, suppressedVariables);
+		final var current = configuration.getHistoryLevel();
+		if (current == null) {
+			// Defensive: the engine sets this during init, so reaching here means the lifecycle changed under us.
+			LOG.warn("No history level resolved at postInit - {} will keep being written to history", suppressedVariables);
+			return;
+		}
+		if (current instanceof SensitiveVariableHistoryLevel) {
+			LOG.info("History level already wrapped - leaving it alone");
 			return;
 		}
 
-		final var level = new SensitiveVariableHistoryLevel(delegate.get(), suppressedVariables);
-		final var levels = new ArrayList<>(ofNullable(configuration.getCustomHistoryLevels()).orElseGet(List::of));
-		levels.add(level);
-		configuration.setCustomHistoryLevels(levels);
-		configuration.setHistory(SensitiveVariableHistoryLevel.NAME);
+		configuration.setHistoryLevel(new SensitiveVariableHistoryLevel(current, suppressedVariables));
 
-		LOG.info("History level '{}' wrapped as '{}' (id {}) - no history will be written for {}",
-			history, level.getName(), level.getId(), suppressedVariables);
-	}
-
-	private static Optional<HistoryLevel> wrappableLevel(final String history) {
-		return ofNullable(WRAPPABLE_LEVELS.get(history.toLowerCase()));
+		LOG.info("History level '{}' (id {}) wrapped as '{}' - no history will be written for {}",
+			current.getName(), current.getId(), SensitiveVariableHistoryLevel.NAME, suppressedVariables);
 	}
 }
