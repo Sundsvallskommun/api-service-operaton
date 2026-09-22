@@ -38,8 +38,12 @@ public final class SsbtekIncomeExtractor {
 	private static final String PM_BENEFIT_PRELIMINARY = "PM-Prel";
 
 	private static final String CSN_STUDIEMEDEL = "Studiemedel";
-	// Deliberately spelled without the umlaut - Decision_inkomstRalista's Rule_ral_studiehjalp keys on this exact string.
-	private static final String CSN_STUDIEHJALP = "Studiehjalp";
+	/**
+	 * Deliberately spelled without the umlaut - Decision_inkomstRalista's Rule_ral_studiehjalp keys on this exact
+	 * string. Public because the september rule has to recognise the same benefit by the same name; two spellings of
+	 * one benefit is how a rule silently stops matching.
+	 */
+	public static final String CSN_STUDIEHJALP = "Studiehjalp";
 	private static final String CSN_STUDIESTARTSSTOD = "Studiestartsstöd";
 	private static final String CSN_OMSTALLNINGSSTUDIESTOD = "Omställningsstudiestöd";
 

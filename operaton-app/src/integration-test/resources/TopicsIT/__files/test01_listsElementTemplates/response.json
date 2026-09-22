@@ -56,6 +56,10 @@
 		"name": "Evaluate Income Regelverk"
 	},
 	{
+		"id": "se.sundsvall.operaton.EvaluateStudiehjalpSeptember",
+		"name": "Evaluate Studiehjalp September"
+	},
+	{
 		"id": "se.sundsvall.operaton.LogMessage",
 		"name": "Log Message"
 	}

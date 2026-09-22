@@ -68,6 +68,7 @@ class RegisteredTopicsTest {
 			"fetch-lifecare-supplements",
 			"fetch-financial-aid-basis",
 			"evaluate-income-regelverk",
+			"evaluate-studiehjalp-september",
 			"log-message");
 	}
 }
