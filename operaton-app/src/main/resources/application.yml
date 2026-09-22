@@ -29,6 +29,13 @@ spring:
           financial-aid:
             authorization-grant-type: client_credentials
             provider: financial-aid
+operaton:
+  # Process variables whose history is never written. The SSBTEK basis carries personnummer, agency income, vehicle
+  # ownership and residence-permit decisions; ACT_HI_DETAIL keeps every version of it forever and gallring does not
+  # reach the engine, so it is kept out of history entirely. It also outgrew ACT_HI_DETAIL.TEXT_ (varchar(4000)),
+  # which failed every fetch_ssbtek completion until this was added. See SensitiveVariableHistoryLevel.
+  history:
+    suppressed-variables: financialAidBasis,coApplicantFinancialAidBasis
 operaton.bpm:
   admin-user:
     id: demo
