@@ -62,13 +62,10 @@ class RegisteredTopicsTest {
 			"add-errand-decision",
 			"create-actualisation",
 			"check-payment-status",
-			"prepare-normberakning",
 			"commit-normberakning",
+			"prepare-income-basis",
 			"create-application-normberakning",
 			"fetch-lifecare-supplements",
-			"fetch-financial-aid-basis",
-			"evaluate-income-regelverk",
-			"evaluate-studiehjalp-september",
 			"log-message");
 	}
 }

@@ -36,8 +36,123 @@
 		"name": "Create Application Normberakning"
 	},
 	{
-		"id": "se.sundsvall.operaton.PrepareNormberakning",
-		"name": "Prepare Normberakning"
+		"$schema": "https://unpkg.com/@camunda/element-templates-json-schema/resources/schema.json",
+		"appliesTo": [
+			"bpmn:ServiceTask"
+		],
+		"description": "Prepares the EB income basis in one step: resolves the household's personal numbers from careM, reads SSBTEK for applicant and co-applicant, evaluates the income rules (allow list, thresholds, period rules and the seasonal studiehjälp rule via the published DMNs) and posts the classified incomes and warnings to careM's normberäkning prepare. Nothing but the ssbtekError flag becomes a process variable — the agency payload never leaves the worker, because the engine cannot store it and should not keep it.",
+		"id": "se.sundsvall.operaton.PrepareIncomeBasis",
+		"name": "Prepare Income Basis",
+		"properties": [
+			{
+				"binding": {
+					"name": "camunda:type",
+					"type": "property"
+				},
+				"editable": false,
+				"label": "Implementation",
+				"type": "String",
+				"value": "external"
+			},
+			{
+				"binding": {
+					"name": "camunda:topic",
+					"type": "property"
+				},
+				"editable": false,
+				"label": "Topic",
+				"type": "String",
+				"value": "prepare-income-basis"
+			},
+			{
+				"binding": {
+					"name": "municipalityId",
+					"type": "camunda:inputParameter"
+				},
+				"constraints": {
+					"notEmpty": true
+				},
+				"label": "Municipality Id",
+				"type": "String"
+			},
+			{
+				"binding": {
+					"name": "namespace",
+					"type": "camunda:inputParameter"
+				},
+				"constraints": {
+					"notEmpty": true
+				},
+				"label": "Namespace",
+				"type": "String"
+			},
+			{
+				"binding": {
+					"name": "errandId",
+					"type": "camunda:inputParameter"
+				},
+				"constraints": {
+					"notEmpty": true
+				},
+				"label": "Errand Id",
+				"type": "String"
+			},
+			{
+				"binding": {
+					"name": "applicant",
+					"type": "camunda:inputParameter"
+				},
+				"constraints": {
+					"notEmpty": true
+				},
+				"label": "Applicant",
+				"type": "String"
+			},
+			{
+				"binding": {
+					"name": "coApplicant",
+					"type": "camunda:inputParameter"
+				},
+				"constraints": {
+					"notEmpty": true
+				},
+				"label": "Co Applicant",
+				"type": "String"
+			},
+			{
+				"binding": {
+					"name": "applicationMonth",
+					"type": "camunda:inputParameter"
+				},
+				"constraints": {
+					"notEmpty": true
+				},
+				"label": "Application Month",
+				"type": "String"
+			},
+			{
+				"binding": {
+					"name": "fromDate",
+					"type": "camunda:inputParameter"
+				},
+				"constraints": {
+					"notEmpty": true
+				},
+				"label": "From Date",
+				"type": "String"
+			},
+			{
+				"binding": {
+					"name": "toDate",
+					"type": "camunda:inputParameter"
+				},
+				"constraints": {
+					"notEmpty": true
+				},
+				"label": "To Date",
+				"type": "String"
+			}
+		]
 	},
 	{
 		"id": "se.sundsvall.operaton.CommitNormberakning",
@@ -46,18 +161,6 @@
 	{
 		"id": "se.sundsvall.operaton.CheckPaymentStatus",
 		"name": "Check Payment Status"
-	},
-	{
-		"id": "se.sundsvall.operaton.FetchFinancialAidBasis",
-		"name": "Fetch Financial Aid Basis"
-	},
-	{
-		"id": "se.sundsvall.operaton.EvaluateIncomeRegelverk",
-		"name": "Evaluate Income Regelverk"
-	},
-	{
-		"id": "se.sundsvall.operaton.EvaluateStudiehjalpSeptember",
-		"name": "Evaluate Studiehjalp September"
 	},
 	{
 		"id": "se.sundsvall.operaton.LogMessage",

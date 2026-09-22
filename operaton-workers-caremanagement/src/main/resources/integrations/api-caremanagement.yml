@@ -2503,6 +2503,25 @@ components:
           description: Optional extra hints for the robot, merged into the queue item SpecificContent
       required:
         - action
+    RpaContext:
+      type: object
+      description: >-
+        The household's personal numbers for one errand, fetched on demand instead of carried in a queue item or a
+        process variable. Every read is recorded in the errand's event log with the caller's X-Sent-By identity.
+      properties:
+        errandNumber:
+          type: string
+          description: The errand's human-readable number
+          examples:
+            - EB-2026-000123
+        applicantPersonId:
+          type: string
+          description: >-
+            The applicant's personal number (12 characters, may contain letters). Null when it could not be resolved —
+            treat as an error on the caller's side.
+        coApplicantPersonId:
+          type: string
+          description: The co-applicant's personal number; null when there is no co-applicant or it could not be resolved
     Stakeholder:
       type: object
       description: Stakeholder model

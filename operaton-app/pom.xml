@@ -54,6 +54,10 @@
 		</dependency>
 		<dependency>
 			<groupId>se.sundsvall</groupId>
+			<artifactId>operaton-workers-ekonomisktbistand</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>se.sundsvall</groupId>
 			<artifactId>operaton-webapp</artifactId>
 		</dependency>
 		<dependency>

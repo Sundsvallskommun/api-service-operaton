@@ -9,10 +9,12 @@ import generated.se.sundsvall.caremanagement.NormberakningResponse;
 import generated.se.sundsvall.caremanagement.PatchErrand;
 import generated.se.sundsvall.caremanagement.PaymentStatusRequest;
 import generated.se.sundsvall.caremanagement.PaymentStatusResponse;
+import generated.se.sundsvall.caremanagement.RpaContext;
 import generated.se.sundsvall.caremanagement.RpaTaskRequest;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -83,6 +85,18 @@ public interface CareManagementClient {
 	 * Enqueue a UiPath RPA task on an errand (CareManagement drops a queue item; a robot does the Lifecare GUI work out of
 	 * band). {@code action} selects the Lifecare flow the robot runs.
 	 */
+	/**
+	 * The household's personal numbers for one errand. Fetched on demand so they never become process variables: the
+	 * engine persists every variable in {@code ACT_RU_VARIABLE} and keeps it in {@code ACT_HI_VARINST} for the model's
+	 * history TTL, where no gallring reaches it. Same reasoning the RPA queue items were built on — carry the errandId,
+	 * fetch the identities — and every read lands in the errand's event log.
+	 */
+	@GetMapping(path = "/{municipalityId}/{namespace}/errands/financial-assistance/{errandId}/rpa-context", produces = APPLICATION_JSON_VALUE)
+	ResponseEntity<RpaContext> getRpaContext(
+		@PathVariable final String municipalityId,
+		@PathVariable final String namespace,
+		@PathVariable final String errandId);
+
 	@PostMapping(path = "/{municipalityId}/{namespace}/errands/{errandId}/rpa-tasks", consumes = APPLICATION_JSON_VALUE)
 	ResponseEntity<Void> enqueueRpaTask(
 		@PathVariable final String municipalityId,

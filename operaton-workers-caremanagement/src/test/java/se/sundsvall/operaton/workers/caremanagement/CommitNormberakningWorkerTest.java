@@ -77,16 +77,23 @@ class CommitNormberakningWorkerTest {
 		assertThat(worker.handle(task)).isEqualTo(Map.of());
 	}
 
+	/**
+	 * The commit step used to be handed classifiedIncomes, unhandledIncomes and changeWarnings, and caremanagement
+	 * threw all three away — it builds the Lifecare post from its own draft rows. They were carried only because the
+	 * beredning had nowhere else to put them, and carrying them meant a person's income data sat in a varchar(4000)
+	 * across the whole wait loop. Nothing sensitive survives that loop any more, and nothing should start to again.
+	 */
 	@Test
-	void handleIncludesSplitWarningLists() {
+	void sendsNoIncomeDataToTheCommit() {
 		final var task = mock(LockedExternalTask.class);
 		when(task.getVariables()).thenReturn(Variables.createVariables()
 			.putValue("municipalityId", "2281")
 			.putValue("namespace", "my-namespace")
 			.putValue("applicant", "199001011234")
 			.putValue("applicationMonth", "2026-06")
+			// Left over on an instance started before the beredning was merged — it must be ignored, not forwarded.
 			.putValue("unhandledIncomes", "Barnbidrag; Bostadsbidrag")
-			.putValue("changeWarnings", ""));
+			.putValue("classifiedIncomes", "[{\"forman\":\"Bostadsbidrag\"}]"));
 		when(careManagementClientMock.commitNormberakning(any(), any(), any())).thenReturn(
 			ResponseEntity.ok(new NormberakningResponse().calculationId(4712)));
 
@@ -94,8 +101,9 @@ class CommitNormberakningWorkerTest {
 
 		final var requestCaptor = ArgumentCaptor.forClass(NormberakningRequest.class);
 		verify(careManagementClientMock).commitNormberakning(eq("2281"), eq("my-namespace"), requestCaptor.capture());
-		assertThat(requestCaptor.getValue().getUnhandledIncomes()).containsExactly("Barnbidrag", "Bostadsbidrag");
-		assertThat(requestCaptor.getValue().getChangeWarnings()).isEmpty();
+		assertThat(requestCaptor.getValue().getClassifiedIncomes()).isNull();
+		assertThat(requestCaptor.getValue().getUnhandledIncomes()).isNullOrEmpty();
+		assertThat(requestCaptor.getValue().getChangeWarnings()).isNullOrEmpty();
 		assertThat(result).isEqualTo(Map.of("normberakningCalculationId", 4712));
 	}
 }
