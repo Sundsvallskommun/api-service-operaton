@@ -26,7 +26,8 @@ import static java.util.Optional.ofNullable;
  * The errand is the {@code errandId} input variable when the model maps one, otherwise the business key (businessKey =
  * errandId), so instances already waiting on an older process version get the same check. While the payments are
  * still pending the gateway loops on the process timer; {@code paymentStatusDetail} says why, so a stuck instance can
- * be read without calling careM.
+ * be read without calling careM, and {@code paymentOverdue} turns true once careM's working-day deadline has passed —
+ * the model then notifies the caseworker. Nothing is ever closed on it.
  */
 @Component
 @TopicWorker(
@@ -41,7 +42,8 @@ import static java.util.Optional.ofNullable;
 	},
 	outputVariables = {
 		CheckPaymentStatusWorker.VAR_OUT_PAYMENT_EFFECTUATED,
-		CheckPaymentStatusWorker.VAR_OUT_PAYMENT_STATUS_DETAIL
+		CheckPaymentStatusWorker.VAR_OUT_PAYMENT_STATUS_DETAIL,
+		CheckPaymentStatusWorker.VAR_OUT_PAYMENT_OVERDUE
 	})
 public class CheckPaymentStatusWorker extends AbstractTopicWorker {
 
@@ -52,6 +54,7 @@ public class CheckPaymentStatusWorker extends AbstractTopicWorker {
 
 	static final String VAR_OUT_PAYMENT_EFFECTUATED = "paymentEffectuated";
 	static final String VAR_OUT_PAYMENT_STATUS_DETAIL = "paymentStatusDetail";
+	static final String VAR_OUT_PAYMENT_OVERDUE = "paymentOverdue";
 
 	private static final Logger LOG = LoggerFactory.getLogger(CheckPaymentStatusWorker.class);
 
@@ -81,8 +84,9 @@ public class CheckPaymentStatusWorker extends AbstractTopicWorker {
 
 		final var effectuated = ofNullable(response).map(PaymentStatusResponse::getEffectuated).map(TRUE::equals).orElse(false);
 		final var detail = ofNullable(response).map(PaymentStatusResponse::getDetail).orElse("");
+		final var overdue = ofNullable(response).map(PaymentStatusResponse::getOverdue).map(TRUE::equals).orElse(false);
 
-		LOG.info("Payment status read (effectuated: {}, detail: {})", effectuated, detail);
-		return Map.of(VAR_OUT_PAYMENT_EFFECTUATED, effectuated, VAR_OUT_PAYMENT_STATUS_DETAIL, detail);
+		LOG.info("Payment status read (effectuated: {}, overdue: {}, detail: {})", effectuated, overdue, detail);
+		return Map.of(VAR_OUT_PAYMENT_EFFECTUATED, effectuated, VAR_OUT_PAYMENT_STATUS_DETAIL, detail, VAR_OUT_PAYMENT_OVERDUE, overdue);
 	}
 }

@@ -2527,6 +2527,44 @@ components:
           description: Why the status is not effectuated, in words a caseworker can act on; empty when effectuated
           examples:
             - "1 av 2 beslutade utbetalningar är inte registrerade i Lifecare"
+        deadline:
+          type: string
+          description: The last working day the errand's decided payments may wait (ISO date)
+          examples:
+            - "2026-09-28"
+        overdue:
+          type: boolean
+          description: >-
+            True when the payments are still not effectuated after the deadline, or the bifall has no decided payments
+            at all. Never closes anything.
+          examples:
+            - false
+    Notification:
+      type: object
+      description: A notification on an errand, shown to its owner (and co-caseworkers) in Draken
+      properties:
+        ownerId:
+          type: string
+          description: User id of the recipient
+        createdBy:
+          type: string
+          description: User or system id that produced the notification
+        type:
+          type: string
+          description: Notification type (CREATE, UPDATE, DELETE)
+        subType:
+          type: string
+          description: Notification sub-type (ERRAND, DECISION, ATTACHMENT, STAKEHOLDER, PARAMETER, MESSAGE, SYSTEM)
+        description:
+          type: string
+          description: Short human-readable description
+        content:
+          type: string
+          description: Optional longer content
+      required:
+        - ownerId
+        - type
+        - description
     RpaTaskRequest:
       type: object
       description: Request to enqueue a UiPath RPA task on an errand

@@ -6,6 +6,7 @@ import generated.se.sundsvall.caremanagement.Decision;
 import generated.se.sundsvall.caremanagement.Errand;
 import generated.se.sundsvall.caremanagement.NormberakningRequest;
 import generated.se.sundsvall.caremanagement.NormberakningResponse;
+import generated.se.sundsvall.caremanagement.Notification;
 import generated.se.sundsvall.caremanagement.PatchErrand;
 import generated.se.sundsvall.caremanagement.PaymentStatusRequest;
 import generated.se.sundsvall.caremanagement.PaymentStatusResponse;
@@ -103,4 +104,17 @@ public interface CareManagementClient {
 		@PathVariable final String namespace,
 		@PathVariable final String errandId,
 		@RequestBody final RpaTaskRequest request);
+
+	@GetMapping(path = "/{municipalityId}/{namespace}/errands/{errandId}", produces = APPLICATION_JSON_VALUE)
+	ResponseEntity<Errand> readErrand(
+		@PathVariable final String municipalityId,
+		@PathVariable final String namespace,
+		@PathVariable final String errandId);
+
+	@PostMapping(path = "/{municipalityId}/{namespace}/errands/{errandId}/notifications", consumes = APPLICATION_JSON_VALUE)
+	ResponseEntity<Void> createNotification(
+		@PathVariable final String municipalityId,
+		@PathVariable final String namespace,
+		@PathVariable final String errandId,
+		@RequestBody final Notification notification);
 }
