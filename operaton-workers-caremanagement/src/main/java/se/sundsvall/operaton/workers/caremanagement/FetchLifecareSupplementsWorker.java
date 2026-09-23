@@ -18,16 +18,16 @@ import se.sundsvall.operaton.workers.framework.annotation.TopicWorker;
  *
  * <p>
  * Enqueues an RPA <em>fetch</em> task via CareManagement ({@code POST .../errands/{errandId}/rpa-tasks}, action
- * {@code FETCH_SUPPLEMENTS}). A UiPath robot reads the supplements out of Lifecare and writes them back onto the errand
- * through the existing CareManagement journal/document/monitoring endpoints — so nothing flows back through this
- * worker;
- * it only kicks off the robot and completes. Failures propagate so the engine retries the trigger.
+ * {@code FETCH_SUPPLEMENTS}). A UiPath robot reads the supplements out of Lifecare and delivers them in a single
+ * {@code POST .../errands/financial-assistance/{errandId}/lifecare-supplements}, where CareManagement mirrors journal
+ * notes, documents and reminders onto the errand. Nothing flows back through this worker; it only kicks off the robot
+ * and completes. Failures propagate so the engine retries the trigger.
  * </p>
  */
 @Component
 @TopicWorker(
 	topic = "fetch-lifecare-supplements",
-	description = "Enqueues an RPA fetch (action FETCH_SUPPLEMENTS) via CareManagement for the Lifecare-only supplements (bevakningar/notiser, journal, dokument) SSBTEK does not carry. A robot fetches them and writes them back onto the errand via the CareManagement endpoints; this worker only triggers and completes.",
+	description = "Enqueues an RPA fetch (action FETCH_SUPPLEMENTS) via CareManagement for the Lifecare-only supplements (bevakningar/notiser, journal, dokument) SSBTEK does not carry. A robot fetches them and delivers them to CareManagement's lifecare-supplements endpoint; this worker only triggers and completes.",
 	inputVariables = {
 		AbstractTopicWorker.VAR_MUNICIPALITY_ID,
 		FetchLifecareSupplementsWorker.VAR_NAMESPACE,

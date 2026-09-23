@@ -82,10 +82,6 @@ public interface CareManagementClient {
 		@RequestBody final PaymentStatusRequest request);
 
 	/**
-	 * Enqueue a UiPath RPA task on an errand (CareManagement drops a queue item; a robot does the Lifecare GUI work out of
-	 * band). {@code action} selects the Lifecare flow the robot runs.
-	 */
-	/**
 	 * The household's personal numbers for one errand. Fetched on demand so they never become process variables: the
 	 * engine persists every variable in {@code ACT_RU_VARIABLE} and keeps it in {@code ACT_HI_VARINST} for the model's
 	 * history TTL, where no gallring reaches it. Same reasoning the RPA queue items were built on — carry the errandId,
@@ -97,6 +93,10 @@ public interface CareManagementClient {
 		@PathVariable final String namespace,
 		@PathVariable final String errandId);
 
+	/**
+	 * Enqueue a UiPath RPA task on an errand (CareManagement drops a queue item; a robot does the Lifecare GUI work out of
+	 * band). {@code action} selects the Lifecare flow the robot runs.
+	 */
 	@PostMapping(path = "/{municipalityId}/{namespace}/errands/{errandId}/rpa-tasks", consumes = APPLICATION_JSON_VALUE)
 	ResponseEntity<Void> enqueueRpaTask(
 		@PathVariable final String municipalityId,
