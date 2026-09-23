@@ -111,6 +111,32 @@ class SsbtekIncomeExtractorCsnTest {
 	}
 
 	@Test
+	void theCoveredPeriodSpansTheEarliestStartAndLatestEndOfWeeksGivenOutOfOrder() {
+		final var weekWithoutEnd = new HashMap<String, Object>();
+		weekWithoutEnd.put("startvecka", "20263X");
+		weekWithoutEnd.put("slutvecka", null);
+
+		final Map<String, Object> person = Map.of("Studiemedel", Map.of("Arenden", Map.of("Arende", Map.of(
+			"klartext", "Studiemedel för studier i Sverige",
+			"UtbetalningsPlan", Map.of("Utbetalning", Map.of(
+				"utbetdatum", "20260824",
+				"totbelopp", "5000",
+				"Utbetaldatider", Map.of("Utbetaldtid", List.of(
+					Map.of("startvecka", "202637", "slutvecka", "202639"),
+					Map.of("startvecka", "202635", "slutvecka", "202636"),
+					Map.of("startvecka", "202638", "slutvecka", "202641"),
+					// unreadable weeks - wrong length, not a number, absent - are skipped, never a bogus date
+					Map.of("startvecka", "2026", "slutvecka", "2026"),
+					weekWithoutEnd))))))));
+
+		final var income = SsbtekIncomeExtractor.extract(personBasis(person), APPLICANT).getFirst();
+
+		// Monday of ISO week 35 2026 to Sunday of ISO week 41 2026, whatever order the weeks arrive in
+		assertThat(income.periodFrom()).isEqualTo(LocalDate.of(2026, Month.AUGUST, 24));
+		assertThat(income.periodTo()).isEqualTo(LocalDate.of(2026, Month.OCTOBER, 11));
+	}
+
+	@Test
 	void emptyStudySupportSubTreeConvertsToNullAndDoesNotThrow() {
 		final var person = new HashMap<String, Object>();
 		person.put("Studiemedel", Map.of("Arenden", Map.of("Arende", Map.of(
