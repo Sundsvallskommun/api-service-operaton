@@ -2488,6 +2488,13 @@ components:
       type: object
       description: Request to read whether the Lifecare utbetalning for an application month has been effectuated
       properties:
+        errandId:
+          type: string
+          description: >-
+            The errand whose decided payments to verify. When given, the status is effectuated only when every payment
+            the decision registered is found in Lifecare, by its Lifecare id.
+          examples:
+            - "a3c1f4de-2b6a-4c1e-9d3f-7e8a9b0c1d2e"
         applicant:
           type: string
           description: The applicant's partyId (personId GUID)
@@ -2515,6 +2522,11 @@ components:
           description: The date the utbetalning was made (Lifecare PayDate), when effectuated
           examples:
             - "2026-05-27"
+        detail:
+          type: string
+          description: Why the status is not effectuated, in words a caseworker can act on; empty when effectuated
+          examples:
+            - "1 av 2 beslutade utbetalningar är inte registrerade i Lifecare"
     RpaTaskRequest:
       type: object
       description: Request to enqueue a UiPath RPA task on an errand

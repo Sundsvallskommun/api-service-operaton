@@ -20,10 +20,13 @@ import static java.util.Optional.ofNullable;
  * reports it via the {@code paymentEffectuated} output variable that the rakel-ekonomiskt-bistand process gates on.
  *
  * <p>
- * The payment itself is a MANUAL step the caseworker performs in Lifecare — this worker makes no payment. It calls
- * CareManagement's {@code financial-assistance/payment-status} endpoint, which reads the Lifecare payment records for
- * the applicant and application month. While the payment is still pending the gateway loops on the process timer until
- * it is registered.
+ * The worker makes no payment — Draken's BFF registers the decided payments in Lifecare. It calls CareManagement's
+ * {@code financial-assistance/payment-status} endpoint with the errand, which verifies exactly the payments that
+ * errand's decision registered, by their Lifecare ids; another payment for the same person and month does not count.
+ * The errand is the {@code errandId} input variable when the model maps one, otherwise the business key (businessKey =
+ * errandId), so instances already waiting on an older process version get the same check. While the payments are
+ * still pending the gateway loops on the process timer; {@code paymentStatusDetail} says why, so a stuck instance can
+ * be read without calling careM.
  */
 @Component
 @TopicWorker(
@@ -32,19 +35,23 @@ import static java.util.Optional.ofNullable;
 	inputVariables = {
 		AbstractTopicWorker.VAR_MUNICIPALITY_ID,
 		CheckPaymentStatusWorker.VAR_NAMESPACE,
+		CheckPaymentStatusWorker.VAR_ERRAND_ID,
 		CheckPaymentStatusWorker.VAR_APPLICANT,
 		CheckPaymentStatusWorker.VAR_APPLICATION_MONTH
 	},
 	outputVariables = {
-		CheckPaymentStatusWorker.VAR_OUT_PAYMENT_EFFECTUATED
+		CheckPaymentStatusWorker.VAR_OUT_PAYMENT_EFFECTUATED,
+		CheckPaymentStatusWorker.VAR_OUT_PAYMENT_STATUS_DETAIL
 	})
 public class CheckPaymentStatusWorker extends AbstractTopicWorker {
 
 	static final String VAR_NAMESPACE = "namespace";
+	static final String VAR_ERRAND_ID = "errandId";
 	static final String VAR_APPLICANT = "applicant";
 	static final String VAR_APPLICATION_MONTH = "applicationMonth";
 
 	static final String VAR_OUT_PAYMENT_EFFECTUATED = "paymentEffectuated";
+	static final String VAR_OUT_PAYMENT_STATUS_DETAIL = "paymentStatusDetail";
 
 	private static final Logger LOG = LoggerFactory.getLogger(CheckPaymentStatusWorker.class);
 
@@ -63,6 +70,7 @@ public class CheckPaymentStatusWorker extends AbstractTopicWorker {
 	@Override
 	protected Map<String, Object> handle(final LockedExternalTask task) {
 		final var request = new PaymentStatusRequest()
+			.errandId(optionalVariable(task, VAR_ERRAND_ID, String.class).orElseGet(task::getBusinessKey))
 			.applicant(requireVariable(task, VAR_APPLICANT, String.class))
 			.applicationMonth(requireVariable(task, VAR_APPLICATION_MONTH, String.class));
 
@@ -72,8 +80,9 @@ public class CheckPaymentStatusWorker extends AbstractTopicWorker {
 			request).getBody();
 
 		final var effectuated = ofNullable(response).map(PaymentStatusResponse::getEffectuated).map(TRUE::equals).orElse(false);
+		final var detail = ofNullable(response).map(PaymentStatusResponse::getDetail).orElse("");
 
-		LOG.info("Payment status read (effectuated: {})", effectuated);
-		return Map.of(VAR_OUT_PAYMENT_EFFECTUATED, effectuated);
+		LOG.info("Payment status read (effectuated: {}, detail: {})", effectuated, detail);
+		return Map.of(VAR_OUT_PAYMENT_EFFECTUATED, effectuated, VAR_OUT_PAYMENT_STATUS_DETAIL, detail);
 	}
 }

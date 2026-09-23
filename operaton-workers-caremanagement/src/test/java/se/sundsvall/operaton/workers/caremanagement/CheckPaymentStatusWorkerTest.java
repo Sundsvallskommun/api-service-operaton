@@ -45,6 +45,7 @@ class CheckPaymentStatusWorkerTest {
 	@Test
 	void handleEffectuated() {
 		final var task = mock(LockedExternalTask.class);
+		when(task.getBusinessKey()).thenReturn("a3c1f4de-2b6a-4c1e-9d3f-7e8a9b0c1d2e");
 		when(task.getVariables()).thenReturn(Variables.createVariables()
 			.putValue("municipalityId", "2281")
 			.putValue("namespace", "my-namespace")
@@ -57,23 +58,30 @@ class CheckPaymentStatusWorkerTest {
 
 		final var requestCaptor = ArgumentCaptor.forClass(PaymentStatusRequest.class);
 		verify(careManagementClientMock).checkPaymentStatus(eq("2281"), eq("my-namespace"), requestCaptor.capture());
+		assertThat(requestCaptor.getValue().getErrandId()).isEqualTo("a3c1f4de-2b6a-4c1e-9d3f-7e8a9b0c1d2e");
 		assertThat(requestCaptor.getValue().getApplicant()).isEqualTo("f47ac10b-58cc-4372-a567-0e02b2c3d479");
 		assertThat(requestCaptor.getValue().getApplicationMonth()).isEqualTo("2026-06");
-		assertThat(result).isEqualTo(Map.of("paymentEffectuated", true));
+		assertThat(result).isEqualTo(Map.of("paymentEffectuated", true, "paymentStatusDetail", ""));
 	}
 
 	@Test
-	void handleNotEffectuated() {
+	void handleNotEffectuatedPrefersTheErrandIdVariableAndCarriesTheDetail() {
 		final var task = mock(LockedExternalTask.class);
 		when(task.getVariables()).thenReturn(Variables.createVariables()
 			.putValue("municipalityId", "2281")
 			.putValue("namespace", "my-namespace")
+			.putValue("errandId", "b0b0b0b0-2b6a-4c1e-9d3f-7e8a9b0c1d2e")
 			.putValue("applicant", "f47ac10b-58cc-4372-a567-0e02b2c3d479")
 			.putValue("applicationMonth", "2026-06"));
 		when(careManagementClientMock.checkPaymentStatus(any(), any(), any())).thenReturn(
-			ResponseEntity.ok(new PaymentStatusResponse().effectuated(false)));
+			ResponseEntity.ok(new PaymentStatusResponse().effectuated(false).detail("1 av 1 beslutade utbetalningar är inte registrerade i Lifecare")));
 
-		assertThat(worker.handle(task)).isEqualTo(Map.of("paymentEffectuated", false));
+		assertThat(worker.handle(task)).isEqualTo(Map.of("paymentEffectuated", false,
+			"paymentStatusDetail", "1 av 1 beslutade utbetalningar är inte registrerade i Lifecare"));
+
+		final var requestCaptor = ArgumentCaptor.forClass(PaymentStatusRequest.class);
+		verify(careManagementClientMock).checkPaymentStatus(eq("2281"), eq("my-namespace"), requestCaptor.capture());
+		assertThat(requestCaptor.getValue().getErrandId()).isEqualTo("b0b0b0b0-2b6a-4c1e-9d3f-7e8a9b0c1d2e");
 	}
 
 	@Test
@@ -86,7 +94,7 @@ class CheckPaymentStatusWorkerTest {
 			.putValue("applicationMonth", "2026-06"));
 		when(careManagementClientMock.checkPaymentStatus(any(), any(), any())).thenReturn(ResponseEntity.ok().build());
 
-		assertThat(worker.handle(task)).isEqualTo(Map.of("paymentEffectuated", false));
+		assertThat(worker.handle(task)).isEqualTo(Map.of("paymentEffectuated", false, "paymentStatusDetail", ""));
 	}
 
 	@Test
