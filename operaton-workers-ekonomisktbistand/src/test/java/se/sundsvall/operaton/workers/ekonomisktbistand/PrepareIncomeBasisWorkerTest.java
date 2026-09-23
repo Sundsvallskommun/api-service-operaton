@@ -5,6 +5,7 @@ import generated.se.sundsvall.caremanagement.NormberakningRequest;
 import generated.se.sundsvall.caremanagement.NormberakningResponse;
 import generated.se.sundsvall.caremanagement.RpaContext;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -144,6 +145,46 @@ class PrepareIncomeBasisWorkerTest {
 
 		verify(financialAidClientMock).getFinancialAidBasis(MUNICIPALITY_ID, APPLICANT_PNR, "2026-04-01", "2026-06-30");
 		verify(financialAidClientMock, never()).getFinancialAidBasis(eq(MUNICIPALITY_ID), eq(CO_APPLICANT_PNR), any(), any());
+	}
+
+	/**
+	 * The applicant's AF decision and FK days travel to careM's day check; an unread AF stays unread, not "no decision".
+	 */
+	@Test
+	void sendsTheApplicantsDayCheckBasis() {
+		task(null);
+		household(APPLICANT_PNR, CO_APPLICANT_PNR);
+		when(financialAidClientMock.getFinancialAidBasis(MUNICIPALITY_ID, APPLICANT_PNR, "2026-04-01", "2026-06-30")).thenReturn(Map.of(
+			"fk", Map.of("formansinformation", Map.of("programjobdagar", List.of(Map.of("antalForbrukade", 212, "harForbrukatMaxAntal", false))))));
+		when(financialAidClientMock.getFinancialAidBasis(MUNICIPALITY_ID, CO_APPLICANT_PNR, "2026-04-01", "2026-06-30")).thenReturn(Map.of(
+			"af", Map.of("Svar", Map.of("BeslutInfo", Map.of("EkonomiskaBeslut", Map.of("Beslut", Map.of("BeslutFrom", "2026-05-01")))))));
+		when(evaluatorMock.evaluate(any(), any(), any())).thenReturn(new IncomeRulesResult(List.of(), List.of()));
+
+		worker().handle(taskMock);
+
+		final var basis = captureRequest().getDayCheckBasis();
+		assertThat(basis.getEconomicDecisionPeriods()).isNull();
+		assertThat(basis.getConsumedDays()).isEqualTo(212);
+		assertThat(basis.getAllDaysConsumed()).isFalse();
+	}
+
+	@Test
+	void sendsTheApplicantsEconomicDecisionPeriods() {
+		task(null);
+		household(APPLICANT_PNR, null);
+		when(financialAidClientMock.getFinancialAidBasis(MUNICIPALITY_ID, APPLICANT_PNR, "2026-04-01", "2026-06-30")).thenReturn(Map.of(
+			"af", Map.of("Svar", Map.of("BeslutInfo", Map.of("EkonomiskaBeslut", Map.of("Beslut", Map.of("BeslutFrom", "2026-05-01", "BeslutTom", "2026-06-30")))))));
+		when(evaluatorMock.evaluate(any(), any(), any())).thenReturn(new IncomeRulesResult(List.of(), List.of()));
+
+		worker().handle(taskMock);
+
+		final var basis = captureRequest().getDayCheckBasis();
+		assertThat(basis.getEconomicDecisionPeriods()).singleElement().satisfies(period -> {
+			assertThat(period.getFromDate()).isEqualTo(LocalDate.of(2026, 5, 1));
+			assertThat(period.getToDate()).isEqualTo(LocalDate.of(2026, 6, 30));
+		});
+		assertThat(basis.getConsumedDays()).isNull();
+		assertThat(basis.getAllDaysConsumed()).isNull();
 	}
 
 	/**

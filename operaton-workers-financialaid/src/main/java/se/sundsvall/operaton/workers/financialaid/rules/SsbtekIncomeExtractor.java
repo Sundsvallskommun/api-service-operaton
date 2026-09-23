@@ -9,6 +9,7 @@ import java.time.temporal.IsoFields;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import static java.util.Optional.ofNullable;
 
@@ -26,10 +27,12 @@ import static java.util.Optional.ofNullable;
  * <b>so</b> (unemployment benefit payments) and <b>csn</b> (study support payments). The FK benefit comes from the
  * payment's {@code formansfamilj.beskrivning}; FK benefits not on the allow list surface as warnings downstream. The
  * Pensionsmyndigheten benefit is fixed as {@code "PM"}/{@code "PM-Prel"} - the payload carries no benefit name to read.
- * Non-income agencies (af/tns/miv, skv capital) are intentionally not read.
+ * Non-income agencies (tns/miv, skv capital) are intentionally not read; af is read only for the day-check gate
+ * ({@link #extractDayCheckFacts}).
  */
 public final class SsbtekIncomeExtractor {
 
+	private static final String AGENCY_AF = "af";
 	private static final String AGENCY_FK = "fk";
 	private static final String AGENCY_SO = "so";
 	private static final String AGENCY_CSN = "csn";
@@ -305,6 +308,65 @@ public final class SsbtekIncomeExtractor {
 			return List.of();
 		}
 		return extractUnemploymentBenefitAnswers(asMap(agencyBasis.get(AGENCY_SO)));
+	}
+
+	/**
+	 * The AF/FK facts that gate the dagersättning day check. An agency that is absent from the basis or answered with
+	 * financial-aid's {@code error} object is <em>unread</em> ({@code null}), never "answered with nothing" - an unread
+	 * gate makes caremanagement skip the check, while a wrongly answered one would raise a warning.
+	 * <p>
+	 * af: {@code Svar.BeslutInfo.EkonomiskaBeslut.Beslut(*)} with {@code BeslutFrom}/{@code BeslutTom}. {@code BeslutInfo}
+	 * is optional in the contract, so an AF answer without it is "no decision". An af block without {@code Svar} is not
+	 * an answer at all. fk: {@code formansinformation.programjobdagar(*)} with {@code antalForbrukade} and
+	 * {@code harForbrukatMaxAntal}; several rows are folded into the highest count and "any row says all used".
+	 * <p>
+	 * Neither path has been seen in a real SSBTEK answer yet - they are read from the AF XSD and the LEFI schema.
+	 *
+	 * @param  agencyBasis the per-agency SSBTEK basis (af/csn/fk/skv/so/tns/miv); may be {@code null}
+	 * @return             the facts, with {@code null} for every agency that was not read
+	 */
+	public static DayCheckFacts extractDayCheckFacts(final Map<String, ?> agencyBasis) {
+		if (agencyBasis == null) {
+			return new DayCheckFacts(null, null, null);
+		}
+		final var fk = answered(agencyBasis.get(AGENCY_FK));
+		final var programDays = asList(asMap(fk.get("formansinformation")).get("programjobdagar")).stream()
+			.map(SsbtekIncomeExtractor::asMap)
+			.toList();
+
+		Integer consumedDays = null;
+		Boolean allDaysConsumed = null;
+		if (!fk.isEmpty()) {
+			consumedDays = programDays.stream()
+				.map(row -> decimal(row.get("antalForbrukade")))
+				.filter(Objects::nonNull)
+				.map(BigDecimal::intValue)
+				.max(Integer::compare)
+				.orElse(null);
+			allDaysConsumed = programDays.stream().anyMatch(row -> "true".equalsIgnoreCase(str(row.get("harForbrukatMaxAntal"))));
+		}
+		return new DayCheckFacts(economicDecisionPeriods(asMap(answered(agencyBasis.get(AGENCY_AF)).get("Svar"))), consumedDays, allDaysConsumed);
+	}
+
+	/** {@code null} when AF gave no {@code Svar}; otherwise its decision periods, empty when it reports none. */
+	private static List<DayCheckFacts.DecisionPeriod> economicDecisionPeriods(final Map<String, Object> svar) {
+		if (svar.isEmpty()) {
+			return null;
+		}
+		return asList(asMap(asMap(svar.get("BeslutInfo")).get("EkonomiskaBeslut")).get("Beslut")).stream()
+			.map(SsbtekIncomeExtractor::asMap)
+			.map(beslut -> new DayCheckFacts.DecisionPeriod(date(beslut.get("BeslutFrom")), date(beslut.get("BeslutTom"))))
+			.filter(period -> (period.from() != null) || (period.to() != null))
+			.toList();
+	}
+
+	/** The agency's answer, or an empty map when it is absent or financial-aid reported it as an {@code error}. */
+	private static Map<String, Object> answered(final Object agency) {
+		final var map = asMap(agency);
+		if (map.containsKey("error")) {
+			return Map.of();
+		}
+		return map;
 	}
 
 	/**

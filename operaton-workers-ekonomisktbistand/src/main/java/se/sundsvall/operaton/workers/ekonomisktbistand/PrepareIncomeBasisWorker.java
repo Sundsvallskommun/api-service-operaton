@@ -2,6 +2,8 @@ package se.sundsvall.operaton.workers.ekonomisktbistand;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import generated.se.sundsvall.caremanagement.DayCheckBasis;
+import generated.se.sundsvall.caremanagement.EconomicDecisionPeriod;
 import generated.se.sundsvall.caremanagement.NormberakningRequest;
 import generated.se.sundsvall.caremanagement.RpaContext;
 import java.time.YearMonth;
@@ -21,6 +23,7 @@ import se.sundsvall.operaton.workers.financialaid.FinancialAidClient;
 import se.sundsvall.operaton.workers.financialaid.rules.ApplicantRole;
 import se.sundsvall.operaton.workers.financialaid.rules.ChangeWarning;
 import se.sundsvall.operaton.workers.financialaid.rules.ClassifiedAgencyAnswer;
+import se.sundsvall.operaton.workers.financialaid.rules.DayCheckFacts;
 import se.sundsvall.operaton.workers.financialaid.rules.IncomeRulesEvaluator;
 import se.sundsvall.operaton.workers.financialaid.rules.SsbtekAvailability;
 import se.sundsvall.operaton.workers.financialaid.rules.SsbtekIncomeExtractor;
@@ -202,7 +205,8 @@ public class PrepareIncomeBasisWorker extends AbstractTopicWorker {
 			.classifiedIncomes(serialize(result.classified()))
 			.unhandledIncomes(unhandled)
 			.changeWarnings(List.copyOf(changeWarnings))
-			.ssbtekError(false);
+			.ssbtekError(false)
+			.dayCheckBasis(dayCheckBasis(SsbtekIncomeExtractor.extractDayCheckFacts(applicantBasis)));
 		careManagementClient.prepareNormberakning(municipalityId, namespace, request);
 
 		LOG.info("Income basis prepared ({} transferable incomes, {} unhandled, {} change warnings)",
@@ -225,6 +229,23 @@ public class PrepareIncomeBasisWorker extends AbstractTopicWorker {
 			.ssbtekError(true));
 
 		return Map.of(VAR_OUT_SSBTEK_ERROR, true);
+	}
+
+	/**
+	 * The applicant's AF/FK facts for caremanagement's dagersättning day check. Only the applicant's: the AF decision and
+	 * the 450 days are the person's own, and caremanagement takes one gate per errand. {@code null} stays {@code null} -
+	 * it means "not read", which closes the gate, and must not become an empty list meaning "AF reports no decision".
+	 */
+	private static DayCheckBasis dayCheckBasis(final DayCheckFacts facts) {
+		final var periods = ofNullable(facts.economicDecisionPeriods())
+			.map(list -> list.stream()
+				.map(period -> new EconomicDecisionPeriod().fromDate(period.from()).toDate(period.to()))
+				.toList())
+			.orElse(null);
+		return new DayCheckBasis()
+			.economicDecisionPeriods(periods)
+			.consumedDays(facts.consumedDays())
+			.allDaysConsumed(facts.allDaysConsumed());
 	}
 
 	private NormberakningRequest request(final String errandId, final YearMonth applicationMonth, final LockedExternalTask task) {

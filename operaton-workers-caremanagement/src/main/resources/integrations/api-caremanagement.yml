@@ -2391,9 +2391,39 @@ components:
         ssbtekError:
           type: boolean
           description: Whether SSBTEK could not be read for this run. True means the rules were deliberately not evaluated - the calculation is left exactly as it stands and the errand carries the read-failure warning until a later run succeeds. Absent is read as false.
+        dayCheckBasis:
+          $ref: "#/components/schemas/DayCheckBasis"
       required:
         - applicant
         - applicationMonth
+    DayCheckBasis:
+      type: object
+      description: "The SSBTEK facts that gate the dagersättning day check: Arbetsförmedlingen's economic-decision periods and Försäkringskassan's consumed jobb- och utvecklingsgaranti days. A null field means the caller did not read it, and the day check is then not made at all."
+      properties:
+        economicDecisionPeriods:
+          type: array
+          description: Arbetsförmedlingen's economic-decision periods (af BeslutInfo.EkonomiskaBeslut.Beslut). An empty list means AF answered and reports no decision; null means AF was not read or could not answer.
+          items:
+            $ref: "#/components/schemas/EconomicDecisionPeriod"
+        consumedDays:
+          type: integer
+          format: int32
+          description: Försäkringskassan's consumed days in the jobb- och utvecklingsgaranti (fk formansinformation.programjobdagar antalForbrukade); null when not read
+        allDaysConsumed:
+          type: boolean
+          description: Whether Försäkringskassan reports all days used up (fk formansinformation.programjobdagar harForbrukatMaxAntal). False when FK answered without any programjobdagar; null when FK was not read.
+    EconomicDecisionPeriod:
+      type: object
+      description: A period Arbetsförmedlingen reports an economic decision (ekonomiskt beslut) for, as read from SSBTEK.
+      properties:
+        fromDate:
+          type: string
+          format: date
+          description: Decision period start (BeslutFrom)
+        toDate:
+          type: string
+          format: date
+          description: Decision period end (BeslutTom); null for an open period
     NormberakningResponse:
       type: object
       description: The created Lifecare normberäkning id plus the income warnings to review
