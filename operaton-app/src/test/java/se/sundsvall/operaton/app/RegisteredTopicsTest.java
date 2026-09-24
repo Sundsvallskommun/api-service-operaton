@@ -63,9 +63,7 @@ class RegisteredTopicsTest {
 			"create-actualisation",
 			"check-payment-status",
 			"create-errand-notification",
-			"commit-normberakning",
 			"prepare-income-basis",
-			"create-application-normberakning",
 			"log-message");
 	}
 }

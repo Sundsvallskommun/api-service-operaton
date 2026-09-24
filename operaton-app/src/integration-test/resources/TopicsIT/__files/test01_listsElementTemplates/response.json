@@ -32,10 +32,6 @@
 		"name": "Create Actualisation"
 	},
 	{
-		"id": "se.sundsvall.operaton.CreateApplicationNormberakning",
-		"name": "Create Application Normberakning"
-	},
-	{
 		"$schema": "https://unpkg.com/@camunda/element-templates-json-schema/resources/schema.json",
 		"appliesTo": [
 			"bpmn:ServiceTask"
@@ -153,10 +149,6 @@
 				"type": "String"
 			}
 		]
-	},
-	{
-		"id": "se.sundsvall.operaton.CommitNormberakning",
-		"name": "Commit Normberakning"
 	},
 	{
 		"id": "se.sundsvall.operaton.CheckPaymentStatus",

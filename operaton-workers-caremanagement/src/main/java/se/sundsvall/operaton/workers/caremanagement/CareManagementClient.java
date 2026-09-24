@@ -57,18 +57,6 @@ public interface CareManagementClient {
 		@PathVariable final String namespace,
 		@RequestBody final NormberakningRequest request);
 
-	@PostMapping(path = "/{municipalityId}/{namespace}/errands/financial-assistance/calculation/commit", consumes = APPLICATION_JSON_VALUE)
-	ResponseEntity<NormberakningResponse> commitNormberakning(
-		@PathVariable final String municipalityId,
-		@PathVariable final String namespace,
-		@RequestBody final NormberakningRequest request);
-
-	@PostMapping(path = "/{municipalityId}/{namespace}/errands/financial-assistance/calculation/from-application", consumes = APPLICATION_JSON_VALUE)
-	ResponseEntity<NormberakningResponse> createApplicationNormberakning(
-		@PathVariable final String municipalityId,
-		@PathVariable final String namespace,
-		@RequestBody final NormberakningRequest request);
-
 	@PostMapping(path = "/{municipalityId}/{namespace}/errands/financial-assistance/actualisation", consumes = APPLICATION_JSON_VALUE)
 	ResponseEntity<ActualisationResponse> createActualisation(
 		@PathVariable final String municipalityId,
