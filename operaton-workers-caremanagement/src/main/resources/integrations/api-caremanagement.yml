@@ -2491,8 +2491,9 @@ components:
         errandId:
           type: string
           description: >-
-            The errand whose decided payments to verify. When given, the status is effectuated only when every payment
-            the decision registered is found in Lifecare, by its Lifecare id.
+            The errand whose payments to verify. When given, the check is errand-specific: the Lifecare payments linked
+            to the errand (lifecarePaymentIds), else the payment rows an earlier finalize created, else the applicant's
+            Lifecare payments on the errand's own insats for the application month that no other errand references.
           examples:
             - "a3c1f4de-2b6a-4c1e-9d3f-7e8a9b0c1d2e"
         applicant:
@@ -2514,7 +2515,7 @@ components:
       properties:
         effectuated:
           type: boolean
-          description: True when a Lifecare utbetalning concerning the application month has been registered
+          description: True when Lifecare reports the errand's payments paid (or, without an errand, a payment for the application month)
           examples:
             - true
         paymentDate:
@@ -2526,17 +2527,16 @@ components:
           type: string
           description: Why the status is not effectuated, in words a caseworker can act on; empty when effectuated
           examples:
-            - "1 av 2 beslutade utbetalningar är inte registrerade i Lifecare"
+            - "1 av 2 kopplade utbetalningar är inte utbetalda i Lifecare ännu"
         deadline:
           type: string
-          description: The last working day the errand's decided payments may wait (ISO date)
+          description: The last working day the errand's payments may wait, counted from the decision (ISO date)
           examples:
             - "2026-09-28"
         overdue:
           type: boolean
           description: >-
-            True when the payments are still not effectuated after the deadline, or the bifall has no decided payments
-            at all. Never closes anything.
+            True when the payments are still not effectuated after the deadline. Never closes anything.
           examples:
             - false
     Notification:

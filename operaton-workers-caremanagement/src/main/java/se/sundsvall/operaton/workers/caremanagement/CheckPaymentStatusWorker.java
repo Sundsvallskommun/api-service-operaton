@@ -16,23 +16,25 @@ import static java.lang.Boolean.TRUE;
 import static java.util.Optional.ofNullable;
 
 /**
- * Reads whether the manual Lifecare payment for an approved financial-assistance errand has been effectuated and
- * reports it via the {@code paymentEffectuated} output variable that the rakel-ekonomiskt-bistand process gates on.
+ * Reads whether the Lifecare payments of an approved financial-assistance errand have been paid out and reports it via
+ * the {@code paymentEffectuated} output variable that the rakel-ekonomiskt-bistand process gates on.
  *
  * <p>
- * The worker makes no payment — Draken's BFF registers the decided payments in Lifecare. It calls CareManagement's
- * {@code financial-assistance/payment-status} endpoint with the errand, which verifies exactly the payments that
- * errand's decision registered, by their Lifecare ids; another payment for the same person and month does not count.
- * The errand is the {@code errandId} input variable when the model maps one, otherwise the business key (businessKey =
- * errandId), so instances already waiting on an older process version get the same check. While the payments are
- * still pending the gateway loops on the process timer; {@code paymentStatusDetail} says why, so a stuck instance can
- * be read without calling careM, and {@code paymentOverdue} turns true once careM's working-day deadline has passed —
- * the model then notifies the caseworker. Nothing is ever closed on it.
+ * The worker makes no payment — Draken's BFF registers the payments directly in Lifecare. It calls CareManagement's
+ * {@code financial-assistance/payment-status} endpoint with the errand, and careM reads the answer from Lifecare's own
+ * payment records, errand-specifically: the Lifecare payments linked to the errand, else (for an errand decided before
+ * those links) the payment rows its decision created, else the applicant's payments on the errand's own insats for the
+ * application month that no other errand has taken. Another errand's payment for the same person and month never
+ * counts. The errand is the {@code errandId} input variable when the model maps one, otherwise the business key
+ * (businessKey = errandId), so instances already waiting on an older process version get the same check. While the
+ * payments are still pending the gateway loops on the process timer; {@code paymentStatusDetail} says why, so a stuck
+ * instance can be read without calling careM, and {@code paymentOverdue} turns true once careM's working-day deadline
+ * after the decision has passed — the model then notifies the caseworker. Nothing is ever closed on it.
  */
 @Component
 @TopicWorker(
 	topic = "check-payment-status",
-	description = "Reads whether the manual Lifecare payment for an approved financial-assistance errand has been effectuated (via CareManagement's payment-status read of the Lifecare payment records) and reports it via paymentEffectuated. Makes NO payment — that is a manual caseworker step in Lifecare.",
+	description = "Reads whether the Lifecare payments of an approved financial-assistance errand have been paid out (via CareManagement's errand-specific payment-status read of the Lifecare payment records) and reports it via paymentEffectuated. Makes NO payment — Draken registers it in Lifecare.",
 	inputVariables = {
 		AbstractTopicWorker.VAR_MUNICIPALITY_ID,
 		CheckPaymentStatusWorker.VAR_NAMESPACE,
