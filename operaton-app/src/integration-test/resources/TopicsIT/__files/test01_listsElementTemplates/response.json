@@ -24,8 +24,8 @@
 		"name": "Add Errand Decision"
 	},
 	{
-		"id": "se.sundsvall.operaton.FetchLifecareSupplements",
-		"name": "Fetch Lifecare Supplements"
+		"id": "se.sundsvall.operaton.CreateErrandNotification",
+		"name": "Create Errand Notification"
 	},
 	{
 		"id": "se.sundsvall.operaton.CreateActualisation",

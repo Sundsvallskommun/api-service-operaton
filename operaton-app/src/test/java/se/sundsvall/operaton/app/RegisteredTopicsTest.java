@@ -62,10 +62,10 @@ class RegisteredTopicsTest {
 			"add-errand-decision",
 			"create-actualisation",
 			"check-payment-status",
+			"create-errand-notification",
 			"commit-normberakning",
 			"prepare-income-basis",
 			"create-application-normberakning",
-			"fetch-lifecare-supplements",
 			"log-message");
 	}
 }
