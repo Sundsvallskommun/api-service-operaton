@@ -1,9 +1,9 @@
 package se.sundsvall.operaton.workers.ekonomisktbistand;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import generated.se.sundsvall.caremanagement.HouseholdIdentifiers;
 import generated.se.sundsvall.caremanagement.NormberakningRequest;
 import generated.se.sundsvall.caremanagement.NormberakningResponse;
-import generated.se.sundsvall.caremanagement.RpaContext;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -80,8 +80,8 @@ class PrepareIncomeBasisWorkerTest {
 	}
 
 	private void household(final String applicantPnr, final String coApplicantPnr) {
-		lenient().when(careManagementClientMock.getRpaContext(MUNICIPALITY_ID, NAMESPACE, ERRAND_ID))
-			.thenReturn(ResponseEntity.ok(new RpaContext().errandNumber("EB-26060001").applicantPersonId(applicantPnr).coApplicantPersonId(coApplicantPnr)));
+		lenient().when(careManagementClientMock.getHouseholdIdentifiers(MUNICIPALITY_ID, NAMESPACE, ERRAND_ID))
+			.thenReturn(ResponseEntity.ok(new HouseholdIdentifiers().errandNumber("EB-26060001").applicantPersonId(applicantPnr).coApplicantPersonId(coApplicantPnr)));
 		lenient().when(careManagementClientMock.prepareNormberakning(any(), any(), any()))
 			.thenReturn(ResponseEntity.ok(new NormberakningResponse()));
 	}

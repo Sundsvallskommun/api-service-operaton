@@ -4,8 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import generated.se.sundsvall.caremanagement.DayCheckBasis;
 import generated.se.sundsvall.caremanagement.EconomicDecisionPeriod;
+import generated.se.sundsvall.caremanagement.HouseholdIdentifiers;
 import generated.se.sundsvall.caremanagement.NormberakningRequest;
-import generated.se.sundsvall.caremanagement.RpaContext;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
@@ -50,8 +50,8 @@ import static org.springframework.util.StringUtils.hasText;
  * <p>
  * So nothing travels between the steps any more. The agency payload, the classified incomes and the warnings live in
  * local variables for the length of one task and leave as an HTTP request body, which has no column behind it. The
- * personal numbers are fetched per run from {@code /rpa-context} rather than seeded at process start — the same trade
- * the RPA queue items were built on, for the same reason, and every disclosure lands in the errand's event log.
+ * personal numbers are fetched per run from careM's {@code /household-identifiers} rather than seeded at process start,
+ * and every disclosure lands in the errand's event log.
  *
  * <p>
  * The only variable it writes is {@code ssbtekError}, a boolean the daily timer branches on.
@@ -151,9 +151,9 @@ public class PrepareIncomeBasisWorker extends AbstractTopicWorker {
 	 * rather than degrading into a read-failure warning, which would tell the handläggare that SSBTEK was unavailable
 	 * when it was never asked.
 	 */
-	private RpaContext household(final String municipalityId, final String namespace, final String errandId) {
-		final var context = ofNullable(careManagementClient.getRpaContext(municipalityId, namespace, errandId).getBody())
-			.orElseGet(RpaContext::new);
+	private HouseholdIdentifiers household(final String municipalityId, final String namespace, final String errandId) {
+		final var context = ofNullable(careManagementClient.getHouseholdIdentifiers(municipalityId, namespace, errandId).getBody())
+			.orElseGet(HouseholdIdentifiers::new);
 		if (!hasText(context.getApplicantPersonId())) {
 			throw new IllegalStateException(NO_APPLICANT_IDENTITY.formatted(errandId));
 		}
@@ -170,7 +170,7 @@ public class PrepareIncomeBasisWorker extends AbstractTopicWorker {
 
 	private Map<String, Object> prepare(final String municipalityId, final String namespace, final String errandId, final YearMonth applicationMonth,
 		final LockedExternalTask task, final Map<String, Map<String, Object>> applicantBasis,
-		final Map<String, Map<String, Object>> coApplicantBasis, final RpaContext household) {
+		final Map<String, Map<String, Object>> coApplicantBasis, final HouseholdIdentifiers household) {
 
 		final var incomes = new ArrayList<>(SsbtekIncomeExtractor.extract(applicantBasis, ApplicantRole.APPLICANT));
 		final var answers = new ArrayList<>(SsbtekIncomeExtractor.extractAnswers(applicantBasis));

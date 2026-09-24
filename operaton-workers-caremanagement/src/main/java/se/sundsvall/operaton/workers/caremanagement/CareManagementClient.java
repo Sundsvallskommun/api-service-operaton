@@ -4,13 +4,13 @@ import generated.se.sundsvall.caremanagement.ActualisationRequest;
 import generated.se.sundsvall.caremanagement.ActualisationResponse;
 import generated.se.sundsvall.caremanagement.Decision;
 import generated.se.sundsvall.caremanagement.Errand;
+import generated.se.sundsvall.caremanagement.HouseholdIdentifiers;
 import generated.se.sundsvall.caremanagement.NormberakningRequest;
 import generated.se.sundsvall.caremanagement.NormberakningResponse;
 import generated.se.sundsvall.caremanagement.Notification;
 import generated.se.sundsvall.caremanagement.PatchErrand;
 import generated.se.sundsvall.caremanagement.PaymentStatusRequest;
 import generated.se.sundsvall.caremanagement.PaymentStatusResponse;
-import generated.se.sundsvall.caremanagement.RpaContext;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.http.ResponseEntity;
@@ -75,8 +75,8 @@ public interface CareManagementClient {
 	 * history TTL, where no gallring reaches it. Carry the errandId, fetch the identities — and every
 	 * read lands in the errand's event log.
 	 */
-	@GetMapping(path = "/{municipalityId}/{namespace}/errands/financial-assistance/{errandId}/rpa-context", produces = APPLICATION_JSON_VALUE)
-	ResponseEntity<RpaContext> getRpaContext(
+	@GetMapping(path = "/{municipalityId}/{namespace}/errands/financial-assistance/{errandId}/household-identifiers", produces = APPLICATION_JSON_VALUE)
+	ResponseEntity<HouseholdIdentifiers> getHouseholdIdentifiers(
 		@PathVariable final String municipalityId,
 		@PathVariable final String namespace,
 		@PathVariable final String errandId);

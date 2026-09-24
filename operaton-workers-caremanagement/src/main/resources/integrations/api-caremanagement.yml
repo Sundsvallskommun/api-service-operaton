@@ -2565,11 +2565,11 @@ components:
         - ownerId
         - type
         - description
-    RpaContext:
+    HouseholdIdentifiers:
       type: object
       description: >-
-        The household's personal numbers for one errand, fetched on demand instead of carried in a queue item or a
-        process variable. Every read is recorded in the errand's event log with the caller's X-Sent-By identity.
+        The errand number and the household's personal numbers for one errand, fetched on demand instead of carried
+        in a process variable. Every read is recorded in the errand's event log with the caller's X-Sent-By identity.
       properties:
         errandNumber:
           type: string
