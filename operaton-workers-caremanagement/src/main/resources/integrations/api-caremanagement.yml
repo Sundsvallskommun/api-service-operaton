@@ -2584,6 +2584,23 @@ components:
         coApplicantPersonId:
           type: string
           description: The co-applicant's personal number; null when there is no co-applicant or it could not be resolved
+        children:
+          type: array
+          description: The household children named on the application that have a partyId; empty when there are none
+          items:
+            $ref: '#/components/schemas/HouseholdChild'
+    HouseholdChild:
+      type: object
+      description: >-
+        A household child named on the application: the partyId the beredning tags the child's SSBTEK incomes with, and
+        the personal number SSBTEK is read with.
+      properties:
+        partyId:
+          type: string
+          description: The child's partyId, as on the errand's children
+        personId:
+          type: string
+          description: The child's personal number (12 characters, may contain letters); null when it could not be resolved
     Stakeholder:
       type: object
       description: Stakeholder model

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import generated.se.sundsvall.caremanagement.DayCheckBasis;
 import generated.se.sundsvall.caremanagement.EconomicDecisionPeriod;
+import generated.se.sundsvall.caremanagement.HouseholdChild;
 import generated.se.sundsvall.caremanagement.HouseholdIdentifiers;
 import generated.se.sundsvall.caremanagement.NormberakningRequest;
 import java.time.YearMonth;
@@ -11,6 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 import org.operaton.bpm.engine.ExternalTaskService;
 import org.operaton.bpm.engine.externaltask.LockedExternalTask;
 import org.slf4j.Logger;
@@ -88,6 +90,7 @@ public class PrepareIncomeBasisWorker extends AbstractTopicWorker {
 	/** caremanagement reads a blank basis plus {@code ssbtekError} as "leave the calculation as it stands". */
 	private static final String NO_CLASSIFIED_INCOMES = "";
 	private static final String OFF_LIST_ACTION = "EJ_PA_LISTAN";
+	static final String UNREADABLE_CHILDREN = "SSBTEK kunde inte läsas för %d barn i hushållet – personnummer saknas, kontrollera barnens inkomster för hand";
 	private static final String NO_APPLICANT_IDENTITY = "No personal number could be resolved for the applicant on errand %s";
 
 	private static final Logger LOG = LoggerFactory.getLogger(PrepareIncomeBasisWorker.class);
@@ -124,9 +127,11 @@ public class PrepareIncomeBasisWorker extends AbstractTopicWorker {
 
 		final Map<String, Map<String, Object>> applicantBasis;
 		final Map<String, Map<String, Object>> coApplicantBasis;
+		final List<ChildBasis> childBases;
 		try {
 			applicantBasis = basis(municipalityId, household.getApplicantPersonId(), fromDate, toDate);
 			coApplicantBasis = basis(municipalityId, household.getCoApplicantPersonId(), fromDate, toDate);
+			childBases = childBases(municipalityId, household, fromDate, toDate);
 		} catch (final RuntimeException e) {
 			// Ride out a downstream blip on the normal ladder first; only a failure that survives it is reported as a
 			// read failure, which is what stops the rules running over data we know we could not read.
@@ -137,13 +142,42 @@ public class PrepareIncomeBasisWorker extends AbstractTopicWorker {
 			return reportReadFailure(municipalityId, namespace, errandId, applicationMonth, task);
 		}
 
-		if (hasReadFailure(applicantBasis) || hasReadFailure(coApplicantBasis)) {
+		if (hasReadFailure(applicantBasis) || hasReadFailure(coApplicantBasis) || childBases.stream().anyMatch(child -> hasReadFailure(child.basis()))) {
 			LOG.warn("An income-bearing agency could not answer - skipping the income rules this run");
 			return reportReadFailure(municipalityId, namespace, errandId, applicationMonth, task);
 		}
 
-		return prepare(municipalityId, namespace, errandId, applicationMonth, task, applicantBasis, coApplicantBasis, household);
+		return prepare(municipalityId, namespace, errandId, applicationMonth, task, applicantBasis, coApplicantBasis, childBases, household);
 	}
+
+	/**
+	 * The SSBTEK basis of every household child careM could name with a personal number. Verksamheten decided on
+	 * 2026-09-25 that a child's incomes go through the same rules and warnings as the adults'; caremanagement then
+	 * transfers them on the applicant's column, since the Lifecare normberäkning has no income column per child.
+	 */
+	private List<ChildBasis> childBases(final String municipalityId, final HouseholdIdentifiers household, final String fromDate, final String toDate) {
+		return readableChildren(household)
+			.map(child -> new ChildBasis(child.getPartyId(), basis(municipalityId, child.getPersonId(), fromDate, toDate)))
+			.toList();
+	}
+
+	private static Stream<HouseholdChild> readableChildren(final HouseholdIdentifiers household) {
+		return ofNullable(household.getChildren()).orElseGet(List::of).stream()
+			.filter(child -> hasText(child.getPartyId()) && hasText(child.getPersonId()));
+	}
+
+	/**
+	 * A child careM names but cannot give a personal number for has not been read, so its incomes would be missing
+	 * without a trace. It is reported as unhandled instead: the handläggare must know the basis is incomplete.
+	 */
+	private static long unreadableChildren(final HouseholdIdentifiers household) {
+		return ofNullable(household.getChildren()).orElseGet(List::of).stream()
+			.filter(child -> hasText(child.getPartyId()) && !hasText(child.getPersonId()))
+			.count();
+	}
+
+	/** A household child's SSBTEK basis, with the partyId its incomes are tagged with. */
+	private record ChildBasis(String partyId, Map<String, Map<String, Object>> basis) {}
 
 	/**
 	 * The household's personal numbers, read per run rather than carried in the process. An applicant we cannot name
@@ -170,7 +204,7 @@ public class PrepareIncomeBasisWorker extends AbstractTopicWorker {
 
 	private Map<String, Object> prepare(final String municipalityId, final String namespace, final String errandId, final YearMonth applicationMonth,
 		final LockedExternalTask task, final Map<String, Map<String, Object>> applicantBasis,
-		final Map<String, Map<String, Object>> coApplicantBasis, final HouseholdIdentifiers household) {
+		final Map<String, Map<String, Object>> coApplicantBasis, final List<ChildBasis> childBases, final HouseholdIdentifiers household) {
 
 		final var incomes = new ArrayList<>(SsbtekIncomeExtractor.extract(applicantBasis, ApplicantRole.APPLICANT));
 		final var answers = new ArrayList<>(SsbtekIncomeExtractor.extractAnswers(applicantBasis));
@@ -178,6 +212,12 @@ public class PrepareIncomeBasisWorker extends AbstractTopicWorker {
 			incomes.addAll(SsbtekIncomeExtractor.extract(coApplicantBasis, ApplicantRole.CO_APPLICANT));
 			answers.addAll(SsbtekIncomeExtractor.extractAnswers(coApplicantBasis));
 		}
+		childBases.stream().filter(child -> !child.basis().isEmpty()).forEach(child -> {
+			SsbtekIncomeExtractor.extract(child.basis(), ApplicantRole.CHILD).stream()
+				.map(income -> income.asChild(child.partyId()))
+				.forEach(incomes::add);
+			answers.addAll(SsbtekIncomeExtractor.extractAnswers(child.basis()));
+		});
 
 		final var result = evaluator.evaluate(incomes, answers, applicationMonth);
 
@@ -188,18 +228,25 @@ public class PrepareIncomeBasisWorker extends AbstractTopicWorker {
 			.map(PrepareIncomeBasisWorker::renderAnswer)
 			.distinct()
 			.toList();
-		final var unhandled = concat(
+		final var unreadable = unreadableChildren(household);
+		final var unhandled = concat(concat(
 			result.classified().stream()
 				.filter(classified -> classified.warning() || OFF_LIST_ACTION.equals(classified.action()))
 				.map(classified -> classified.income().benefit() + " (" + classified.action() + ")"),
-			unverifiable.stream())
+			unverifiable.stream()),
+			Stream.of(UNREADABLE_CHILDREN.formatted(unreadable)).filter(text -> unreadable > 0))
 			.distinct()
 			.toList();
 
 		final var changeWarnings = new ArrayList<>(result.changeWarnings().stream()
 			.map(PrepareIncomeBasisWorker::render)
 			.toList());
-		studiehjalpWarning(municipalityId, household.getApplicantPersonId(), applicationMonth).ifPresent(changeWarnings::add);
+		// Studiehjälp is a youth's income, so the seasonal rule runs for every child as well as the applicant.
+		concat(Stream.of(household.getApplicantPersonId()), readableChildren(household).map(HouseholdChild::getPersonId))
+			.map(personalNumber -> studiehjalpWarning(municipalityId, personalNumber, applicationMonth))
+			.flatMap(Optional::stream)
+			.distinct()
+			.forEach(changeWarnings::add);
 
 		final var request = request(errandId, applicationMonth, task)
 			.classifiedIncomes(serialize(result.classified()))
@@ -209,8 +256,8 @@ public class PrepareIncomeBasisWorker extends AbstractTopicWorker {
 			.dayCheckBasis(dayCheckBasis(SsbtekIncomeExtractor.extractDayCheckFacts(applicantBasis)));
 		careManagementClient.prepareNormberakning(municipalityId, namespace, request);
 
-		LOG.info("Income basis prepared ({} transferable incomes, {} unhandled, {} change warnings)",
-			result.classified().size(), unhandled.size(), changeWarnings.size());
+		LOG.info("Income basis prepared ({} children read, {} transferable incomes, {} unhandled, {} change warnings)",
+			childBases.size(), result.classified().size(), unhandled.size(), changeWarnings.size());
 		return Map.of(VAR_OUT_SSBTEK_ERROR, false);
 	}
 

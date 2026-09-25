@@ -1,6 +1,7 @@
 package se.sundsvall.operaton.workers.ekonomisktbistand;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import generated.se.sundsvall.caremanagement.HouseholdChild;
 import generated.se.sundsvall.caremanagement.HouseholdIdentifiers;
 import generated.se.sundsvall.caremanagement.NormberakningRequest;
 import generated.se.sundsvall.caremanagement.NormberakningResponse;
@@ -20,6 +21,7 @@ import org.springframework.http.ResponseEntity;
 import se.sundsvall.operaton.workers.caremanagement.CareManagementClient;
 import se.sundsvall.operaton.workers.financialaid.FinancialAidClient;
 import se.sundsvall.operaton.workers.financialaid.rules.AgencyAnswer;
+import se.sundsvall.operaton.workers.financialaid.rules.ApplicantRole;
 import se.sundsvall.operaton.workers.financialaid.rules.ChangeWarning;
 import se.sundsvall.operaton.workers.financialaid.rules.ClassifiedAgencyAnswer;
 import se.sundsvall.operaton.workers.financialaid.rules.ClassifiedIncome;
@@ -79,9 +81,10 @@ class PrepareIncomeBasisWorkerTest {
 			.putValue("toDate", "2026-06-30"));
 	}
 
-	private void household(final String applicantPnr, final String coApplicantPnr) {
+	private void household(final String applicantPnr, final String coApplicantPnr, final HouseholdChild... children) {
 		lenient().when(careManagementClientMock.getHouseholdIdentifiers(MUNICIPALITY_ID, NAMESPACE, ERRAND_ID))
-			.thenReturn(ResponseEntity.ok(new HouseholdIdentifiers().errandNumber("EB-26060001").applicantPersonId(applicantPnr).coApplicantPersonId(coApplicantPnr)));
+			.thenReturn(ResponseEntity.ok(new HouseholdIdentifiers().errandNumber("EB-26060001").applicantPersonId(applicantPnr).coApplicantPersonId(coApplicantPnr)
+				.children(List.of(children))));
 		lenient().when(careManagementClientMock.prepareNormberakning(any(), any(), any()))
 			.thenReturn(ResponseEntity.ok(new NormberakningResponse()));
 	}
@@ -342,5 +345,72 @@ class PrepareIncomeBasisWorkerTest {
 		worker().handle(taskMock);
 
 		assertThat(captureRequest().getChangeWarnings()).containsExactly("Bostadsbidrag: 0 kr → 4500 kr");
+	}
+
+	private static final String CHILD_PNR = "201001010003";
+
+	private static Map<String, Map<String, Object>> childPension() {
+		return Map.of("fk", Map.of("formansinformation", Map.of("utbetalningsuppgift", List.of(Map.of(
+			"nettobelopp", Map.of("summa", 1200),
+			"formansfamilj", Map.of("beskrivning", "Barnpension"),
+			"datum", "2026-06-25")))));
+	}
+
+	/**
+	 * Verksamheten 2026-09-25: a child's incomes go through the same rules as the adults'. The worker reads each child
+	 * careM can name, tags the incomes with the child's partyId, and reports a child it could not read.
+	 */
+	@Test
+	@SuppressWarnings("unchecked")
+	void readsEachHouseholdChildAndTagsTheirIncomesWithTheChildsPartyId() {
+		task(null);
+		household(APPLICANT_PNR, null,
+			new HouseholdChild().partyId("child-1").personId(CHILD_PNR),
+			new HouseholdChild().partyId("child-2"),
+			new HouseholdChild().personId("201202020004"));
+		when(financialAidClientMock.getFinancialAidBasis(MUNICIPALITY_ID, APPLICANT_PNR, "2026-04-01", "2026-06-30")).thenReturn(basis());
+		when(financialAidClientMock.getFinancialAidBasis(MUNICIPALITY_ID, CHILD_PNR, "2026-04-01", "2026-06-30")).thenReturn(childPension());
+		when(evaluatorMock.evaluate(any(), any(), any())).thenReturn(new IncomeRulesResult(List.of(), List.of()));
+
+		worker().handle(taskMock);
+
+		final ArgumentCaptor<List<SsbtekIncome>> incomes = ArgumentCaptor.forClass(List.class);
+		verify(evaluatorMock).evaluate(incomes.capture(), any(), any());
+		assertThat(incomes.getValue()).singleElement().satisfies(income -> {
+			assertThat(income.benefit()).isEqualTo("Barnpension");
+			assertThat(income.role()).isEqualTo(ApplicantRole.CHILD);
+			assertThat(income.partyId()).isEqualTo("child-1");
+		});
+		verify(financialAidClientMock, never()).getFinancialAidBasis(eq(MUNICIPALITY_ID), eq("201202020004"), any(), any());
+		assertThat(captureRequest().getUnhandledIncomes()).containsExactly(PrepareIncomeBasisWorker.UNREADABLE_CHILDREN.formatted(1));
+	}
+
+	@Test
+	void reportsAReadFailureWhenAChildsAgencyCouldNotAnswer() {
+		task(null);
+		household(APPLICANT_PNR, null, new HouseholdChild().partyId("child-1").personId(CHILD_PNR));
+		when(financialAidClientMock.getFinancialAidBasis(MUNICIPALITY_ID, APPLICANT_PNR, "2026-04-01", "2026-06-30")).thenReturn(basis());
+		when(financialAidClientMock.getFinancialAidBasis(MUNICIPALITY_ID, CHILD_PNR, "2026-04-01", "2026-06-30"))
+			.thenReturn(Map.of("fk", Map.of("error", Map.of("kalla", "financial-aid"))));
+
+		final var output = worker().handle(taskMock);
+
+		assertThat(output).containsEntry("ssbtekError", true);
+		assertThat(captureRequest().getSsbtekError()).isTrue();
+		verifyNoInteractions(evaluatorMock);
+	}
+
+	/** Studiehjälp is a youth's income, so the seasonal rule reads each child's wider window too. */
+	@Test
+	void readsTheWiderStudiehjalpWindowForEachChildInOctober() {
+		taskForMonth("2026-10", "2026-08-01", "2026-10-31");
+		household(APPLICANT_PNR, null, new HouseholdChild().partyId("child-1").personId(CHILD_PNR));
+		when(financialAidClientMock.getFinancialAidBasis(eq(MUNICIPALITY_ID), any(), any(), any())).thenReturn(basis());
+		when(evaluatorMock.evaluate(any(), any(), any())).thenReturn(new IncomeRulesResult(List.of(), List.of()));
+
+		worker().handle(taskMock);
+
+		verify(financialAidClientMock).getFinancialAidBasis(MUNICIPALITY_ID, APPLICANT_PNR, "2026-06-01", "2026-10-31");
+		verify(financialAidClientMock).getFinancialAidBasis(MUNICIPALITY_ID, CHILD_PNR, "2026-06-01", "2026-10-31");
 	}
 }

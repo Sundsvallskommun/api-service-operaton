@@ -22,7 +22,23 @@ public record SsbtekIncome(
 	@JsonProperty("periodFran") LocalDate periodFrom,
 	@JsonProperty("periodTill") LocalDate periodTo,
 	@JsonProperty("dagar") BigDecimal days,
-	ApplicantRole role) {
+	ApplicantRole role,
+	String partyId) {
+
+	/** An adult's income, which needs no partyId — the role alone says whose it is. */
+	public SsbtekIncome(final String benefit, final String subBenefit, final String amountType, final BigDecimal netAmount, final LocalDate period,
+		final LocalDate periodFrom, final LocalDate periodTo, final BigDecimal days, final ApplicantRole role) {
+		this(benefit, subBenefit, amountType, netAmount, period, periodFrom, periodTo, days, role, null);
+	}
+
+	/**
+	 * This income as a household child's: role {@code CHILD}, tagged with the child's partyId. caremanagement transfers a
+	 * child's income on the applicant's column — the Lifecare normberäkning has no column per child — and names the
+	 * child from the partyId.
+	 */
+	public SsbtekIncome asChild(final String childPartyId) {
+		return new SsbtekIncome(benefit, subBenefit, amountType, netAmount, period, periodFrom, periodTo, days, ApplicantRole.CHILD, childPartyId);
+	}
 
 	/**
 	 * The date this income is attributed to when placing it in a rule period: the date it was <em>paid</em>.
@@ -50,6 +66,6 @@ public record SsbtekIncome(
 	/** The payment-date-only shape, for callers that have no period or day information. */
 	public SsbtekIncome(final String benefit, final String subBenefit, final String amountType,
 		final BigDecimal netAmount, final LocalDate period, final ApplicantRole role) {
-		this(benefit, subBenefit, amountType, netAmount, period, null, null, null, role);
+		this(benefit, subBenefit, amountType, netAmount, period, null, null, null, role, null);
 	}
 }
