@@ -40,6 +40,8 @@ public class IncomeRulesEvaluator {
 	private static final BigDecimal HUNDRED = BigDecimal.valueOf(100);
 	private static final BigDecimal DEFAULT_THRESHOLD_PERCENT = BigDecimal.valueOf(12);
 
+	private static final String REGEL = "regel";
+
 	private final DecisionService decisionService;
 
 	public IncomeRulesEvaluator(final DecisionService decisionService) {
@@ -108,7 +110,7 @@ public class IncomeRulesEvaluator {
 		final var quality = ofNullable(str(row.get("kvalitet")))
 			.filter(text -> !text.isBlank())
 			.orElse(ClassifiedAgencyAnswer.QUALITY_UNVERIFIABLE);
-		final var rule = ofNullable(str(row.get("regel")))
+		final var rule = ofNullable(str(row.get(REGEL)))
 			.filter(text -> !text.isBlank())
 			.orElse(null);
 		return new ClassifiedAgencyAnswer(answer, quality, rule);
@@ -152,7 +154,7 @@ public class IncomeRulesEvaluator {
 		variables.put("belopp", income.netAmount());
 		final var row = evaluateFirst(INCOME_ALLOW_LIST_DECISION_KEY, variables);
 		return new ClassifiedIncome(income, str(row.get("atgard")), str(row.get("normberakning")),
-			Boolean.TRUE.equals(row.get("varning")), str(row.get("regel")), fromComparisonPeriod);
+			Boolean.TRUE.equals(row.get("varning")), str(row.get(REGEL)), fromComparisonPeriod);
 	}
 
 	/**
@@ -260,7 +262,7 @@ public class IncomeRulesEvaluator {
 			.map(value -> new BigDecimal(value.toString()))
 			.orElse(DEFAULT_THRESHOLD_PERCENT);
 		// regel is absent in tables published before 2026-09-17 - the warning then carries no verksamhetstext
-		return new Threshold(percent, str(row.get("regel")));
+		return new Threshold(percent, str(row.get(REGEL)));
 	}
 
 	private Map<String, Object> evaluateFirst(final String decisionKey, final Map<String, Object> variables) {

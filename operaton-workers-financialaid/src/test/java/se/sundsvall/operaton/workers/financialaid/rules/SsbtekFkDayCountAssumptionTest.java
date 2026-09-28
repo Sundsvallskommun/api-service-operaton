@@ -27,7 +27,7 @@ import static se.sundsvall.operaton.workers.financialaid.rules.ApplicantRole.APP
  */
 class SsbtekFkDayCountAssumptionTest {
 
-	private static final YearMonth APPLICATION_MONTH = YearMonth.of(2026, 10);
+	private static final YearMonth APPLICATION_MONTH = YearMonth.of(2026, Month.OCTOBER);
 
 	private static Map<String, Object> payment(final String benefit, final String datum, final String fran,
 		final String till, final String net, final List<Object> details) {

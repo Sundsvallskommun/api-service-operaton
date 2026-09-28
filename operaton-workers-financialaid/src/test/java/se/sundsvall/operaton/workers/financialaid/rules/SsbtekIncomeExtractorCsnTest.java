@@ -162,8 +162,8 @@ class SsbtekIncomeExtractorCsnTest {
 
 		final var incomes = SsbtekIncomeExtractor.extract(personBasis(person), APPLICANT);
 
-		// "Omställningsstudiestöd" matches Decision_inkomstTroskel's threshold row verbatim (Rule_ral_omstallning);
-		// "Studiestartsstöd" has no rålista row yet, which is fine - it falls through to the catch-all warning
+		// Omställningsstudiestöd matches Decision_inkomstTroskel's threshold row verbatim, see Rule_ral_omstallning.
+		// Studiestartsstöd has no rålista row yet, which is fine - it falls through to the catch-all warning.
 		assertThat(incomes).extracting(SsbtekIncome::benefit)
 			.containsExactlyInAnyOrder("Studiestartsstöd", "Omställningsstudiestöd");
 	}

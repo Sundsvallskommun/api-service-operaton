@@ -1,5 +1,6 @@
 package se.sundsvall.operaton.workers.financialaid.rules;
 
+import java.time.Month;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
@@ -28,7 +29,7 @@ import static se.sundsvall.operaton.workers.financialaid.rules.IncomeRulesEvalua
 @ExtendWith(MockitoExtension.class)
 class IncomeRulesEvaluatorAnswerQualityTest {
 
-	private static final YearMonth MONTH = YearMonth.of(2026, 10);
+	private static final YearMonth MONTH = YearMonth.of(2026, Month.OCTOBER);
 
 	@Mock
 	private DecisionService decisionServiceMock;

@@ -221,7 +221,8 @@ class PrepareIncomeBasisWorkerTest {
 		household(APPLICANT_PNR, null);
 		when(financialAidClientMock.getFinancialAidBasis(any(), any(), any(), any())).thenThrow(new IllegalStateException("gateway down"));
 
-		assertThatThrownBy(() -> worker().handle(taskMock)).isInstanceOf(IllegalStateException.class).hasMessage("gateway down");
+		final var worker = worker();
+		assertThatThrownBy(() -> worker.handle(taskMock)).isInstanceOf(IllegalStateException.class).hasMessage("gateway down");
 
 		verify(careManagementClientMock, never()).prepareNormberakning(any(), any(), any());
 	}
@@ -245,7 +246,8 @@ class PrepareIncomeBasisWorkerTest {
 		task(null);
 		household(null, null);
 
-		assertThatThrownBy(() -> worker().handle(taskMock))
+		final var worker = worker();
+		assertThatThrownBy(() -> worker.handle(taskMock))
 			.isInstanceOf(IllegalStateException.class)
 			.hasMessageContaining("No personal number could be resolved for the applicant")
 			.hasMessageContaining(ERRAND_ID);

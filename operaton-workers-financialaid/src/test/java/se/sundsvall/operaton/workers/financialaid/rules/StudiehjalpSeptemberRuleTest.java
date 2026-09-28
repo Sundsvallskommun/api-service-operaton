@@ -2,6 +2,7 @@ package se.sundsvall.operaton.workers.financialaid.rules;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.Month;
 import java.time.YearMonth;
 import java.util.Arrays;
 import java.util.List;
@@ -13,7 +14,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class StudiehjalpSeptemberRuleTest {
 
-	private static final YearMonth OCTOBER = YearMonth.of(2026, 10);
+	private static final YearMonth OCTOBER = YearMonth.of(2026, Month.OCTOBER);
 
 	private static SsbtekIncome studiehjalp(final String paidOn) {
 		return new SsbtekIncome("Studiehjalp", null, "Månad", new BigDecimal("1250"), LocalDate.parse(paidOn), ApplicantRole.APPLICANT);
@@ -92,6 +93,6 @@ class StudiehjalpSeptemberRuleTest {
 
 	@Test
 	void readsFromJuneOfTheApplicationYear() {
-		assertThat(StudiehjalpSeptemberRule.readFrom(OCTOBER)).isEqualTo(YearMonth.of(2026, 6));
+		assertThat(StudiehjalpSeptemberRule.readFrom(OCTOBER)).isEqualTo(YearMonth.of(2026, Month.JUNE));
 	}
 }

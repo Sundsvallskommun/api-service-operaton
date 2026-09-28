@@ -55,7 +55,7 @@ public final class StudiehjalpSeptemberRule {
 	 * eleven months of the year.
 	 */
 	public static boolean appliesTo(final YearMonth applicationMonth) {
-		return (applicationMonth != null) && (applicationMonth.getMonth() == APPLICATION_MONTH);
+		return (applicationMonth != null) && applicationMonth.getMonth().equals(APPLICATION_MONTH);
 	}
 
 	/**

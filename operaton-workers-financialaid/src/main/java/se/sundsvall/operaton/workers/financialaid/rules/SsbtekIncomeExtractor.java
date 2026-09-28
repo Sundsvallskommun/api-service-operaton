@@ -3,6 +3,7 @@ package se.sundsvall.operaton.workers.financialaid.rules;
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.Month;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoField;
 import java.time.temporal.IsoFields;
@@ -49,6 +50,8 @@ public final class SsbtekIncomeExtractor {
 	public static final String CSN_STUDIEHJALP = "Studiehjalp";
 	private static final String CSN_STUDIESTARTSSTOD = "Studiestartsstöd";
 	private static final String CSN_OMSTALLNINGSSTUDIESTOD = "Omställningsstudiestöd";
+
+	private static final String BELOPPSTYP = "beloppstyp";
 
 	private SsbtekIncomeExtractor() {}
 
@@ -117,7 +120,7 @@ public final class SsbtekIncomeExtractor {
 				incomes.add(new SsbtekIncome(
 					benefit,
 					code(detail.get("forman")),
-					code(detail.get("beloppstyp")),
+					code(detail.get(BELOPPSTYP)),
 					amount,
 					date(payment.get("datum")),
 					date(period.get("fran")),
@@ -163,7 +166,7 @@ public final class SsbtekIncomeExtractor {
 				incomes.add(new SsbtekIncome(
 					benefit,
 					code(row.get("utbetalningsforman")),
-					code(row.get("beloppstyp")),
+					code(row.get(BELOPPSTYP)),
 					amount,
 					date(payment.get("utbetalningsdatum")),
 					date(period.get("from")),
@@ -215,8 +218,8 @@ public final class SsbtekIncomeExtractor {
 		final var incomes = new ArrayList<SsbtekIncome>();
 		for (final var personItem : asList(asMap(csn.get("Personer")).get("Person"))) {
 			final var person = asMap(personItem);
-			incomes.addAll(studySupportPayments(person.get("Studiemedel"), CSN_STUDIEMEDEL, role));
-			incomes.addAll(studySupportPayments(person.get("Studiehjalp"), CSN_STUDIEHJALP, role));
+			incomes.addAll(studySupportPayments(person.get(CSN_STUDIEMEDEL), CSN_STUDIEMEDEL, role));
+			incomes.addAll(studySupportPayments(person.get(CSN_STUDIEHJALP), CSN_STUDIEHJALP, role));
 			incomes.addAll(studySupportPayments(person.get("Studiestartsstod"), CSN_STUDIESTARTSSTOD, role));
 			incomes.addAll(studySupportPayments(person.get("Omstallningsstudiestod"), CSN_OMSTALLNINGSSTUDIESTOD, role));
 		}
@@ -263,7 +266,7 @@ public final class SsbtekIncomeExtractor {
 			allAmounts.addAll(asList(asMap(asMap(weekItem).get("Beloppen")).get("Belopp")));
 		}
 		final var row = singleDetail(allAmounts);
-		return ofNullable(str(row.get("klartext"))).orElseGet(() -> str(row.get("beloppstyp")));
+		return ofNullable(str(row.get("klartext"))).orElseGet(() -> str(row.get(BELOPPSTYP)));
 	}
 
 	/** The earliest week's Monday across the payment's {@code Utbetaldtid}s, or {@code null} when there are none. */
@@ -483,10 +486,10 @@ public final class SsbtekIncomeExtractor {
 		try {
 			final var year = Integer.parseInt(yyyyWw.substring(0, 4));
 			final var week = Integer.parseInt(yyyyWw.substring(4, 6));
-			return LocalDate.of(year, 1, 1)
-				.with(IsoFields.WEEK_BASED_YEAR, (long) year)
-				.with(IsoFields.WEEK_OF_WEEK_BASED_YEAR, (long) week)
-				.with(ChronoField.DAY_OF_WEEK, (long) dayOfWeek.getValue());
+			return LocalDate.of(year, Month.JANUARY, 1)
+				.with(IsoFields.WEEK_BASED_YEAR, year)
+				.with(IsoFields.WEEK_OF_WEEK_BASED_YEAR, week)
+				.with(ChronoField.DAY_OF_WEEK, dayOfWeek.getValue());
 		} catch (final RuntimeException e) {
 			return null;
 		}

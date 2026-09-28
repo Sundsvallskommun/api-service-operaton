@@ -1,6 +1,7 @@
 package se.sundsvall.operaton.workers.financialaid.rules;
 
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,8 +37,8 @@ class SsbtekIncomeExtractorDayCheckTest {
 				Map.of("antalForbrukade", 300, "harForbrukatMaxAntal", false)))));
 
 		assertThat(facts.economicDecisionPeriods()).containsExactly(
-			new DayCheckFacts.DecisionPeriod(LocalDate.of(2026, 8, 1), LocalDate.of(2026, 12, 31)),
-			new DayCheckFacts.DecisionPeriod(LocalDate.of(2027, 1, 1), null));
+			new DayCheckFacts.DecisionPeriod(LocalDate.of(2026, Month.AUGUST, 1), LocalDate.of(2026, Month.DECEMBER, 31)),
+			new DayCheckFacts.DecisionPeriod(LocalDate.of(2027, Month.JANUARY, 1), null));
 		assertThat(facts.consumedDays()).isEqualTo(300);
 		assertThat(facts.allDaysConsumed()).isFalse();
 	}
@@ -49,7 +50,7 @@ class SsbtekIncomeExtractorDayCheckTest {
 			"fk", fk(Map.of("antalForbrukade", "450", "harForbrukatMaxAntal", "true"))));
 
 		assertThat(facts.economicDecisionPeriods()).containsExactly(
-			new DayCheckFacts.DecisionPeriod(LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31)));
+			new DayCheckFacts.DecisionPeriod(LocalDate.of(2026, Month.AUGUST, 1), LocalDate.of(2026, Month.AUGUST, 31)));
 		assertThat(facts.consumedDays()).isEqualTo(450);
 		assertThat(facts.allDaysConsumed()).isTrue();
 	}

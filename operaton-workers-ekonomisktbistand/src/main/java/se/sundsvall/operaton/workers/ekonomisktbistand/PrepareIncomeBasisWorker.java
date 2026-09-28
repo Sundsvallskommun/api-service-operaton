@@ -147,7 +147,7 @@ public class PrepareIncomeBasisWorker extends AbstractTopicWorker {
 			return reportReadFailure(municipalityId, namespace, errandId, applicationMonth, task);
 		}
 
-		return prepare(municipalityId, namespace, errandId, applicationMonth, task, applicantBasis, coApplicantBasis, childBases, household);
+		return prepare(municipalityId, namespace, errandId, applicationMonth, task, new HouseholdBasis(applicantBasis, coApplicantBasis, childBases), household);
 	}
 
 	/**
@@ -178,6 +178,10 @@ public class PrepareIncomeBasisWorker extends AbstractTopicWorker {
 
 	/** A household child's SSBTEK basis, with the partyId its incomes are tagged with. */
 	private record ChildBasis(String partyId, Map<String, Map<String, Object>> basis) {}
+
+	/** The household's SSBTEK reads, grouped so {@code prepare} does not have to take each one as its own parameter. */
+	private record HouseholdBasis(Map<String, Map<String, Object>> applicantBasis, Map<String, Map<String, Object>> coApplicantBasis,
+		List<ChildBasis> childBases) {}
 
 	/**
 	 * The household's personal numbers, read per run rather than carried in the process. An applicant we cannot name
@@ -210,8 +214,11 @@ public class PrepareIncomeBasisWorker extends AbstractTopicWorker {
 	}
 
 	private Map<String, Object> prepare(final String municipalityId, final String namespace, final String errandId, final YearMonth applicationMonth,
-		final LockedExternalTask task, final Map<String, Map<String, Object>> applicantBasis,
-		final Map<String, Map<String, Object>> coApplicantBasis, final List<ChildBasis> childBases, final HouseholdIdentifiers household) {
+		final LockedExternalTask task, final HouseholdBasis basis, final HouseholdIdentifiers household) {
+
+		final var applicantBasis = basis.applicantBasis();
+		final var coApplicantBasis = basis.coApplicantBasis();
+		final var childBases = basis.childBases();
 
 		final var incomes = new ArrayList<>(SsbtekIncomeExtractor.extract(applicantBasis, ApplicantRole.APPLICANT));
 		final var answers = new ArrayList<>(SsbtekIncomeExtractor.extractAnswers(applicantBasis));

@@ -2,6 +2,7 @@ package se.sundsvall.operaton.workers.financialaid.rules;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.Month;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -10,8 +11,8 @@ class SsbtekIncomeTest {
 
 	@Test
 	void asChildKeepsTheIncomeAndTagsItWithTheChild() {
-		final var income = new SsbtekIncome("Barnpension", "Skattepliktig barnpension", "Månad", new BigDecimal("1200"), LocalDate.of(2026, 6, 25),
-			LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30), BigDecimal.TEN, ApplicantRole.APPLICANT);
+		final var income = new SsbtekIncome("Barnpension", "Skattepliktig barnpension", "Månad", new BigDecimal("1200"), LocalDate.of(2026, Month.JUNE, 25),
+			LocalDate.of(2026, Month.JUNE, 1), LocalDate.of(2026, Month.JUNE, 30), BigDecimal.TEN, ApplicantRole.APPLICANT);
 
 		final var child = income.asChild("child-1");
 
