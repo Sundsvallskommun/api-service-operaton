@@ -27,7 +27,7 @@
 		<module>operaton-workers-supportmanagement</module>
 	</modules>
 	<properties>
-		<operaton.spring-boot.version>2.1.4</operaton.spring-boot.version>
+		<operaton.spring-boot.version>2.1.5</operaton.spring-boot.version>
 		<generated-sources-path>${project.build.directory}/generated-sources</generated-sources-path>
 		<generated-sources-java-path>src/main/java</generated-sources-java-path>
 		<!-- Library modules are not deployable; re-enabled in operaton-app. -->
@@ -215,7 +215,7 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-install-plugin</artifactId>
-				<version>3.1.4</version>
+				<version>3.2.0</version>
 				<executions>
 					<execution>
 						<id>install-at-verify</id>
