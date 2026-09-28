@@ -37,15 +37,17 @@ class ElementTemplateMapperTest {
 		assertThat(toElementTemplate(null)).isNull();
 	}
 
-	@Test
-	void toElementTemplateWithFullSendEmailTopic() {
-		final var topic = TopicDescription.create()
+	private static TopicDescription sendEmailTopic() {
+		return TopicDescription.create()
 			.withTopic("send-email")
 			.withDescription("Sends an email via the Messaging API")
 			.withInputVariables(List.of("municipalityId", "emailAddress", "subject", "message", "senderName", "senderAddress"))
 			.withOutputVariables(List.of("messageId"));
+	}
 
-		final var result = toElementTemplate(topic);
+	@Test
+	void toElementTemplateWithFullSendEmailTopic() {
+		final var result = toElementTemplate(sendEmailTopic());
 
 		assertThat(result).isNotNull();
 		assertThat(result.getSchema()).isEqualTo(SCHEMA_URL);
@@ -55,6 +57,11 @@ class ElementTemplateMapperTest {
 		assertThat(result.getAppliesTo()).containsExactly(APPLIES_TO_SERVICE_TASK);
 		// 1 camunda:type property + 1 camunda:topic property + 6 input parameters = 8
 		assertThat(result.getProperties()).hasSize(8);
+	}
+
+	@Test
+	void toElementTemplateSendEmailTypeProperty() {
+		final var result = toElementTemplate(sendEmailTopic());
 
 		final var typeProperty = result.getProperties().getFirst();
 		assertThat(typeProperty.getLabel()).isEqualTo(TYPE_PROPERTY_LABEL);
@@ -64,6 +71,11 @@ class ElementTemplateMapperTest {
 		assertThat(typeProperty.getBinding().getType()).isEqualTo(BINDING_TYPE_PROPERTY);
 		assertThat(typeProperty.getBinding().getName()).isEqualTo(BINDING_NAME_TYPE);
 		assertThat(typeProperty.getConstraints()).isNull();
+	}
+
+	@Test
+	void toElementTemplateSendEmailTopicProperty() {
+		final var result = toElementTemplate(sendEmailTopic());
 
 		final var topicProperty = result.getProperties().get(1);
 		assertThat(topicProperty.getLabel()).isEqualTo(TOPIC_PROPERTY_LABEL);
@@ -73,10 +85,24 @@ class ElementTemplateMapperTest {
 		assertThat(topicProperty.getBinding().getType()).isEqualTo(BINDING_TYPE_PROPERTY);
 		assertThat(topicProperty.getBinding().getName()).isEqualTo(BINDING_NAME_TOPIC);
 		assertThat(topicProperty.getConstraints()).isNull();
+	}
+
+	@Test
+	void toElementTemplateSendEmailInputParameterProperties() {
+		final var result = toElementTemplate(sendEmailTopic());
 
 		assertThat(result.getProperties().subList(2, 8))
 			.extracting("label")
 			.containsExactly("Municipality Id", "Email Address", "Subject", "Message", "Sender Name", "Sender Address");
+		assertThat(result.getProperties().subList(2, 8))
+			.extracting(p -> p.getBinding().getName())
+			.containsExactly("municipalityId", "emailAddress", "subject", "message", "senderName", "senderAddress");
+	}
+
+	@Test
+	void toElementTemplateSendEmailInputParameterPropertiesShareTheSameShape() {
+		final var result = toElementTemplate(sendEmailTopic());
+
 		assertThat(result.getProperties().subList(2, 8))
 			.allSatisfy(p -> {
 				assertThat(p.getType()).isEqualTo(PROPERTY_TYPE_STRING);
@@ -85,9 +111,6 @@ class ElementTemplateMapperTest {
 				assertThat(p.getBinding().getType()).isEqualTo(BINDING_TYPE_INPUT_PARAMETER);
 				assertThat(p.getConstraints().getNotEmpty()).isTrue();
 			});
-		assertThat(result.getProperties().subList(2, 8))
-			.extracting(p -> p.getBinding().getName())
-			.containsExactly("municipalityId", "emailAddress", "subject", "message", "senderName", "senderAddress");
 	}
 
 	@Test

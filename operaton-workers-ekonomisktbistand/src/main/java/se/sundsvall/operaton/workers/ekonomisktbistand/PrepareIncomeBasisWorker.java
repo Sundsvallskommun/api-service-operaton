@@ -184,6 +184,13 @@ public class PrepareIncomeBasisWorker extends AbstractTopicWorker {
 	 * cannot be looked up in SSBTEK, and that is a fault on the errand rather than a downstream outage — so it fails
 	 * rather than degrading into a read-failure warning, which would tell the handläggare that SSBTEK was unavailable
 	 * when it was never asked.
+	 *
+	 * <p>
+	 * This call sits outside the try/catch below that degrades SSBTEK read failures into {@code ssbtekError=true}: a
+	 * transient careM outage here rides the normal retry ladder and ends in a Cockpit incident instead of a degraded
+	 * run, deliberately — the rules cannot run at all without personIds, so there is nothing to "prepare" in a
+	 * degraded fashion. This is intentional, not an oversight to reconcile with the SSBTEK-read path.
+	 * </p>
 	 */
 	private HouseholdIdentifiers household(final String municipalityId, final String namespace, final String errandId) {
 		final var context = ofNullable(careManagementClient.getHouseholdIdentifiers(municipalityId, namespace, errandId).getBody())

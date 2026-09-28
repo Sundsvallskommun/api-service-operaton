@@ -141,8 +141,19 @@ public abstract class AbstractTopicWorker {
 	 * ({@link NonRetryableTaskException}) skip the backoff entirely.
 	 */
 	private void handleFailure(final LockedExternalTask task, final Exception e) {
-		final var remainingRetries = e instanceof NonRetryableTaskException ? 0 : remainingRetries(task);
-		final var backoffMs = remainingRetries == 0 ? 0L : backoffMs(maxAttempts() - remainingRetries);
+		final int remainingRetries;
+		if (e instanceof NonRetryableTaskException) {
+			remainingRetries = 0;
+		} else {
+			remainingRetries = remainingRetries(task);
+		}
+
+		final long backoffMs;
+		if (remainingRetries == 0) {
+			backoffMs = 0L;
+		} else {
+			backoffMs = backoffMs(maxAttempts() - remainingRetries);
+		}
 
 		if (remainingRetries == 0) {
 			LOG.error("{} failed to process task {}, giving up - the engine will raise an incident", workerId, task.getId(), e);

@@ -57,7 +57,9 @@ class TopicRegistryTest {
 	void testDuplicateTopicFailsFast() {
 		topicRegistry.postProcessAfterInitialization(new TestWorker(), "testWorker");
 
-		assertThatThrownBy(() -> topicRegistry.postProcessAfterInitialization(new DuplicateTopicWorker(), "duplicateTopicWorker"))
+		final var duplicateTopicWorker = new DuplicateTopicWorker();
+
+		assertThatThrownBy(() -> topicRegistry.postProcessAfterInitialization(duplicateTopicWorker, "duplicateTopicWorker"))
 			.isInstanceOf(IllegalStateException.class)
 			.hasMessageContaining("test-topic")
 			.hasMessageContaining(DuplicateTopicWorker.class.getName());

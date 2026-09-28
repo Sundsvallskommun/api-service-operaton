@@ -46,8 +46,20 @@ public class CreateErrandNotificationWorker extends AbstractTopicWorker {
 
 	static final String VAR_NAMESPACE = "namespace";
 	static final String VAR_ERRAND_ID = "errandId";
+
+	/**
+	 * Notification headline shown in Draken. Like {@link #VAR_CONTENT}, this is a process variable persisted in
+	 * ACT_RU_VARIABLE/ACT_HI_VARINST for the model's whole history TTL, so it must only ever carry static, generic
+	 * copy — never an applicant's name, personnummer, amount, or any other case content.
+	 */
 	static final String VAR_DESCRIPTION = "notificationDescription";
+
+	/**
+	 * Notification body shown in Draken. Same storage/retention caveat as {@link #VAR_DESCRIPTION}: no case content,
+	 * only static or otherwise non-personal text (e.g. a generic payment-status detail).
+	 */
 	static final String VAR_CONTENT = "notificationContent";
+
 	static final String VAR_SUB_TYPE = "notificationSubType";
 
 	static final String TYPE = "CREATE";

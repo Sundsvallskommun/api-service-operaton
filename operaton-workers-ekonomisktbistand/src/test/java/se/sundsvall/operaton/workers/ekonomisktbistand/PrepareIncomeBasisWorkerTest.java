@@ -31,6 +31,7 @@ import se.sundsvall.operaton.workers.financialaid.rules.SsbtekIncome;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.entry;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
@@ -113,7 +114,7 @@ class PrepareIncomeBasisWorkerTest {
 
 		final var output = worker().handle(taskMock);
 
-		assertThat(output).containsExactly(org.assertj.core.api.Assertions.entry("ssbtekError", false));
+		assertThat(output).containsExactly(entry("ssbtekError", false));
 	}
 
 	@Test
@@ -203,7 +204,7 @@ class PrepareIncomeBasisWorkerTest {
 
 		final var output = worker().handle(taskMock);
 
-		assertThat(output).containsExactly(org.assertj.core.api.Assertions.entry("ssbtekError", true));
+		assertThat(output).containsExactly(entry("ssbtekError", true));
 		final var request = captureRequest();
 		assertThat(request.getSsbtekError()).isTrue();
 		// Blank, not an empty list: caremanagement reads an empty list as "this month has no incomes" and would clear
@@ -231,7 +232,7 @@ class PrepareIncomeBasisWorkerTest {
 		household(APPLICANT_PNR, null);
 		when(financialAidClientMock.getFinancialAidBasis(any(), any(), any(), any())).thenThrow(new IllegalStateException("gateway down"));
 
-		assertThat(worker().handle(taskMock)).containsExactly(org.assertj.core.api.Assertions.entry("ssbtekError", true));
+		assertThat(worker().handle(taskMock)).containsExactly(entry("ssbtekError", true));
 		assertThat(captureRequest().getSsbtekError()).isTrue();
 	}
 
@@ -308,7 +309,7 @@ class PrepareIncomeBasisWorkerTest {
 		when(financialAidClientMock.getFinancialAidBasis(MUNICIPALITY_ID, APPLICANT_PNR, "2026-06-01", "2026-10-31")).thenThrow(new IllegalStateException("wider read down"));
 		when(evaluatorMock.evaluate(any(), any(), any())).thenReturn(new IncomeRulesResult(List.of(), List.of()));
 
-		assertThat(worker().handle(taskMock)).containsExactly(org.assertj.core.api.Assertions.entry("ssbtekError", false));
+		assertThat(worker().handle(taskMock)).containsExactly(entry("ssbtekError", false));
 		assertThat(captureRequest().getSsbtekError()).isFalse();
 	}
 

@@ -88,6 +88,9 @@ public class CheckPaymentStatusWorker extends AbstractTopicWorker {
 		final var detail = ofNullable(response).map(PaymentStatusResponse::getDetail).orElse("");
 		final var overdue = ofNullable(response).map(PaymentStatusResponse::getOverdue).map(TRUE::equals).orElse(false);
 
+		// detail is always one of careM's own static status templates (counts/month-key only, e.g. "1 av 2 kopplade
+		// utbetalningar..."), never an applicant name, personnummer or amount tied to a specific person - confirmed
+		// against FinancialAssistancePaymentService's notEffectuated()/DETAIL_* constants - so logging it is safe.
 		LOG.info("Payment status read (effectuated: {}, overdue: {}, detail: {})", effectuated, overdue, detail);
 		return Map.of(VAR_OUT_PAYMENT_EFFECTUATED, effectuated, VAR_OUT_PAYMENT_STATUS_DETAIL, detail, VAR_OUT_PAYMENT_OVERDUE, overdue);
 	}
