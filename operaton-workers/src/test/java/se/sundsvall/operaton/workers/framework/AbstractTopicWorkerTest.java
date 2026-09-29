@@ -5,6 +5,8 @@ import java.util.Map;
 import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.operaton.bpm.engine.ExternalTaskService;
@@ -19,6 +21,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -110,7 +114,81 @@ class AbstractTopicWorkerTest {
 	}
 
 	@Test
-	void processTasksCallsHandleFailureWhenHandleThrows() {
+	void processTasksCallsHandleFailureWithBackoffWhenHandleThrows() {
+		final var task = taskFailingWith(null);
+
+		new TestWorker(externalTaskServiceMock, _ -> {
+			throw new RuntimeException("boom");
+		}).processTasks();
+
+		// First failure of five attempts: four left, first backoff step.
+		verify(externalTaskServiceMock).handleFailure(task.getId(), "test-topic-worker", "boom", 4, 15_000L);
+	}
+
+	@ParameterizedTest
+	@CsvSource({
+		// retries carried by the task, retries left after this failure, backoff before the next attempt
+		"4, 3, 30000",
+		"3, 2, 60000",
+		"2, 1, 120000",
+	})
+	void processTasksBacksOffExponentiallyAcrossFailures(final int retries, final int expectedRetriesLeft, final long expectedBackoffMs) {
+		final var task = taskFailingWith(retries);
+
+		new TestWorker(externalTaskServiceMock, _ -> {
+			throw new RuntimeException("boom");
+		}).processTasks();
+
+		verify(externalTaskServiceMock).handleFailure(task.getId(), "test-topic-worker", "boom", expectedRetriesLeft, expectedBackoffMs);
+	}
+
+	@Test
+	void processTasksRaisesIncidentWhenRetriesAreExhausted() {
+		final var task = taskFailingWith(1);
+
+		new TestWorker(externalTaskServiceMock, _ -> {
+			throw new RuntimeException("boom");
+		}).processTasks();
+
+		verify(externalTaskServiceMock).handleFailure(task.getId(), "test-topic-worker", "boom", 0, 0L);
+	}
+
+	@Test
+	void processTasksCapsTheBackoffWhenRetriesWereRaisedByHand() {
+		// Retries set above maxAttempts in Cockpit must not produce a negative shift or an unbounded wait.
+		final var task = taskFailingWith(50);
+
+		new TestWorker(externalTaskServiceMock, _ -> {
+			throw new RuntimeException("boom");
+		}).processTasks();
+
+		verify(externalTaskServiceMock).handleFailure(task.getId(), "test-topic-worker", "boom", 49, 15_000L);
+	}
+
+	@Test
+	void processTasksSkipsTheBackoffForNonRetryableFailures() {
+		final var task = taskFailingWith(null);
+
+		new TestWorker(externalTaskServiceMock, _ -> {
+			throw new NonRetryableTaskException("bad model");
+		}).processTasks();
+
+		verify(externalTaskServiceMock).handleFailure(task.getId(), "test-topic-worker", "bad model", 0, 0L);
+	}
+
+	@Test
+	void processTasksHonoursAMaxAttemptsOverride() {
+		final var task = taskFailingWith(null);
+
+		new TestWorker(externalTaskServiceMock, _ -> {
+			throw new RuntimeException("boom");
+		}, 2).processTasks();
+
+		verify(externalTaskServiceMock).handleFailure(task.getId(), "test-topic-worker", "boom", 1, 15_000L);
+	}
+
+	/** Stub a single fetched task carrying {@code retries} (null = never failed before). */
+	private LockedExternalTask taskFailingWith(final Integer retries) {
 		final var queryBuilder = mock(ExternalTaskQueryBuilder.class);
 		final var topicBuilder = mock(ExternalTaskQueryTopicBuilder.class);
 		final var task = mock(LockedExternalTask.class);
@@ -119,12 +197,69 @@ class AbstractTopicWorkerTest {
 		when(queryBuilder.topic(any(), anyLong())).thenReturn(topicBuilder);
 		when(topicBuilder.execute()).thenReturn(List.of(task));
 		when(task.getId()).thenReturn("task-2");
+		// Not read on the non-retryable path, which short-circuits before consulting the retry count.
+		lenient().when(task.getRetries()).thenReturn(retries);
 
-		new TestWorker(externalTaskServiceMock, _ -> {
-			throw new RuntimeException("boom");
-		}).processTasks();
+		return task;
+	}
 
-		verify(externalTaskServiceMock).handleFailure("task-2", "test-topic-worker", "boom", 0, 0L);
+	/**
+	 * A string variable the engine cannot store is a modelling error, not a transient one. Caught here it names the
+	 * variable and its length and goes straight to an incident; left to the engine it reaches MariaDB, rolls the task
+	 * back and comes out as "An exception occurred in the persistence layer" — five times over, naming nothing. That is
+	 * how the EB process went down on 2026-09-22.
+	 */
+	@Test
+	void processTasksRejectsAnOutputVariableTooLongForTheEngineWithoutRetrying() {
+		final var task = taskFailingWith(null);
+		final var tooLong = "x".repeat(4001);
+
+		new TestWorker(externalTaskServiceMock, _ -> Map.of("financialAidBasis", tooLong)).processTasks();
+
+		verify(externalTaskServiceMock, never()).complete(any(), any(), any());
+		verify(externalTaskServiceMock).handleFailure(
+			eq("task-2"), eq("test-topic-worker"),
+			contains("Output variable 'financialAidBasis' is 4001 characters"),
+			eq(0), eq(0L));
+		assertThat(task).isNotNull();
+	}
+
+	@Test
+	void processTasksAllowsAnOutputVariableExactlyAtTheLimit() {
+		final var queryBuilder = mock(ExternalTaskQueryBuilder.class);
+		final var topicBuilder = mock(ExternalTaskQueryTopicBuilder.class);
+		final var task = mock(LockedExternalTask.class);
+		final var output = Map.<String, Object>of("atLimit", "x".repeat(4000));
+
+		when(externalTaskServiceMock.fetchAndLock(anyInt(), any())).thenReturn(queryBuilder);
+		when(queryBuilder.topic(any(), anyLong())).thenReturn(topicBuilder);
+		when(topicBuilder.execute()).thenReturn(List.of(task));
+		when(task.getId()).thenReturn("task-1");
+
+		new TestWorker(externalTaskServiceMock, _ -> output).processTasks();
+
+		verify(externalTaskServiceMock).complete("task-1", "test-topic-worker", output);
+	}
+
+	/** Only strings are bounded — a long value or a null must not be mistaken for an oversized one. */
+	@Test
+	void processTasksLeavesNonStringOutputAlone() {
+		final var queryBuilder = mock(ExternalTaskQueryBuilder.class);
+		final var topicBuilder = mock(ExternalTaskQueryTopicBuilder.class);
+		final var task = mock(LockedExternalTask.class);
+		final var output = new java.util.HashMap<String, Object>();
+		output.put("flag", true);
+		output.put("count", 4001L);
+		output.put("absent", null);
+
+		when(externalTaskServiceMock.fetchAndLock(anyInt(), any())).thenReturn(queryBuilder);
+		when(queryBuilder.topic(any(), anyLong())).thenReturn(topicBuilder);
+		when(topicBuilder.execute()).thenReturn(List.of(task));
+		when(task.getId()).thenReturn("task-1");
+
+		new TestWorker(externalTaskServiceMock, _ -> output).processTasks();
+
+		verify(externalTaskServiceMock).complete("task-1", "test-topic-worker", output);
 	}
 
 	@Test
@@ -146,10 +281,21 @@ class AbstractTopicWorkerTest {
 	private static final class TestWorker extends AbstractTopicWorker {
 
 		private final Function<LockedExternalTask, Map<String, Object>> handler;
+		private final int maxAttempts;
 
 		private TestWorker(final ExternalTaskService externalTaskService, final Function<LockedExternalTask, Map<String, Object>> handler) {
+			this(externalTaskService, handler, 5);
+		}
+
+		private TestWorker(final ExternalTaskService externalTaskService, final Function<LockedExternalTask, Map<String, Object>> handler, final int maxAttempts) {
 			super(externalTaskService);
 			this.handler = handler;
+			this.maxAttempts = maxAttempts;
+		}
+
+		@Override
+		protected int maxAttempts() {
+			return maxAttempts;
 		}
 
 		@Override

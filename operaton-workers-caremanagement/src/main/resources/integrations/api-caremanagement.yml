@@ -2388,9 +2388,42 @@ components:
           description: The period-over-period change warnings from the operaton regelverk, recorded on the errand recommendation
           items:
             type: string
+        ssbtekError:
+          type: boolean
+          description: Whether SSBTEK could not be read for this run. True means the rules were deliberately not evaluated - the calculation is left exactly as it stands and the errand carries the read-failure warning until a later run succeeds. Absent is read as false.
+        dayCheckBasis:
+          $ref: "#/components/schemas/DayCheckBasis"
       required:
         - applicant
         - applicationMonth
+    DayCheckBasis:
+      type: object
+      description: "The SSBTEK facts that gate the dagersättning day check: Arbetsförmedlingen's economic-decision periods and Försäkringskassan's consumed jobb- och utvecklingsgaranti days. A null field means the caller did not read it, and the day check is then not made at all."
+      properties:
+        economicDecisionPeriods:
+          type: array
+          description: Arbetsförmedlingen's economic-decision periods (af BeslutInfo.EkonomiskaBeslut.Beslut). An empty list means AF answered and reports no decision; null means AF was not read or could not answer.
+          items:
+            $ref: "#/components/schemas/EconomicDecisionPeriod"
+        consumedDays:
+          type: integer
+          format: int32
+          description: Försäkringskassan's consumed days in the jobb- och utvecklingsgaranti (fk formansinformation.programjobdagar antalForbrukade); null when not read
+        allDaysConsumed:
+          type: boolean
+          description: Whether Försäkringskassan reports all days used up (fk formansinformation.programjobdagar harForbrukatMaxAntal). False when FK answered without any programjobdagar; null when FK was not read.
+    EconomicDecisionPeriod:
+      type: object
+      description: A period Arbetsförmedlingen reports an economic decision (ekonomiskt beslut) for, as read from SSBTEK.
+      properties:
+        fromDate:
+          type: string
+          format: date
+          description: Decision period start (BeslutFrom)
+        toDate:
+          type: string
+          format: date
+          description: Decision period end (BeslutTom); null for an open period
     NormberakningResponse:
       type: object
       description: The created Lifecare normberäkning id plus the income warnings to review
@@ -2455,6 +2488,14 @@ components:
       type: object
       description: Request to read whether the Lifecare utbetalning for an application month has been effectuated
       properties:
+        errandId:
+          type: string
+          description: >-
+            The errand whose payments to verify. When given, the check is errand-specific: the Lifecare payments linked
+            to the errand (lifecarePaymentIds), else the payment rows an earlier finalize created, else the applicant's
+            Lifecare payments on the errand's own insats for the application month that no other errand references.
+          examples:
+            - "a3c1f4de-2b6a-4c1e-9d3f-7e8a9b0c1d2e"
         applicant:
           type: string
           description: The applicant's partyId (personId GUID)
@@ -2474,7 +2515,7 @@ components:
       properties:
         effectuated:
           type: boolean
-          description: True when a Lifecare utbetalning concerning the application month has been registered
+          description: True when Lifecare reports the errand's payments paid (or, without an errand, a payment for the application month)
           examples:
             - true
         paymentDate:
@@ -2482,24 +2523,84 @@ components:
           description: The date the utbetalning was made (Lifecare PayDate), when effectuated
           examples:
             - "2026-05-27"
-    RpaTaskRequest:
+        detail:
+          type: string
+          description: Why the status is not effectuated, in words a caseworker can act on; empty when effectuated
+          examples:
+            - "1 av 2 kopplade utbetalningar är inte utbetalda i Lifecare ännu"
+        deadline:
+          type: string
+          description: The last working day the errand's payments may wait, counted from the decision (ISO date)
+          examples:
+            - "2026-09-28"
+        overdue:
+          type: boolean
+          description: >-
+            True when the payments are still not effectuated after the deadline. Never closes anything.
+          examples:
+            - false
+    Notification:
       type: object
-      description: Request to enqueue a UiPath RPA task on an errand
+      description: A notification on an errand, shown to its owner (and co-caseworkers) in Draken
       properties:
-        action:
+        ownerId:
+          type: string
+          description: User id of the recipient
+        createdBy:
+          type: string
+          description: User or system id that produced the notification
+        type:
+          type: string
+          description: Notification type (CREATE, UPDATE, DELETE)
+        subType:
+          type: string
+          description: Notification sub-type (ERRAND, DECISION, ATTACHMENT, STAKEHOLDER, PARAMETER, MESSAGE, SYSTEM)
+        description:
+          type: string
+          description: Short human-readable description
+        content:
+          type: string
+          description: Optional longer content
+      required:
+        - ownerId
+        - type
+        - description
+    HouseholdIdentifiers:
+      type: object
+      description: >-
+        The errand number and the household's personal numbers for one errand, fetched on demand instead of carried
+        in a process variable. Every read is recorded in the errand's event log with the caller's X-Sent-By identity.
+      properties:
+        errandNumber:
+          type: string
+          description: The errand's human-readable number
+          examples:
+            - EB-2026-000123
+        applicantPersonId:
           type: string
           description: >-
-            The RPA action — selects the Lifecare flow the robot runs (e.g. FETCH_SUPPLEMENTS, WRITE_NORMBERAKNING,
-            WRITE_DECISION, WRITE_JOURNAL, WRITE_DOCUMENT, WRITE_MONITORING, REGISTER_PAYMENT)
-          examples:
-            - FETCH_SUPPLEMENTS
-        parameters:
-          type: object
-          additionalProperties:
-            type: string
-          description: Optional extra hints for the robot, merged into the queue item SpecificContent
-      required:
-        - action
+            The applicant's personal number (12 characters, may contain letters). Null when it could not be resolved —
+            treat as an error on the caller's side.
+        coApplicantPersonId:
+          type: string
+          description: The co-applicant's personal number; null when there is no co-applicant or it could not be resolved
+        children:
+          type: array
+          description: The household children named on the application that have a partyId; empty when there are none
+          items:
+            $ref: '#/components/schemas/HouseholdChild'
+    HouseholdChild:
+      type: object
+      description: >-
+        A household child named on the application: the partyId the beredning tags the child's SSBTEK incomes with, and
+        the personal number SSBTEK is read with.
+      properties:
+        partyId:
+          type: string
+          description: The child's partyId, as on the errand's children
+        personId:
+          type: string
+          description: The child's personal number (12 characters, may contain letters); null when it could not be resolved
     Stakeholder:
       type: object
       description: Stakeholder model

@@ -26,6 +26,22 @@ public abstract class AbstractTopicWorker {
 	private static final int MAX_TASKS = 10;
 	private static final long LOCK_DURATION_MS = 60_000L;
 
+	// Retry policy: a downstream outage (gateway restart, token endpoint 503) must not wedge every in-flight instance on
+	// the first failure. Doubling from 15s over 5 attempts rides out roughly 3m45s of downtime before an incident.
+	private static final int MAX_ATTEMPTS = 5;
+	private static final long INITIAL_RETRY_BACKOFF_MS = 15_000L;
+	private static final long MAX_RETRY_BACKOFF_MS = 300_000L;
+
+	// The engine stores a string variable in ACT_RU_VARIABLE.TEXT_ and ACT_HI_DETAIL.TEXT_, both varchar(4000), and its
+	// own serializer checks nothing. Caught here the failure names the variable and never enters a transaction; left to
+	// MariaDB it becomes "An exception occurred in the persistence layer" on a rolled-back task, five times over.
+	private static final int MAX_STRING_VARIABLE_LENGTH = 4000;
+
+	private static final String VARIABLE_TOO_LONG = """
+		Output variable '%s' is %d characters, over the engine's %d-character limit for a string variable. \
+		A value this size does not belong in a process variable — keep it in the service that owns the data \
+		and carry a reference.""";
+
 	protected final ExternalTaskService externalTaskService;
 	private final String topic;
 	private final String workerId;
@@ -46,7 +62,7 @@ public abstract class AbstractTopicWorker {
 	 */
 	protected static <T> T requireVariable(final LockedExternalTask task, final String name, final Class<T> type) {
 		return optionalVariable(task, name, type)
-			.orElseThrow(() -> new IllegalStateException(
+			.orElseThrow(() -> new NonRetryableTaskException(
 				"Required process variable '%s' is missing on task %s".formatted(name, task.getId())));
 	}
 
@@ -58,7 +74,7 @@ public abstract class AbstractTopicWorker {
 		return ofNullable(task.getVariables().get(name))
 			.map(value -> {
 				if (!type.isInstance(value)) {
-					throw new IllegalStateException(
+					throw new NonRetryableTaskException(
 						"Process variable '%s' on task %s expected to be %s but was %s".formatted(
 							name, task.getId(), type.getSimpleName(), value.getClass().getSimpleName()));
 				}
@@ -68,6 +84,16 @@ public abstract class AbstractTopicWorker {
 
 	protected static Map<String, Object> emptyOutput() {
 		return emptyMap();
+	}
+
+	/**
+	 * Whether this is the last attempt before the engine raises an incident — i.e. failing now leaves no retries. Lets a
+	 * worker ride out a transient downstream outage on the normal backoff ladder and only then degrade to a
+	 * business-level outcome, instead of reporting the first hiccup as a real answer. A task that has never failed
+	 * carries no retry count and is therefore never the final attempt.
+	 */
+	protected static boolean isFinalAttempt(final LockedExternalTask task) {
+		return ofNullable(task.getRetries()).filter(retries -> retries <= 1).isPresent();
 	}
 
 	/**
@@ -81,12 +107,83 @@ public abstract class AbstractTopicWorker {
 
 		tasks.forEach(task -> {
 			try {
-				externalTaskService.complete(task.getId(), workerId, handle(task));
+				externalTaskService.complete(task.getId(), workerId, storable(handle(task)));
 			} catch (final Exception e) {
-				LOG.error("{} failed to process task {}", workerId, task.getId(), e);
-				externalTaskService.handleFailure(task.getId(), workerId, e.getMessage(), 0, 0);
+				handleFailure(task, e);
 			}
 		});
+	}
+
+	/**
+	 * The worker's output, checked before it reaches the engine. A string variable the engine cannot store is a
+	 * modelling error, not a transient one — no retry makes it shorter — so it skips the backoff ladder and surfaces
+	 * immediately, naming the variable and its length.
+	 */
+	private static Map<String, Object> storable(final Map<String, Object> variables) {
+		ofNullable(variables).orElseGet(Map::of).forEach(AbstractTopicWorker::verifyStorable);
+		return variables;
+	}
+
+	private static void verifyStorable(final String name, final Object value) {
+		if (!(value instanceof final String text)) {
+			return;
+		}
+		if (text.length() <= MAX_STRING_VARIABLE_LENGTH) {
+			return;
+		}
+		throw new NonRetryableTaskException(VARIABLE_TOO_LONG.formatted(name, text.length(), MAX_STRING_VARIABLE_LENGTH));
+	}
+
+	/**
+	 * Fail a task with an exponential backoff instead of going straight to an incident, so a transient downstream outage
+	 * is ridden out rather than wedging the process instance. Retries count down from {@link #maxAttempts()} and the
+	 * engine raises the incident only once they reach zero. Failures that can never succeed on a retry
+	 * ({@link NonRetryableTaskException}) skip the backoff entirely.
+	 */
+	private void handleFailure(final LockedExternalTask task, final Exception e) {
+		final int remainingRetries;
+		if (e instanceof NonRetryableTaskException) {
+			remainingRetries = 0;
+		} else {
+			remainingRetries = remainingRetries(task);
+		}
+
+		final long backoffMs;
+		if (remainingRetries == 0) {
+			backoffMs = 0L;
+		} else {
+			backoffMs = backoffMs(maxAttempts() - remainingRetries);
+		}
+
+		if (remainingRetries == 0) {
+			LOG.error("{} failed to process task {}, giving up - the engine will raise an incident", workerId, task.getId(), e);
+		} else {
+			LOG.warn("{} failed to process task {}, retrying in {} ms ({} attempt(s) left)", workerId, task.getId(), backoffMs, remainingRetries, e);
+		}
+		externalTaskService.handleFailure(task.getId(), workerId, e.getMessage(), remainingRetries, backoffMs);
+	}
+
+	/**
+	 * Retries left after this failure. A task that has never failed carries no retry count, so this failure is the first
+	 * of {@link #maxAttempts()}.
+	 */
+	private int remainingRetries(final LockedExternalTask task) {
+		return ofNullable(task.getRetries())
+			.map(retries -> Math.max(retries - 1, 0))
+			.orElseGet(() -> maxAttempts() - 1);
+	}
+
+	/**
+	 * Backoff before the next attempt, doubling per failure up to a cap. {@code failureCount} is 1 on the first failure.
+	 */
+	private static long backoffMs(final int failureCount) {
+		// Clamped because retries may have been raised by hand in Cockpit, which puts failureCount outside 1..maxAttempts.
+		return Math.min(INITIAL_RETRY_BACKOFF_MS << Math.clamp(failureCount - 1L, 0, 16), MAX_RETRY_BACKOFF_MS);
+	}
+
+	/** Total attempts (initial try plus retries) before the engine raises an incident. Override to tune per worker. */
+	protected int maxAttempts() {
+		return MAX_ATTEMPTS;
 	}
 
 	/**
