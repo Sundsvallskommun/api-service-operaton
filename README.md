@@ -58,6 +58,8 @@ Access the API documentation via Swagger UI:
 
 - **Swagger UI:** [http://localhost:8080/api-docs](http://localhost:8080/api-docs)
 
+Architecture and integration notes are in [docs/](docs/README.md).
+
 ## Usage
 
 ### API Endpoints
