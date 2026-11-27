@@ -8,5 +8,14 @@ import java.util.List;
  */
 public record IncomeRulesResult(
 	List<ClassifiedIncome> classified,
-	List<ChangeWarning> changeWarnings) {
+	List<ChangeWarning> changeWarnings,
+	List<ClassifiedAgencyAnswer> answers) {
+
+	/**
+	 * The income-only shape, for callers with no agency answers to classify. {@code answers} is then empty, which reads
+	 * as "nothing was checked", not as "everything answered" - a caller must not infer quality from an empty list.
+	 */
+	public IncomeRulesResult(final List<ClassifiedIncome> classified, final List<ChangeWarning> changeWarnings) {
+		this(classified, changeWarnings, List.of());
+	}
 }

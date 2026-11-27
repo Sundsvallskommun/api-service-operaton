@@ -58,6 +58,8 @@ Access the API documentation via Swagger UI:
 
 - **Swagger UI:** [http://localhost:8080/api-docs](http://localhost:8080/api-docs)
 
+Architecture and integration notes are in [docs/](docs/README.md).
+
 ## Usage
 
 ### API Endpoints
@@ -108,13 +110,23 @@ Configuration is crucial for the application to run successfully. Ensure all nec
   ```
 - **Operaton Admin User:**
 
+  No admin user is configured by default. To get a Cockpit admin, set `OPERATON_BPM_ADMIN_USER_ID` and
+  `OPERATON_BPM_ADMIN_USER_PASSWORD`. The engine creates the user once, on a database that lacks it.
+
+- **Process Variables:**
+
   ```yaml
-  operaton.bpm:
-    admin-user:
-      id: demo
-      password: demo
-      firstName: Demo
+  operaton:
+    history:
+      suppressed-variables: financialAidBasis,coApplicantFinancialAidBasis
+    variables:
+      max-string-length: 4000
   ```
+
+  `suppressed-variables` lists process variables the engine writes no history for. `max-string-length` is the
+  longest string variable the engine accepts; a longer one fails naming the variable. The engine's column holds 4000
+  characters, so a higher value only moves the failure to the database.
+
 - **External Service URLs:**
 
   ```yaml
