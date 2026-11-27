@@ -5,7 +5,7 @@ into one financial-aid basis.
 
 ## Used by
 
-`fetch-financial-aid-basis` in `operaton-workers-financialaid`. See [architecture.md](../architecture.md).
+`prepare-income-basis` in `operaton-workers-ekonomisktbistand`. See [architecture.md](../architecture.md).
 
 ## Calls
 
@@ -21,16 +21,20 @@ OAuth2 client credentials, registration `financial-aid`.
 
 - Client: `operaton-workers-financialaid/src/main/java/se/sundsvall/operaton/workers/financialaid/`, models
   generated from `operaton-workers-financialaid/src/main/resources/integrations/api-financialaid.yml`.
+- Income rules: `operaton-workers-financialaid/src/main/java/se/sundsvall/operaton/workers/financialaid/rules/`.
 - Configuration: `integration.financial-aid` in `application.yml`.
 
 ## Behaviour worth knowing
 
-- The answer is stored as a JSON string variable, by default `financialAidBasis`. The input `outputVariable` names
-  another variable, so one model can fetch both applicant and co-applicant with the same topic.
-- A blank `personalNumber` gives an empty basis without a call, so a model can run the co-applicant fetch whether or
-  not there is one.
-- The basis is read again by `evaluate-income-regelverk`, which classifies the incomes with the engine's DMN
-  decisions. That worker calls no other service. Code: `operaton-workers-financialaid/.../rules/`.
-- A String variable is stored in a `varchar(4000)` column. A basis longer than that fails the task. In the Drakel
-  models a single worker therefore fetches and classifies in memory, under the topic `prepare-income-basis`, which no
-  worker on `main` serves. See [todo/decisions-needed.md](../todo/decisions-needed.md).
+- The basis never becomes a process variable. `prepare-income-basis` fetches it for the applicant, the co-applicant
+  and the household's children, classifies the incomes in memory and posts the result to CareManagement. A basis is
+  larger than the 4000 characters a string variable holds, and the engine's history would keep it.
+- The income rules evaluate the DMN decisions `Decision_inkomstRalista`, `Decision_inkomstTroskel` and
+  `Decision_ssbtekSvarKvalitet`, which are deployed to the engine like any other model. The seasonal studiehjälp rule
+  for September is in code, `rules/StudiehjalpSeptemberRule.java`.
+- A failed read is retried like any other task failure. When the last attempt also fails, or an income-bearing
+  agency answers that it could not deliver, the worker skips the income rules. It still posts to CareManagement, with
+  blank incomes and `ssbtekError` true so the previous run's incomes stay, and writes `ssbtekError` for the model to
+  branch on.
+- A household child that CareManagement names without a personal number is not read. The worker reports it to
+  CareManagement as an unhandled income so the caseworker knows the basis is incomplete.

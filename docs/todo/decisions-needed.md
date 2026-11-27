@@ -2,16 +2,15 @@
 
 Behaviour that looks wrong but needs a decision before anyone changes it.
 
-## `main` and the Drakel branch serve different topics
+## This branch and `main` serve different topics
 
-The financial assistance models deployed in Drakel use `prepare-income-basis` and `create-errand-notification`.
-No worker on `main` serves either, so those models stop at that task on an engine built from `main`. In the other
-direction, `prepare-normberakning`, `commit-normberakning`, `create-application-normberakning`,
-`fetch-lifecare-supplements` and `evaluate-income-regelverk` are on `main` but the current Drakel models no longer
-use them.
+This branch adds `prepare-income-basis` and `create-errand-notification`, which the financial assistance models in
+Drakel use. It removes `prepare-normberakning`, `commit-normberakning`, `create-application-normberakning`,
+`fetch-lifecare-supplements`, `fetch-financial-aid-basis` and `evaluate-income-regelverk`, which are still on
+`main`. A model built for one fails at the missing task on an engine built from the other. The pull requests that
+would have merged this branch, #31 and #32, were closed without merging.
 
-Decide whether the Drakel workers come to `main`, and which of the older ones go. TODO: the Drakel code is on a
-`drakel` branch that is not fetched here; check it on GitHub.
+Decide whether this branch goes to `main`, and whether any model still running on `main` needs the removed topics.
 
 ## Where the models live
 
@@ -37,7 +36,7 @@ municipality, for example with Operaton's tenant id.
 
 dept44's security chain permits every request, so the starter's REST API and the webapps answer to anyone who
 reaches the service. In Drakel `/engine-rest` and `/2281/deployments` were open to the internet until basic auth was
-put on the route on 2026-10-01. `application.yml` also creates the admin user `demo` with password `demo` by
-default.
+put on the route on 2026-10-01. `application.yml` no longer creates an admin user, so an environment that wants one
+sets it itself.
 
-Decide what each environment exposes, and whether the default admin user stays.
+Decide what each environment exposes.

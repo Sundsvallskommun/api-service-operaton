@@ -19,6 +19,8 @@ financial assistance processes and correlates messages to them.
 | `operaton-decision`                  | `/decision-definitions`: read and evaluate DMN decisions                                                                                                                       |
 | `operaton-workers`                   | The worker framework (`AbstractTopicWorker`, `@TopicWorker`, `TopicRegistry`), the topic catalog at `/topics` and the example `log-message` worker                              |
 | `operaton-workers-<integration>`     | One module per external system: its Feign client, its configuration and the workers that call it. See [integrations/](integrations/)                                           |
+| `operaton-workers-financialaid`      | The FinancialAid client and the income rules (`rules/`) that read SSBTEK and classify incomes with the engine's DMN decisions. Serves no topic of its own                       |
+| `operaton-workers-ekonomisktbistand` | Workers for the financial assistance process that combine several integrations. Uses the clients of `operaton-workers-caremanagement` and `operaton-workers-financialaid`       |
 | `operaton-webapp`                    | Operaton Cockpit, Tasklist and Admin (`operaton-bpm-spring-boot-starter-webapp`). Leave the dependency out of `operaton-app` to run without them                               |
 
 Each module registers itself through `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`
@@ -32,14 +34,21 @@ and a `*AutoConfiguration` class that component-scans its own package.
   Nothing in a model calls Java code directly.
 - **A topic has exactly one worker.** `TopicRegistry` fails startup when two `@TopicWorker` beans declare the same
   topic.
-- **A failed task becomes an incident at once.** `AbstractTopicWorker.processTasks` reports the failure with zero
-  retries, so the instance stops at that task and shows up in Cockpit. A missing or wrongly typed required variable
-  fails the same way.
+- **A failed task is retried, then becomes an incident.** `AbstractTopicWorker` gives a task 5 attempts, waiting
+  15 seconds after the first failure and doubling up to 5 minutes, which rides out about 4 minutes of downtime. After
+  the last attempt the engine raises an incident and the instance shows up in Cockpit. A `NonRetryableTaskException`
+  skips the retries and becomes an incident at once. A missing or wrongly typed required variable throws one.
+- **A string variable holds at most 4000 characters.** The engine stores it in a `varchar(4000)` column. A longer
+  value fails with the variable's name instead of a persistence error: `AbstractTopicWorker` checks a worker's output,
+  and `VariableSizeGuardPlugin` in `operaton-app` checks every other write. Keep large data in the service that owns
+  it and carry a reference.
+- **Named variables leave no history.** `SensitiveVariableHistoryPlugin` in `operaton-app` keeps the variables listed
+  in `operaton.history.suppressed-variables` out of the engine's history tables, which nothing prunes.
 - **Request and response bodies are never logged.** `PayloadLoggerSilencer` in `operaton-app` turns dept44's payload
   logger off, since the workers carry personnummer and agency data.
 - **Calls to care-management are signed as the engine.** They carry `X-Sent-By: operaton; type=custom`, which
   care-management writes into its errand event log. See [care-management](integrations/care-management.md).
-- **The engine requires `READ_COMMITTED`.** The Hikari pool sets it, see Configuration in `README.md`.
+- **The engine requires `READ_COMMITTED`.** The service does not set it. See Database Initialization in `README.md`.
 
 ## Endpoints
 
@@ -72,18 +81,15 @@ The starter also serves Operaton's own REST API and, with `operaton-webapp`, Coc
 | `create-support-errand`            | [SupportManagement](integrations/support-management.md)              | Creates an errand                                                             |
 | `create-care-errand`, `update-errand`, `add-errand-decision` | [CareManagement](integrations/care-management.md) | Creates or updates an errand, records a decision on it                  |
 | `create-actualisation`             | CareManagement                                                       | Creates the Lifecare actualisation for a financial assistance errand          |
-| `prepare-normberakning`            | CareManagement                                                       | Reports whether the incomes are complete and records the income warnings      |
-| `commit-normberakning`             | CareManagement                                                       | Creates the Lifecare normberäkning after a decision                           |
-| `create-application-normberakning` | CareManagement                                                       | Creates the Lifecare normberäkning from the application                       |
-| `check-payment-status`             | CareManagement                                                       | Reads whether the Lifecare payment has been made                              |
-| `fetch-lifecare-supplements`       | CareManagement                                                       | Queues an RPA fetch of Lifecare journal notes and documents                   |
-| `fetch-financial-aid-basis`        | [FinancialAid](integrations/financial-aid.md)                        | Fetches a person's SSBTEK basis into a JSON variable                          |
-| `evaluate-income-regelverk`        | The engine's own DMN decisions                                       | Classifies SSBTEK incomes with `Decision_inkomstRalista` and `Decision_inkomstTroskel` |
+| `check-payment-status`             | CareManagement                                                       | Reads whether the errand's Lifecare payments have been made, and whether they are overdue |
+| `create-errand-notification`       | CareManagement                                                       | Notifies the errand's assigned caseworker                                     |
+| `prepare-income-basis`             | CareManagement, [FinancialAid](integrations/financial-aid.md), the engine's DMN decisions | Reads the household's SSBTEK, classifies the incomes and posts them to CareManagement's normberäkning prepare |
 
 ### Adding a worker
 
 1. Put it in the module of the system it calls, or in a new `operaton-workers-<integration>` module added to
-   `operaton-app/pom.xml`.
+   `operaton-app/pom.xml`. A worker that calls several systems for one process goes in that process's module, such
+   as `operaton-workers-ekonomisktbistand`.
 2. Extend `AbstractTopicWorker` and implement `handle`, which returns the output variables.
 3. Annotate the class with `@TopicWorker` (topic, description, input and output variables) and `@Component`.
 4. Call `processTasks()` from a method annotated with `@Dept44Scheduled`, with the cron read from
@@ -103,5 +109,5 @@ through the engine's own REST API.
 - The deployment name matters to tooling that looks deployments up by name, not to the engine.
 - Deleting a decision from a DMN file and deploying the file again does not remove it from the engine. The
   older deployment still holds it, and it stays the latest version of that key.
-- `evaluate-income-regelverk` evaluates `Decision_inkomstRalista` and `Decision_inkomstTroskel` by key, so a DMN with
-  those keys must be deployed before the worker runs.
+- `prepare-income-basis` evaluates `Decision_inkomstRalista`, `Decision_inkomstTroskel` and
+  `Decision_ssbtekSvarKvalitet` by key, so a DMN with those keys must be deployed before the worker runs.

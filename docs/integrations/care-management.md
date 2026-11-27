@@ -6,24 +6,24 @@ financial assistance processes.
 ## Used by
 
 The workers in `operaton-workers-caremanagement`: `create-care-errand`, `update-errand`, `add-errand-decision`,
-`create-actualisation`, `prepare-normberakning`, `commit-normberakning`, `create-application-normberakning`,
-`check-payment-status` and `fetch-lifecare-supplements`. See [architecture.md](../architecture.md).
+`create-actualisation`, `check-payment-status` and `create-errand-notification`. Also `prepare-income-basis` in
+`operaton-workers-ekonomisktbistand`. See [architecture.md](../architecture.md).
 
 ## Calls
 
 All under `/{municipalityId}/{namespace}/errands`.
 
-|                         Call                          |                      Worker                       |
-|-------------------------------------------------------|---------------------------------------------------|
-| `POST /`                                              | `create-care-errand`                              |
-| `PATCH /{errandId}`                                   | `update-errand`                                   |
-| `POST /{errandId}/decisions`                          | `add-errand-decision`                             |
-| `POST /financial-assistance/actualisation`            | `create-actualisation`                            |
-| `POST /financial-assistance/calculation/prepare`      | `prepare-normberakning`                           |
-| `POST /financial-assistance/calculation/commit`       | `commit-normberakning`                            |
-| `POST /financial-assistance/calculation/from-application` | `create-application-normberakning`            |
-| `POST /financial-assistance/payment-status`           | `check-payment-status`                            |
-| `POST /{errandId}/rpa-tasks`                          | `fetch-lifecare-supplements`, action `FETCH_SUPPLEMENTS` |
+|                            Call                             |            Worker            |
+|-------------------------------------------------------------|------------------------------|
+| `POST /`                                                    | `create-care-errand`         |
+| `GET /{errandId}`                                           | `create-errand-notification` |
+| `PATCH /{errandId}`                                         | `update-errand`              |
+| `POST /{errandId}/decisions`                                | `add-errand-decision`        |
+| `POST /{errandId}/notifications`                            | `create-errand-notification` |
+| `POST /financial-assistance/actualisation`                  | `create-actualisation`       |
+| `GET /financial-assistance/{errandId}/household-identifiers` | `prepare-income-basis`      |
+| `POST /financial-assistance/calculation/prepare`            | `prepare-income-basis`       |
+| `POST /financial-assistance/payment-status`                 | `check-payment-status`       |
 
 ## Authentication
 
@@ -39,10 +39,15 @@ OAuth2 client credentials, registration `care-management`.
 
 - Every call carries `X-Sent-By: operaton; type=custom`, and care-management records `operaton` as the actor in
   the errand's event log. Only this client sends the header. See `configuration/CareManagementConfiguration.java`.
-- `check-payment-status` makes no payment. A caseworker pays in Lifecare, and the worker only reads whether it has
-  happened.
-- `fetch-lifecare-supplements` only queues the RPA task. A robot writes the result back to the errand through
-  care-management.
-
-TODO: the Drakel models also use the topic `create-errand-notification`, which no worker on `main` serves. See
-[todo/decisions-needed.md](../todo/decisions-needed.md).
+- `check-payment-status` makes no payment. Draken registers the payments in Lifecare, and care-management reads
+  whether the errand's own payments have gone out. Another errand's payment for the same person and month does not
+  count. The worker takes the errand from `errandId`, or from the business key when the model maps no `errandId`.
+- `check-payment-status` also writes `paymentStatusDetail`, care-management's reason the payments are still pending,
+  and `paymentOverdue`, true once care-management's deadline after the decision has passed. A model can then notify
+  the caseworker with `create-errand-notification`.
+- `create-errand-notification` reads the errand first and sends the notification to its `assignedUserId`, so a
+  reassignment while the process waited is honoured. An errand with no assigned caseworker becomes an incident at
+  once. The notification text is a process variable and stays in the engine's history, so it must not carry personal
+  data or case content.
+- `prepare-income-basis` reads the household's personal numbers from `household-identifiers` on every run instead of
+  taking them as process variables.

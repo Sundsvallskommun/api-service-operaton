@@ -6,22 +6,6 @@ Every change to the service, newest date first. One short line per change.
 
 - Add `docs/` with architecture and integration notes, `AGENTS.md` and this changelog.
 
-## 2026-11-23
-
-- Bump dept44-service-parent to 8.2.0 (HYDRAN-3258).
-
-## 2026-11-12
-
-- Bump Operaton to 2.2.1.
-
-## 2026-10-29
-
-- Bump Operaton to 2.2.0.
-
-## 2026-10-27
-
-- Bump dept44-service-parent to 8.1.0.
-
 ## 2026-10-09
 
 - Bump dept44-service-parent to 8.0.12.
@@ -30,9 +14,54 @@ Every change to the service, newest date first. One short line per change.
 
 - Bump dept44-service-parent to 8.0.11.
 
+## 2026-09-29
+
+- Stop creating the `demo` admin user by default.
+
+## 2026-09-25
+
+- Read SSBTEK for the household's children in `prepare-income-basis`.
+
 ## 2026-09-24
 
+- Remove the `prepare-normberakning`, `commit-normberakning`, `create-application-normberakning` and
+  `fetch-lifecare-supplements` workers.
+- Read the household's personal numbers from CareManagement in `prepare-income-basis`.
 - Bump Operaton to 2.1.5.
+
+## 2026-09-23
+
+- Add the `create-errand-notification` worker.
+- Let `check-payment-status` check the errand's own payments and write `paymentStatusDetail` and `paymentOverdue`.
+- Send CareManagement the facts for the dagersättning day check.
+
+## 2026-09-22
+
+- Add the `prepare-income-basis` worker and remove `fetch-financial-aid-basis` and `evaluate-income-regelverk`.
+- Fail with the variable's name when a string process variable is longer than 4000 characters.
+- Keep the variables in `operaton.history.suppressed-variables` out of the engine's history.
+- Apply the seasonal studiehjälp rule for September.
+
+## 2026-09-21
+
+- Retry a failed external task 5 times with backoff before raising an incident.
+- Read FK, PM and CSN income correctly from the SSBTEK basis.
+- Skip the income rules when SSBTEK could not be read.
+- Stop reporting a vanished benefit as a -100 % change.
+- Apply the business answers of 2026-09-21 to the income rules.
+
+## 2026-09-17
+
+- Classify how reliable each SSBTEK answer is with `Decision_ssbtekSvarKvalitet`, and stop truncating day counts.
+- Compare income sums exactly when the DMN threshold is 0.
+
+## 2026-09-15
+
+- Mark which classified incomes came from the comparison period.
+
+## 2026-09-11
+
+- Read the sub-benefit, amount type, period and days that FK sends.
 
 ## 2026-09-03
 
