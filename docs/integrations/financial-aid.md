@@ -9,9 +9,9 @@ into one financial-aid basis.
 
 ## Calls
 
-|                                       Call                                       |              Purpose               |
-|----------------------------------------------------------------------------------|------------------------------------|
-| `GET /{municipalityId}/financial-aid?personalNumber=…&fromDate=…&toDate=…`        | The basis for one person and period |
+|                                    Call                                    |               Purpose               |
+|----------------------------------------------------------------------------|-------------------------------------|
+| `GET /{municipalityId}/financial-aid?personalNumber=…&fromDate=…&toDate=…` | The basis for one person and period |
 
 ## Authentication
 
@@ -38,3 +38,4 @@ OAuth2 client credentials, registration `financial-aid`.
   branch on.
 - A household child that CareManagement names without a personal number is not read. The worker reports it to
   CareManagement as an unhandled income so the caseworker knows the basis is incomplete.
+

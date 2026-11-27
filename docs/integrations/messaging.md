@@ -8,8 +8,8 @@ api-service-messaging. Sends email and SMS.
 
 ## Calls
 
-|            Call             |   Worker     |
-|-----------------------------|--------------|
+|              Call              |    Worker    |
+|--------------------------------|--------------|
 | `POST /{municipalityId}/email` | `send-email` |
 | `POST /{municipalityId}/sms`   | `send-sms`   |
 
@@ -26,3 +26,4 @@ OAuth2 client credentials, registration `messaging`.
 ## Behaviour worth knowing
 
 - Both workers write the id Messaging answers with to `messageId`.
+

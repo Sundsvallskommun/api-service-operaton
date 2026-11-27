@@ -13,17 +13,17 @@ The workers in `operaton-workers-caremanagement`: `create-care-errand`, `update-
 
 All under `/{municipalityId}/{namespace}/errands`.
 
-|                            Call                             |            Worker            |
-|-------------------------------------------------------------|------------------------------|
-| `POST /`                                                    | `create-care-errand`         |
-| `GET /{errandId}`                                           | `create-errand-notification` |
-| `PATCH /{errandId}`                                         | `update-errand`              |
-| `POST /{errandId}/decisions`                                | `add-errand-decision`        |
-| `POST /{errandId}/notifications`                            | `create-errand-notification` |
-| `POST /financial-assistance/actualisation`                  | `create-actualisation`       |
-| `GET /financial-assistance/{errandId}/household-identifiers` | `prepare-income-basis`      |
-| `POST /financial-assistance/calculation/prepare`            | `prepare-income-basis`       |
-| `POST /financial-assistance/payment-status`                 | `check-payment-status`       |
+|                             Call                             |            Worker            |
+|--------------------------------------------------------------|------------------------------|
+| `POST /`                                                     | `create-care-errand`         |
+| `GET /{errandId}`                                            | `create-errand-notification` |
+| `PATCH /{errandId}`                                          | `update-errand`              |
+| `POST /{errandId}/decisions`                                 | `add-errand-decision`        |
+| `POST /{errandId}/notifications`                             | `create-errand-notification` |
+| `POST /financial-assistance/actualisation`                   | `create-actualisation`       |
+| `GET /financial-assistance/{errandId}/household-identifiers` | `prepare-income-basis`       |
+| `POST /financial-assistance/calculation/prepare`             | `prepare-income-basis`       |
+| `POST /financial-assistance/payment-status`                  | `check-payment-status`       |
 
 ## Authentication
 
@@ -51,3 +51,4 @@ OAuth2 client credentials, registration `care-management`.
   data or case content.
 - `prepare-income-basis` reads the household's personal numbers from `household-identifiers` on every run instead of
   taking them as process variables.
+

@@ -8,8 +8,8 @@ api-service-support-management. Holds support errands.
 
 ## Calls
 
-|                   Call                    |          Worker           |
-|-------------------------------------------|---------------------------|
+|                     Call                     |         Worker          |
+|----------------------------------------------|-------------------------|
 | `POST /{municipalityId}/{namespace}/errands` | `create-support-errand` |
 
 ## Authentication
@@ -25,3 +25,4 @@ OAuth2 client credentials, registration `support-management`.
 ## Behaviour worth knowing
 
 - The created errand's id is written to `errandId`.
+

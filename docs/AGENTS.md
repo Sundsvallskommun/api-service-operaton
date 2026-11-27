@@ -26,16 +26,16 @@ docs/
 
 Each fact has one home. The documentation links to the others instead of restating them.
 
-|                            Knowledge                            |                                       Home                                        |
-|-----------------------------------------------------------------|-----------------------------------------------------------------------------------|
-| The map: what talks to what, knowledge spanning several classes | `docs/`                                                                           |
-| A complex case in a single class the code cannot make clear     | A short comment in that class, see Code conventions in the root `AGENTS.md`       |
-| What a configuration property means                             | Its entry under Configuration in the root `README.md`                             |
-| What a worker does and which variables it reads and writes      | Its `@TopicWorker` annotation, served live at `GET /{municipalityId}/topics`      |
-| Work known but not done yet                                     | `docs/todo/`                                                                      |
-| Request and response fields                                     | The OpenAPI annotations on the resources, served at `/api-docs`                   |
-| The BPMN and DMN models themselves                              | Outside this repository. TODO: name the repository once there is one              |
-| Ownership, environments, contacts, operations                   | Confluence, linked from `docs/README.md`                                          |
+|                            Knowledge                            |                                     Home                                     |
+|-----------------------------------------------------------------|------------------------------------------------------------------------------|
+| The map: what talks to what, knowledge spanning several classes | `docs/`                                                                      |
+| A complex case in a single class the code cannot make clear     | A short comment in that class, see Code conventions in the root `AGENTS.md`  |
+| What a configuration property means                             | Its entry under Configuration in the root `README.md`                        |
+| What a worker does and which variables it reads and writes      | Its `@TopicWorker` annotation, served live at `GET /{municipalityId}/topics` |
+| Work known but not done yet                                     | `docs/todo/`                                                                 |
+| Request and response fields                                     | The OpenAPI annotations on the resources, served at `/api-docs`              |
+| The BPMN and DMN models themselves                              | Outside this repository. TODO: name the repository once there is one         |
+| Ownership, environments, contacts, operations                   | Confluence, linked from `docs/README.md`                                     |
 
 ## Writing
 

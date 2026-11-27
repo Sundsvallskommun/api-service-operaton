@@ -192,3 +192,4 @@ Every change to the service, newest date first. One short line per change.
 - Add the worker framework, the `/topics` catalog and the `send-email`, `send-sms` and `create-errand` workers (HYDRAN-1898).
 - Create the service with deployments and process endpoints (HYDRAN-1880).
 - Bump dept44-service-parent to 8.0.6.
+

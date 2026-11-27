@@ -10,18 +10,18 @@ financial assistance processes and correlates messages to them.
 
 ## Modules
 
-|                Module                |                                                                                      Role                                                                                      |
-|--------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `operaton-app`                       | The Spring Boot application. Pulls in every other module, holds `application.yml`, the Flyway migrations and the integration tests                                             |
-| `operaton-core`                      | The engine (`operaton-bpm-spring-boot-starter-rest`) and the optional CORS configuration                                                                                       |
-| `operaton-deployment`                | `/deployments`: upload, list and delete BPMN and DMN files                                                                                                                     |
-| `operaton-process`                   | `/process-definitions`, `/process-instances`, `/message`                                                                                                                       |
-| `operaton-decision`                  | `/decision-definitions`: read and evaluate DMN decisions                                                                                                                       |
-| `operaton-workers`                   | The worker framework (`AbstractTopicWorker`, `@TopicWorker`, `TopicRegistry`), the topic catalog at `/topics` and the example `log-message` worker                              |
-| `operaton-workers-<integration>`     | One module per external system: its Feign client, its configuration and the workers that call it. See [integrations/](integrations/)                                           |
-| `operaton-workers-financialaid`      | The FinancialAid client and the income rules (`rules/`) that read SSBTEK and classify incomes with the engine's DMN decisions. Serves no topic of its own                       |
-| `operaton-workers-ekonomisktbistand` | Workers for the financial assistance process that combine several integrations. Uses the clients of `operaton-workers-caremanagement` and `operaton-workers-financialaid`       |
-| `operaton-webapp`                    | Operaton Cockpit, Tasklist and Admin (`operaton-bpm-spring-boot-starter-webapp`). Leave the dependency out of `operaton-app` to run without them                               |
+|                Module                |                                                                                   Role                                                                                    |
+|--------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `operaton-app`                       | The Spring Boot application. Pulls in every other module, holds `application.yml`, the Flyway migrations and the integration tests                                        |
+| `operaton-core`                      | The engine (`operaton-bpm-spring-boot-starter-rest`) and the optional CORS configuration                                                                                  |
+| `operaton-deployment`                | `/deployments`: upload, list and delete BPMN and DMN files                                                                                                                |
+| `operaton-process`                   | `/process-definitions`, `/process-instances`, `/message`                                                                                                                  |
+| `operaton-decision`                  | `/decision-definitions`: read and evaluate DMN decisions                                                                                                                  |
+| `operaton-workers`                   | The worker framework (`AbstractTopicWorker`, `@TopicWorker`, `TopicRegistry`), the topic catalog at `/topics` and the example `log-message` worker                        |
+| `operaton-workers-<integration>`     | One module per external system: its Feign client, its configuration and the workers that call it. See [integrations/](integrations/)                                      |
+| `operaton-workers-financialaid`      | The FinancialAid client and the income rules (`rules/`) that read SSBTEK and classify incomes with the engine's DMN decisions. Serves no topic of its own                 |
+| `operaton-workers-ekonomisktbistand` | Workers for the financial assistance process that combine several integrations. Uses the clients of `operaton-workers-caremanagement` and `operaton-workers-financialaid` |
+| `operaton-webapp`                    | Operaton Cockpit, Tasklist and Admin (`operaton-bpm-spring-boot-starter-webapp`). Leave the dependency out of `operaton-app` to run without them                          |
 
 Each module registers itself through `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`
 and a `*AutoConfiguration` class that component-scans its own package.
@@ -54,18 +54,18 @@ and a `*AutoConfiguration` class that component-scans its own package.
 
 All paths are under `/{municipalityId}`.
 
-|                         Endpoint                          |                                         Engine call                                          |
-|-----------------------------------------------------------|----------------------------------------------------------------------------------------------|
-| `POST /deployments`                                       | `RepositoryService.createDeployment`, one file per deployment                                |
-| `GET /deployments`, `DELETE /deployments/{id}`            | Deployment query, `deleteDeployment` (`cascade=true` also deletes running instances)         |
-| `GET /process-definitions`, `GET /process-definitions/{id}`, `GET /process-definitions/{id}/xml` | Latest version of each definition, one definition, its BPMN XML |
-| `POST /process-instances`                                 | `RuntimeService.startProcessInstanceByKey` with business key and variables                    |
-| `GET /process-instances`, `GET /process-instances/{id}`   | Active instances, one instance                                                               |
-| `POST /process-instances/{id}/variables`                  | `setVariables` and `removeVariables`                                                         |
-| `POST /message`                                           | Message correlation by name and business key to every waiting instance. 404 when none waits  |
-| `GET /decision-definitions`, `GET /decision-definitions/{id}`, `GET /decision-definitions/{id}/xml` | Latest version of each decision, one decision, its DMN XML |
-| `POST /decision-definitions/evaluate`                     | `DecisionService.evaluateDecisionByKey` on the latest version                                |
-| `GET /topics`, `GET /topics/{topic}`, `GET /topics/templates` | `TopicRegistry`: the worker catalog, and the same as bpmn-js element templates           |
+|                                              Endpoint                                               |                                         Engine call                                         |
+|-----------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
+| `POST /deployments`                                                                                 | `RepositoryService.createDeployment`, one file per deployment                               |
+| `GET /deployments`, `DELETE /deployments/{id}`                                                      | Deployment query, `deleteDeployment` (`cascade=true` also deletes running instances)        |
+| `GET /process-definitions`, `GET /process-definitions/{id}`, `GET /process-definitions/{id}/xml`    | Latest version of each definition, one definition, its BPMN XML                             |
+| `POST /process-instances`                                                                           | `RuntimeService.startProcessInstanceByKey` with business key and variables                  |
+| `GET /process-instances`, `GET /process-instances/{id}`                                             | Active instances, one instance                                                              |
+| `POST /process-instances/{id}/variables`                                                            | `setVariables` and `removeVariables`                                                        |
+| `POST /message`                                                                                     | Message correlation by name and business key to every waiting instance. 404 when none waits |
+| `GET /decision-definitions`, `GET /decision-definitions/{id}`, `GET /decision-definitions/{id}/xml` | Latest version of each decision, one decision, its DMN XML                                  |
+| `POST /decision-definitions/evaluate`                                                               | `DecisionService.evaluateDecisionByKey` on the latest version                               |
+| `GET /topics`, `GET /topics/{topic}`, `GET /topics/templates`                                       | `TopicRegistry`: the worker catalog, and the same as bpmn-js element templates              |
 
 The starter also serves Operaton's own REST API and, with `operaton-webapp`, Cockpit. TODO: confirm the paths
 (`/engine-rest`, `/operaton/app`) and what protects them in each environment.
@@ -74,16 +74,16 @@ The starter also serves Operaton's own REST API and, with `operaton-webapp`, Coc
 
 `GET /{municipalityId}/topics` lists the input and output variables of each topic.
 
-|               Topic                |                                Calls                                 |                                     Does                                      |
-|------------------------------------|----------------------------------------------------------------------|-------------------------------------------------------------------------------|
-| `log-message`                      | Nothing                                                              | Logs a variable. Example worker                                               |
-| `send-email`, `send-sms`           | [Messaging](integrations/messaging.md)                               | Sends an email or SMS                                                         |
-| `create-support-errand`            | [SupportManagement](integrations/support-management.md)              | Creates an errand                                                             |
-| `create-care-errand`, `update-errand`, `add-errand-decision` | [CareManagement](integrations/care-management.md) | Creates or updates an errand, records a decision on it                  |
-| `create-actualisation`             | CareManagement                                                       | Creates the Lifecare actualisation for a financial assistance errand          |
-| `check-payment-status`             | CareManagement                                                       | Reads whether the errand's Lifecare payments have been made, and whether they are overdue |
-| `create-errand-notification`       | CareManagement                                                       | Notifies the errand's assigned caseworker                                     |
-| `prepare-income-basis`             | CareManagement, [FinancialAid](integrations/financial-aid.md), the engine's DMN decisions | Reads the household's SSBTEK, classifies the incomes and posts them to CareManagement's normberäkning prepare |
+|                            Topic                             |                                           Calls                                           |                                                     Does                                                      |
+|--------------------------------------------------------------|-------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------|
+| `log-message`                                                | Nothing                                                                                   | Logs a variable. Example worker                                                                               |
+| `send-email`, `send-sms`                                     | [Messaging](integrations/messaging.md)                                                    | Sends an email or SMS                                                                                         |
+| `create-support-errand`                                      | [SupportManagement](integrations/support-management.md)                                   | Creates an errand                                                                                             |
+| `create-care-errand`, `update-errand`, `add-errand-decision` | [CareManagement](integrations/care-management.md)                                         | Creates or updates an errand, records a decision on it                                                        |
+| `create-actualisation`                                       | CareManagement                                                                            | Creates the Lifecare actualisation for a financial assistance errand                                          |
+| `check-payment-status`                                       | CareManagement                                                                            | Reads whether the errand's Lifecare payments have been made, and whether they are overdue                     |
+| `create-errand-notification`                                 | CareManagement                                                                            | Notifies the errand's assigned caseworker                                                                     |
+| `prepare-income-basis`                                       | CareManagement, [FinancialAid](integrations/financial-aid.md), the engine's DMN decisions | Reads the household's SSBTEK, classifies the incomes and posts them to CareManagement's normberäkning prepare |
 
 ### Adding a worker
 
@@ -111,3 +111,4 @@ through the engine's own REST API.
   older deployment still holds it, and it stays the latest version of that key.
 - `prepare-income-basis` evaluates `Decision_inkomstRalista`, `Decision_inkomstTroskel` and
   `Decision_ssbtekSvarKvalitet` by key, so a DMN with those keys must be deployed before the worker runs.
+

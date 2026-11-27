@@ -34,3 +34,4 @@ Read `docs/AGENTS.md` before editing anything under `docs/`.
 - References run one way: `docs/` points at the code, and nothing outside `docs/` points into it. Code, comments,
   validation and error messages, `application.yml`, `@TopicWorker` descriptions and `CHANGELOG.md` state what they
   need in their own words, without naming an ADR or a docs file.
+
