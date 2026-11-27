@@ -5,6 +5,23 @@ Every change to the service, newest date first. One short line per change.
 ## 2026-11-26
 
 - Add `docs/` with architecture and integration notes, `AGENTS.md` and this changelog.
+- Bump Operaton to 2.2.2.
+
+## 2026-11-23
+
+- Bump dept44-service-parent to 8.2.0 (HYDRAN-3258).
+
+## 2026-11-12
+
+- Bump Operaton to 2.2.1.
+
+## 2026-10-29
+
+- Bump Operaton to 2.2.0.
+
+## 2026-10-27
+
+- Bump dept44-service-parent to 8.1.0.
 
 ## 2026-10-09
 
