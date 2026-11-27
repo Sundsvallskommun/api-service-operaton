@@ -4,7 +4,7 @@
 	<parent>
 		<groupId>se.sundsvall.dept44</groupId>
 		<artifactId>dept44-service-parent</artifactId>
-		<version>8.0.12</version>
+		<version>8.2.0</version>
 		<relativePath />
 	</parent>
 	<groupId>se.sundsvall</groupId>
@@ -27,7 +27,7 @@
 		<module>operaton-workers-supportmanagement</module>
 	</modules>
 	<properties>
-		<operaton.spring-boot.version>2.1.5</operaton.spring-boot.version>
+		<operaton.spring-boot.version>2.2.2</operaton.spring-boot.version>
 		<generated-sources-path>${project.build.directory}/generated-sources</generated-sources-path>
 		<generated-sources-java-path>src/main/java</generated-sources-java-path>
 		<!-- Library modules are not deployable; re-enabled in operaton-app. -->
